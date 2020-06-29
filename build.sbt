@@ -14,6 +14,8 @@ lazy val commonSettings = Seq(
   libraryDependencies ++= Seq(
     Libraries.cats,
     Libraries.catsEffect,
+    Libraries.circe,
+    Libraries.simulacrum,
     Libraries.scalaTest  % Test,
     Libraries.scalaCheck % Test,
     compilerPlugin(Libraries.kindProjector),
@@ -21,10 +23,4 @@ lazy val commonSettings = Seq(
   )
 )
 
-lazy val `free-arrow-root` =
-  (project in file("."))
-    .aggregate(`free-arrow-core`)
-
-lazy val `free-arrow-core` = project
-  .in(file("core"))
-  .settings(commonSettings: _*)
+lazy val `free-arrow` = project in file(".") settings(commonSettings: _*)
