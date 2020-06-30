@@ -1,12 +1,12 @@
 import Dependencies.Libraries
 
-name := """free-arrow"""
+name := """arrows"""
 
 organization in ThisBuild := "com.adrielc"
 
-scalaVersion in ThisBuild := "2.12.10"
+scalaVersion in ThisBuild := "2.13.1"
 
-crossScalaVersions in ThisBuild := Seq("2.12.10", "2.13.1")
+crossScalaVersions in ThisBuild := Seq("2.13.1", "2.12.10")
 
 lazy val commonSettings = Seq(
   organizationName := "com.adrielc",
