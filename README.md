@@ -1,4 +1,4 @@
-# Arrows
+# Free Arrow
 
 [![CircleCI](https://circleci.com/gh/adrielc/free-arrow/tree/master.svg?style=svg)](https://circleci.com/gh/adrielc/free-arrow/tree/master)
 [![codecov](https://codecov.io/gh/adrielc/free-arrow/branch/master/graphs/badge.svg)](https://codecov.io/gh/adrielc/free-arrow)
