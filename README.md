@@ -105,6 +105,13 @@ val numGets = translator.analyze(new (ConsoleOp ~~> λ[(α, β) => Int]) {
 
 ```
 
+It is also possible to generate documentation from your free program.
+Here is the output of an interpreter that draws a computation graph. 
+
+![translator](docs/translator.png)
+ 
+
+
 ### Usage
 
 Add this to your `build.sbt`:
