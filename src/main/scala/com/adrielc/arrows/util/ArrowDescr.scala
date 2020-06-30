@@ -1,4 +1,4 @@
-package com.adrielc.arrows
+package com.adrielc.arrows.util
 
 import cats.Monoid
 import cats.arrow.ArrowChoice

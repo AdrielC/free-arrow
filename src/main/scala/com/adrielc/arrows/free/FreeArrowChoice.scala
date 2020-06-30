@@ -6,6 +6,7 @@ import cats.data.{AndThen => Then}
 import cats.implicits._
 import cats.{Eval, Monoid}
 import com.adrielc.arrows.free.FreeArrowLike.FreeArrowChoiceLike
+import com.adrielc.arrows.util.ConstArr
 
 sealed abstract class FreeArrowChoice[+F[_, _], A, B]
   extends FreeArrowChoiceLike[FreeArrowChoice, F, A, B] {

@@ -4,9 +4,11 @@ name := """arrows"""
 
 organization in ThisBuild := "com.adrielc"
 
-scalaVersion in ThisBuild := "2.13.1"
+scalaVersion in ThisBuild := "2.12.10"
 
-crossScalaVersions in ThisBuild := Seq("2.13.1", "2.12.10")
+crossScalaVersions in ThisBuild := Seq("2.12.10", "2.13.1")
+
+addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.0" cross CrossVersion.full)
 
 lazy val commonSettings = Seq(
   organizationName := "com.adrielc",
@@ -23,4 +25,4 @@ lazy val commonSettings = Seq(
   )
 )
 
-lazy val `free-arrow` = project in file(".") settings(commonSettings: _*)
+lazy val `arrows` = project in file(".") settings(commonSettings: _*)

@@ -6,27 +6,6 @@ import ConsoleArr._
 
 class FreeArrowSpec extends FlatSpec with Matchers {
 
-  val translator = {
-    import freeArrow._
-    import FreeArrow.pure
-
-    prompt("Hello") >>>
-      prompt("Enter an English word to translate") >>>
-      getLine -| (
-        pure("Translating " + (_: String)) >>>
-          putLine >>>
-          (prompt("...").rmap(_ => Thread.sleep(1000))).loopN(3)
-        ) >>>
-      dictionary (
-        "apple" -> "manzana",
-        "blue" -> "azul",
-        "hello" -> "hola",
-        "goodbye" -> "adios"
-      ).rmap(_.getOrElse("I don't know that one")) >>>
-      putLine
-  }
-
-
   "ArrowDescr" should "render op Json" in {
 
     val program = {
@@ -45,6 +24,26 @@ class FreeArrowSpec extends FlatSpec with Matchers {
 
 
   "FreeArrow" should "run translator and count printlns" in {
+
+    val translator = {
+      import freeArrow._
+      import com.adrielc.arrows.free.FreeArrow.pure
+
+      prompt("Hello") >>>
+        prompt("Enter an English word to translate") >>>
+        getLine -| (
+          pure("Translating " + (_: String)) >>>
+            putLine >>>
+            (prompt("...").rmap(_ => Thread.sleep(1000))).loopN(3)
+          ) >>>
+        dictionary (
+          "apple" -> "manzana",
+          "blue" -> "azul",
+          "hello" -> "hola",
+          "goodbye" -> "adios"
+        ).rmap(_.getOrElse("I don't know that one")) >>>
+        putLine
+    }
 
     val countPrintlns = new (ConsoleArr ~~> λ[(α, β) => Int]) {
       def apply[A, B](f: ConsoleArr[A, B]): Int = f match {

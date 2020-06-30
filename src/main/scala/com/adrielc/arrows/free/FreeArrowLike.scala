@@ -1,6 +1,10 @@
 package com.adrielc.arrows.free
 
-import com.adrielc.arrows.free.ArrowK.ArrowChoiceK
+import cats.arrow.{Arrow, ArrowChoice}
+import com.adrielc.arrows.free.FreeArrowLike.ArrowK
+import com.adrielc.arrows.free.FreeArrowLike.ArrowK.ArrowChoiceK
+
+
 
 
 /**
@@ -18,7 +22,8 @@ import com.adrielc.arrows.free.ArrowK.ArrowChoiceK
  * @tparam A Input
  * @tparam B Output
  */
-abstract class FreeArrowLike[FA[+f[_, _], a, b] <: FreeArrowLike[FA, f, a, b], +F[_ ,_], A, B](implicit AK: ArrowK[FA]) extends Product with Serializable {
+abstract class FreeArrowLike[FA[+f[_, _], a, b] <: FreeArrowLike[FA, f, a, b], +F[_ ,_], A, B](implicit AK: ArrowK[FA])
+  extends Product with Serializable {
   self: FA[F, A, B] =>
 
   final def andThen[C, FF[a, b] >: F[a, b]](fbc: FA[FF, B, C]): FA[FF, A, C] = AK.arrow.andThen(self, fbc)
@@ -114,6 +119,39 @@ object FreeArrowLike {
     final def |||[FF[a, b] >: F[a, b], C](fcb: FAC[FF, C, B]): FAC[FF, Either[A, C], B] = choice(fcb)
 
     final def +++[FF[a, b] >: F[a, b], C, D](fcd: FAC[FF, C, D]): FAC[FF, Either[A, C], Either[B, D]] = choose(fcd)
+  }
+
+
+
+  /** Universally quantified arrow for all Free Arrow like structures of shape [[FA]] */
+  trait ArrowK[FA[_[_, _], _, _]] {
+
+    def arrow[F[_, _]]: Arrow[FA[F, ?, ?]]
+
+    def lift[F[_, _], A, B](fab: F[A, B]): FA[F, A, B]
+  }
+
+  object ArrowK {
+
+    implicit val freeArrowArrowK: ArrowK[FreeArrow] = new ArrowK[FreeArrow] {
+      def arrow[F[_, _]]: Arrow[FreeArrow[F, ?, ?]] = FreeArrow.freeArrArrow
+      def lift[F[_, _], A, B](fab: F[A, B]): FreeArrow[F, A, B] = FreeArrow.lift(fab)
+    }
+
+    /** [[ArrowChoice]] specialization of [[ArrowK]] */
+    trait ArrowChoiceK[FAC[_[_, _], _, _]] extends ArrowK[FAC] {
+
+      def arrowChoice[F[_, _]]: ArrowChoice[FAC[F, ?, ?]]
+
+      override def arrow[F[_, _]]: Arrow[FAC[F, ?, ?]] = arrowChoice
+    }
+    object ArrowChoiceK {
+
+      implicit val freeArrowChoiceArrowK: ArrowChoiceK[FreeArrowChoice] = new ArrowChoiceK[FreeArrowChoice] {
+        def arrowChoice[F[_, _]]: ArrowChoice[FreeArrowChoice[F, ?, ?]] = FreeArrowChoice.freeArrArrowChoice
+        def lift[F[_, _], A, B](fab: F[A, B]): FreeArrowChoice[F, A, B] = FreeArrowChoice.lift(fab)
+      }
+    }
   }
 }
 

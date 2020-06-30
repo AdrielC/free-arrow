@@ -1,4 +1,4 @@
-[error] /Users/acasellas/src/free-arrow/project/Dependencies.scala:26:61: not found: value Vers
-[error]     lazy val simulacrum = "org.typelevel" %% "simulacrum" % Vers
-[error]                                                             ^
+[error] /Users/acasellas/src/arrows/project/Dependencies.scala:38:3: '=' expected but '}' found.
+[error]   }
+[error]   ^
 [error] one error found

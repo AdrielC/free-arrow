@@ -1,7 +1,10 @@
-package com.adrielc.arrows.data
+package com.adrielc.data
 
 import cats.arrow.ArrowChoice
-import cats.syntax.{arrowChoice, compose, choice, strong}, compose._, arrowChoice._, choice._, strong._
+import cats.syntax.arrowChoice._
+import cats.syntax.choice._
+import cats.syntax.compose._
+import cats.syntax.strong._
 
 
 case class Tuple2BiK[F[_, _], G[_, _], A, B](_1: F[A, B], _2: G[A, B])

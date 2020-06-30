@@ -2,6 +2,7 @@ package com.adrielc.arrows
 
 import cats.data.AndThen
 import com.adrielc.arrows.free.{FreeArrow, FreeArrowChoice}
+import com.adrielc.arrows.util.ArrowDescr
 import io.circe.Json
 
 import scala.io.StdIn

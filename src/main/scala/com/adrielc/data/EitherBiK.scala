@@ -1,4 +1,4 @@
-package com.adrielc.arrows.data
+package com.adrielc.data
 
 import cats.arrow.Profunctor
 import cats.data.Validated

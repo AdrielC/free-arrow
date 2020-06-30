@@ -5,6 +5,7 @@ import cats.arrow.Arrow
 import cats.data.{AndThen => Then}
 import cats.implicits._
 import cats.{Applicative, Eval, Monoid}
+import com.adrielc.arrows.util.ConstArr
 
 sealed abstract class FreeArrow[+F[_, _], A, B]
   extends FreeArrowLike[FreeArrow, F, A, B] {
@@ -16,7 +17,6 @@ sealed abstract class FreeArrow[+F[_, _], A, B]
     foldMap(new (F ~~> ConstArr[M, ?, ?]) {
       def apply[C, D](f: F[C, D]): ConstArr[M, C, D] = ConstArr(fm(f))
     }).getConst
-
 
   def compile[G[_, _]](fg: F ~~> G): FreeArrow[G, A, B] =
     foldMap(new (F ~~> FreeArrow[G, ?, ?]) {

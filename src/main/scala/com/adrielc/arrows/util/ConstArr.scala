@@ -1,9 +1,10 @@
-package com.adrielc.arrows
+package com.adrielc.arrows.util
 
 import cats.Monoid
 import cats.arrow.ArrowChoice
 import cats.implicits._
 
+/** Like [[cats.data.Const]] */
 case class ConstArr[V, -A, +B](getConst: V) {
 
   def tag[C, D]: ConstArr[V, C, D] = this.asInstanceOf[ConstArr[V, C, D]]
