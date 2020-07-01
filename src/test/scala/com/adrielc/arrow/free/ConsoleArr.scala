@@ -1,8 +1,8 @@
-package com.adrielc.arrows
+package com.adrielc.arrow
+package free
 
 import cats.data.AndThen
-import com.adrielc.arrows.free.{FreeArrow, FreeArrowChoice}
-import com.adrielc.arrows.util.ArrowDescr
+import com.adrielc.arrow.data.ArrowDescr
 import io.circe.Json
 
 import scala.io.StdIn
@@ -47,6 +47,13 @@ object ConsoleArr {
       case ConsoleArr.GetLine => Const("hello")
       case ConsoleArr.GetInt => Const(1)
       case other => other
+    }
+  }
+
+  val countPrintlns: ConsoleArr ~~> λ[(α, β) => Int] = new (ConsoleArr ~~> λ[(α, β) => Int]) {
+    def apply[A, B](f: ConsoleArr[A, B]): Int = f match {
+      case PutLine | Prompt(_) => 1
+      case _ => 0
     }
   }
 

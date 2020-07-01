@@ -1,9 +1,9 @@
-package com.adrielc.data
+package com.adrielc.arrow
+package data
 
 import cats.arrow.Profunctor
 import cats.data.Validated
 import cats.syntax.either._
-import com.adrielc.arrows.~~>
 
 final case class EitherBiK[F[_, _], G[_, _], A, B](run: Either[F[A, B], G[A, B]]) {
 

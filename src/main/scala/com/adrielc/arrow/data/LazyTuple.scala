@@ -1,4 +1,5 @@
-package com.adrielc.data
+package com.adrielc.arrow
+package data
 
 object LazyTuple {
 
@@ -20,21 +21,7 @@ object LazyTuple {
     def _4 = d
   }
 
-  sealed trait LazyTuple2[A,B] {
-    def _1: A
-    def _2: B
-  }
-
-  sealed trait LazyTuple3[A,B,C] {
-    def _1: A
-    def _2: B
-    def _3: C
-  }
-
-  trait LazyTuple4[A,B,C,D] {
-    def _1: A
-    def _2: B
-    def _3: C
-    def _4: D
-  }
+  sealed trait LazyTuple2[A,B] { def _1: A; def _2: B }
+  sealed trait LazyTuple3[A,B,C] { def _1: A; def _2: B; def _3: C }
+  sealed trait LazyTuple4[A,B,C,D] { def _1: A; def _2: B; def _3: C; def _4: D }
 }

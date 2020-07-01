@@ -1,6 +1,6 @@
 import Dependencies.Libraries
 
-name := """arrows"""
+name := """free-arrow"""
 
 organization in ThisBuild := "com.adrielc"
 
@@ -8,7 +8,7 @@ scalaVersion in ThisBuild := "2.12.10"
 
 crossScalaVersions in ThisBuild := Seq("2.12.10", "2.13.1")
 
-addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.0" cross CrossVersion.full)
+//addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.0" cross CrossVersion.full)
 
 lazy val commonSettings = Seq(
   organizationName := "com.adrielc",
@@ -21,8 +21,9 @@ lazy val commonSettings = Seq(
     Libraries.scalaTest  % Test,
     Libraries.scalaCheck % Test,
     compilerPlugin(Libraries.kindProjector),
-    compilerPlugin(Libraries.betterMonadicFor)
+    compilerPlugin(Libraries.betterMonadicFor),
+    compilerPlugin("org.scalamacros" % "paradise" % "2.1.0" cross CrossVersion.full)
   )
 )
 
-lazy val `arrows` = project in file(".") settings(commonSettings: _*)
+lazy val `free-arrow` = project in file(".") settings(commonSettings: _*)

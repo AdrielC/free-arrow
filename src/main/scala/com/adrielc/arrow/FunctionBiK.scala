@@ -1,6 +1,6 @@
-package com.adrielc.arrows
+package com.adrielc.arrow
 
-import com.adrielc.data.{EitherBiK, Tuple2BiK}
+import com.adrielc.arrow.data.{EitherBiK, Tuple2BiK}
 
 trait FunctionBiK[-F[_, _], +G[_, _]] extends Serializable {
   self =>

@@ -1,10 +1,9 @@
-package com.adrielc
+package com.adrielc.arrow
 
-import com.adrielc.arrows.free.{FreeArrow, FreeArrowChoice}
+package object free {
 
-package object arrows {
-
-  type ~~>[-F[_, _], +G[_, _]] = FunctionBiK[F, G]
+  val FA = FreeArrow
+  val FAC = FreeArrowChoice
 
   implicit class ArrOps[F[_, _], A, B](private val f: F[A, B]) extends AnyVal {
 

@@ -1,4 +1,4 @@
-package com.adrielc.data
+package com.adrielc.arrow.data
 
 import cats.arrow.ArrowChoice
 import cats.syntax.arrowChoice._

@@ -1,4 +1,4 @@
-package com.adrielc.arrows
+package com.adrielc.arrow.free
 
 import org.scalatest.{FlatSpec, Matchers}
 import cats.implicits._
@@ -27,14 +27,14 @@ class FreeArrowSpec extends FlatSpec with Matchers {
 
     val translator = {
       import freeArrow._
-      import com.adrielc.arrows.free.FreeArrow.pure
+      import com.adrielc.arrow.free.FreeArrow.arr
 
       prompt("Hello") >>>
         prompt("Enter an English word to translate") >>>
         getLine -| (
-          pure("Translating " + (_: String)) >>>
+          arr("Translating " + (_: String)) >>>
             putLine >>>
-            (prompt("...").rmap(_ => Thread.sleep(1000))).loopN(3)
+            prompt("...").rmap(_ => Thread.sleep(1000)).loopN(3)
           ) >>>
         dictionary (
           "apple" -> "manzana",
@@ -43,13 +43,6 @@ class FreeArrowSpec extends FlatSpec with Matchers {
           "goodbye" -> "adios"
         ).rmap(_.getOrElse("I don't know that one")) >>>
         putLine
-    }
-
-    val countPrintlns = new (ConsoleArr ~~> λ[(α, β) => Int]) {
-      def apply[A, B](f: ConsoleArr[A, B]): Int = f match {
-        case PutLine | Prompt(_) => 1
-        case _ => 0
-      }
     }
 
     val nPrintlns = translator analyze countPrintlns

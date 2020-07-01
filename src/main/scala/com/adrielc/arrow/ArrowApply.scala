@@ -1,4 +1,4 @@
-package com.adrielc.arrows
+package com.adrielc.arrow
 
 import cats.arrow.Arrow
 import simulacrum.typeclass

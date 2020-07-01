@@ -1,12 +1,12 @@
-package com.adrielc.arrows
+package com.adrielc.arrow
 package free
 
 import cats.arrow.ArrowChoice
 import cats.data.{AndThen => Then}
 import cats.implicits._
 import cats.{Eval, Monoid}
-import com.adrielc.arrows.free.FreeArrowLike.FreeArrowChoiceLike
-import com.adrielc.arrows.util.ConstArr
+import com.adrielc.arrow.data.ConstArr
+import com.adrielc.arrow.free.FreeArrowLike.FreeArrowChoiceLike
 
 sealed abstract class FreeArrowChoice[+F[_, _], A, B]
   extends FreeArrowChoiceLike[FreeArrowChoice, F, A, B] {
@@ -67,13 +67,13 @@ object FreeArrowChoice { self =>
   def choose[F[_, _], A, B, C, D](fab: FAC[F, A, B], fcd: FAC[F, C, D]): FAC[F, Either[A, C], Either[B, D]] = Choose(fab, fcd)
   def choice[F[_, _], A, B, C](fab: FAC[F, A, B], fcd: FAC[F, C, B]): FAC[F, Either[A, C], B] = Choice(fab, fcd)
 
-  final private[arrows] case class Id[A]() extends FAC[Nothing, A, A] {
+  final private[free] case class Id[A]() extends FAC[Nothing, A, A] {
     def foldMap[G[_, _]](fk: Nothing ~~> G)(implicit A: ArrowChoice[G]): G[A, A] = A.id
   }
-  final private[arrows] case class Pure[A, B](f: A => B) extends FAC[Nothing, A, B] {
+  final private[free] case class Pure[A, B](f: A => B) extends FAC[Nothing, A, B] {
     def foldMap[G[_, _]](fk: Nothing ~~> G)(implicit A: ArrowChoice[G]): G[A, B] = A.lift(f)
   }
-  final private case class AndThen[F[_, _], A, B, C](begin: FAC[F, A, B], end: FAC[F, B, C]) extends FAC[F, A, C] {
+  final private[free] case class AndThen[F[_, _], A, B, C](begin: FAC[F, A, B], end: FAC[F, B, C]) extends FAC[F, A, C] {
     type EvalG[G[_, _], X, Y] = Eval[G[X, Y]]
 
     def foldMap[G[_, _]](fk: F ~~> G)(implicit A: ArrowChoice[G]): G[A, C] = {
@@ -99,31 +99,31 @@ object FreeArrowChoice { self =>
         }
       }
   }
-  final private[arrows] case class Lift[F[_, _], A, B](fab: F[A, B]) extends FAC[F, A, B] {
+  final private[free] case class Lift[F[_, _], A, B](fab: F[A, B]) extends FAC[F, A, B] {
     def foldMap[G[_, _]](fk: F ~~> G)(implicit A: ArrowChoice[G]): G[A, B] = fk(fab)
   }
-  final private[arrows] case class Merge[F[_, _], A, B, C](_first: FAC[F, A, B], _second: FAC[F, A, C]) extends FAC[F, A, (B, C)] {
+  final private[free] case class Merge[F[_, _], A, B, C](_first: FAC[F, A, B], _second: FAC[F, A, C]) extends FAC[F, A, (B, C)] {
     def foldMap[G[_, _]](fk: F ~~> G)(implicit A: ArrowChoice[G]): G[A, (B, C)] = A.merge(_first.foldMap(fk), _second.foldMap(fk))
   }
-  final private[arrows] case class Split[F[_, _], A, B, C, D](_first: FAC[F, A, B], _second: FAC[F, C, D]) extends FAC[F, (A, C), (B, D)] {
+  final private[free] case class Split[F[_, _], A, B, C, D](_first: FAC[F, A, B], _second: FAC[F, C, D]) extends FAC[F, (A, C), (B, D)] {
     override def foldMap[G[_, _]](fk: F ~~> G)(implicit A: ArrowChoice[G]): G[(A, C), (B, D)] = A.split(_first.foldMap(fk), _second.foldMap(fk))
   }
-  final private[arrows] case class First[F[_, _], A, B, C](_first: FAC[F, A, B]) extends FAC[F, (A, C), (B, C)] {
+  final private[free] case class First[F[_, _], A, B, C](_first: FAC[F, A, B]) extends FAC[F, (A, C), (B, C)] {
     override def foldMap[G[_, _]](fk: F ~~> G)(implicit A: ArrowChoice[G]): G[(A, C), (B, C)] = A.first(_first.foldMap(fk))
   }
-  final private[arrows] case class Second[F[_, _], A, B, C](_second: FAC[F, A, B]) extends FAC[F, (C, A), (C, B)] {
+  final private[free] case class Second[F[_, _], A, B, C](_second: FAC[F, A, B]) extends FAC[F, (C, A), (C, B)] {
     override def foldMap[G[_, _]](fk: F ~~> G)(implicit A: ArrowChoice[G]): G[(C, A), (C, B)] = A.second(_second.foldMap(fk))
   }
-  final private[arrows] case class Choose[F[_, _], A, B, C, D](_left: FAC[F, A, B], _right: FAC[F, C, D]) extends FAC[F, Either[A, C], Either[B, D]] {
+  final private[free] case class Choose[F[_, _], A, B, C, D](_left: FAC[F, A, B], _right: FAC[F, C, D]) extends FAC[F, Either[A, C], Either[B, D]] {
     override def foldMap[G[_, _]](fk: F ~~> G)(implicit A: ArrowChoice[G]): G[Either[A, C], Either[B, D]] = A.choose(_left.foldMap(fk))(_right.foldMap(fk))
   }
-  final private[arrows] case class Left[F[_, _], A, B, C](_left: FAC[F, A, B]) extends FAC[F, Either[A, C], Either[B, C]] {
+  final private[free] case class Left[F[_, _], A, B, C](_left: FAC[F, A, B]) extends FAC[F, Either[A, C], Either[B, C]] {
     override def foldMap[G[_, _]](fk: F ~~> G)(implicit A: ArrowChoice[G]): G[Either[A, C], Either[B, C]] = A.left(_left.foldMap(fk))
   }
-  final private[arrows] case class Right[F[_, _], A, B, C](_right: FAC[F, A, B]) extends FAC[F, Either[C, A], Either[C, B]] {
+  final private[free] case class Right[F[_, _], A, B, C](_right: FAC[F, A, B]) extends FAC[F, Either[C, A], Either[C, B]] {
     override def foldMap[G[_, _]](fk: F ~~> G)(implicit A: ArrowChoice[G]): G[Either[C, A], Either[C, B]] = A.right(_right.foldMap(fk))
   }
-  final private[arrows] case class Choice[F[_, _], A, B, C](_left: FAC[F, A, B], _right: FAC[F, C, B]) extends FAC[F, Either[A, C], B] {
+  final private[free] case class Choice[F[_, _], A, B, C](_left: FAC[F, A, B], _right: FAC[F, C, B]) extends FAC[F, Either[A, C], B] {
     def foldMap[G[_, _]](fk: F ~~> G)(implicit A: ArrowChoice[G]): G[Either[A, C], B] = A.choice(_left.foldMap(fk), _right.foldMap(fk))
   }
 

@@ -1,8 +1,8 @@
-package com.adrielc.arrows.free
+package com.adrielc.arrow.free
 
 import cats.arrow.{Arrow, ArrowChoice}
-import com.adrielc.arrows.free.FreeArrowLike.ArrowK
-import com.adrielc.arrows.free.FreeArrowLike.ArrowK.ArrowChoiceK
+import com.adrielc.arrow.free.FreeArrowLike.ArrowK
+import com.adrielc.arrow.free.FreeArrowLike.ArrowK.ArrowChoiceK
 
 
 
@@ -12,7 +12,7 @@ import com.adrielc.arrows.free.FreeArrowLike.ArrowK.ArrowChoiceK
  * Method Enrichment class for Free structures [[FA]]
  *
  * Methods are derived from an implicit [[ArrowK]] instance for [[FA]], which provides an [[cats.arrow.Arrow]]
- * for any [[F]]. Since the behavior of [[FreeArrow.foldMap]] is dependent on the [[cats.arrow.Arrow]] instance
+ * for any [[F]]. Since the behavior of [[FreeArrowLoop.foldMap]] is dependent on the [[cats.arrow.Arrow]] instance
  * behavior, it is best to have methods/alias methods on some arrow to behave the same as their type class
  * counter parts
  *

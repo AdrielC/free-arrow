@@ -2,10 +2,8 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/free-arrow.iml" filepath="$PROJECT_DIR$/.idea/free-arrow.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/free-arrow.iml" filepath="$PROJECT_DIR$/.idea/modules/free-arrow.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/free-arrow-build.iml" filepath="$PROJECT_DIR$/.idea/modules/free-arrow-build.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/free-arrow-core.iml" filepath="$PROJECT_DIR$/.idea/modules/free-arrow-core.iml" />
-      <module fileurl="file://$PROJECT_DIR$/zio/zio.iml" filepath="$PROJECT_DIR$/zio/zio.iml" />
     </modules>
   </component>
 </project>
