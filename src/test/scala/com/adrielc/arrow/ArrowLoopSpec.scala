@@ -1,8 +1,8 @@
-package com.adriel.arrow
+package com.adrielc.arrow
 
-import com.adrielc.arrow.{ArrowLoop, LazyTuple}
 import org.scalatest.{FlatSpec, Matchers}
-import Function.untupled
+
+import scala.Function.untupled
 
 class ArrowLoopSpec extends FlatSpec with Matchers {
 
