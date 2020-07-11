@@ -3,15 +3,13 @@ package com.adrielc.arrow.free
 import org.scalatest.{FlatSpec, Matchers}
 import cats.implicits._
 import ConsoleArr._
+import syntax._
 
 class FreeArrowSpec extends FlatSpec with Matchers {
 
   "ArrowDescr" should "render op Json" in {
 
-    val program = {
-      import freeArrowChoice._
-      getLine >>> putLine >>> getInt.rmap(_.toString) >>> putLine
-    }
+    val program = GetLine.ar >>> PutLine >>> GetInt >>^ (_.toString) >>> PutLine
 
     val interpreter = stubGets andThen (functionInterpreter and jsonInterpreter)
 
@@ -26,15 +24,15 @@ class FreeArrowSpec extends FlatSpec with Matchers {
   "FreeArrow" should "run translator and count printlns" in {
 
     val translator = {
+      val freeArrow = FreeConsole[FreeArrow]
       import freeArrow._
-      import com.adrielc.arrow.free.FreeArrow.arr
 
       prompt("Hello") >>>
         prompt("Enter an English word to translate") >>>
         getLine -| (
-          arr("Translating " + (_: String)) >>>
+          ("Translating " + (_: String)) ^>>
             putLine >>>
-            prompt("...").rmap(_ => Thread.sleep(1000)).loopN(3)
+              (prompt("...") >>^ (_ => Thread.sleep(1000))).loopN(3)
           ) >>>
         dictionary (
           "apple" -> "manzana",

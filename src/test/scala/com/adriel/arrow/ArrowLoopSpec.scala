@@ -1,6 +1,6 @@
 package com.adriel.arrow
 
-import com.adrielc.arrow.{ArrowLoop, lazyTuple}
+import com.adrielc.arrow.{ArrowLoop, LazyTuple}
 import org.scalatest.{FlatSpec, Matchers}
 import Function.untupled
 
@@ -10,7 +10,7 @@ class ArrowLoopSpec extends FlatSpec with Matchers {
 
     val fib =
       untupled(ArrowLoop[Function1].loop[(Int, Int, Int), (Int, Int, Int), (Int, Int, Int) => (Int, Int, Int)](
-        bd => lazyTuple(bd._2 tupled bd._1, {
+        bd => LazyTuple(bd._2 tupled bd._1, {
           case r@(0, _, _) => r
           case (n, f0, f1) => bd._2(n - 1, f1, f1 + f0)
         })

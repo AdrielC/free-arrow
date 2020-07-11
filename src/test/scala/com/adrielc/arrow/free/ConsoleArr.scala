@@ -5,6 +5,8 @@ import cats.data.AndThen
 import com.adrielc.arrow.data.ArrowDescr
 import io.circe.Json
 
+import syntax._
+
 import scala.io.StdIn
 import scala.util.Try
 
@@ -57,23 +59,17 @@ object ConsoleArr {
     }
   }
 
-  object freeArrow {
-    val getLine: FrCnsl[Unit, String] = GetLine.ar
-    val getInt: FrCnsl[Unit, Int] = GetInt.ar
-    val putLine: FrCnsl[String, Unit] = PutLine.ar
-    val repeatN: FrCnsl[(String, Int), Unit] = RepeatN.ar
-    def prompt(message: String): FrCnsl[Unit, Unit] = Prompt(message).ar
-    def const[A](value: A): FrCnsl[Unit, A] = Const(value).ar
-    def dictionary(entry: (String, String)*): FrCnsl[String, Option[String]] = Dictionary(entry.toMap).ar
+  class FreeConsole[F[_[_, _], _, _] : ArrowF] {
+    type FrCnsl[A, B] = F[ConsoleArr, A, B]
+    val getLine: FrCnsl[Unit, String] = GetLine.lift[F]
+    val getInt: FrCnsl[Unit, Int] = GetInt.lift[F]
+    val putLine: FrCnsl[String, Unit] = PutLine.lift[F]
+    val repeatN: FrCnsl[(String, Int), Unit] = RepeatN.lift[F]
+    def prompt(message: String): FrCnsl[Unit, Unit] = Prompt(message).lift[F]
+    def const[A](value: A): FrCnsl[Unit, A] = Const(value).lift[F]
+    def dictionary(entry: (String, String)*): FrCnsl[String, Option[String]] = Dictionary(entry.toMap).lift[F]
   }
-
-  object freeArrowChoice {
-    val getLine: FrCnslCh[Unit, String] = GetLine.ch
-    val getInt: FrCnslCh[Unit, Int] = GetInt.ch
-    val putLine: FrCnslCh[String, Unit] = PutLine.ch
-    val repeatN: FrCnslCh[(String, Int), Unit] = RepeatN.ch
-    def prompt(message: String): FrCnslCh[Unit, Unit] = Prompt(message).ch
-    def const[A](value: A): FrCnslCh[Unit, A] = Const(value).ch
-    def dictionary(entry: (String, String)*): FrCnslCh[String, Option[String]] = Dictionary(entry.toMap).ch
+  object FreeConsole {
+    @inline def apply[F[_[_, _], _, _] : ArrowF]: FreeConsole[F] = new FreeConsole[F]
   }
 }
