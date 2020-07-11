@@ -4,7 +4,6 @@ import cats.arrow.Arrow
 import simulacrum.typeclass
 import cats.instances.function.catsStdInstancesForFunction1
 import com.adrielc.arrow.ArrowLoop.Loop
-import com.adrielc.arrow.data.LazyTuple
 
 @typeclass trait ArrowLoop[~>[_, _]] extends Arrow[~>] {
 

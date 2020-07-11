@@ -2,7 +2,7 @@ package com.adrielc.arrow.free
 
 import cats.Monoid
 import cats.arrow.{Arrow, ArrowChoice}
-import com.adrielc.arrow.data.ConstA
+import com.adrielc.arrow.data.ConstP
 import com.adrielc.arrow.{ArrowPlus, ~~>}
 
 object methods {
@@ -28,8 +28,8 @@ object methods {
     def foldMap[G[_, _]](fk: F ~~> G)(implicit A: Ar[G]): G[A, B]
 
     def analyze[M: Monoid](fm: F ~~> λ[(α, β) => M]): M =
-      foldMap(new (F ~~> ConstA[M, ?, ?]) {
-        def apply[C, D](f: F[C, D]): ConstA[M, C, D] = ConstA(fm(f))
+      foldMap(new (F ~~> ConstP[M, ?, ?]) {
+        def apply[C, D](f: F[C, D]): ConstP[M, C, D] = ConstP(fm(f))
       }).getConst
 
     def compile[G[_, _]](fg: F ~~> G): Free[G, A, B] =
@@ -152,7 +152,7 @@ object methods {
   /** Universally quantified arrow for all Free Arrow like structures of shape [[Free]] */
   private[free] trait ArrowF[Free[_[_, _], _, _]] {
     type Arr[f[_, _]] <: Arrow[f]
-    implicit def constArr[M: Monoid]: Arr[ConstA[M, ?, ?]]
+    implicit def constArr[M: Monoid]: Arr[ConstP[M, ?, ?]]
     implicit def arrow[F[_, _]]: Arr[Free[F, ?, ?]]
     @inline def lift[F[_, _], A, B](fab: F[A, B]): Free[F, A, B]
     @inline def arr[A, B](fab: A => B): Free[Nothing, A, B] = arrow[Nothing].lift(fab)
@@ -163,19 +163,19 @@ object methods {
     def apply[Free[_[_, _], _, _]](implicit AK: ArrowF[Free]): ArrowF[Free] = AK
     implicit val freeArrowChoiceArrowChoiceK: ArrowF.Aux[FreeArrowChoice, ArrowChoice] = new ArrowF[FreeArrowChoice] {
       override type Arr[f[_, _]] = ArrowChoice[f]
-      def constArr[M: Monoid]: Arr[ConstA[M, ?, ?]] = ConstA.constArrow
+      def constArr[M: Monoid]: Arr[ConstP[M, ?, ?]] = ConstP.constArrow
       def arrow[F[_, _]]: Arr[FreeArrowChoice[F, ?, ?]] = FAC.freeArrArrowChoice
       def lift[F[_, _], A, B](fab: F[A, B]): FreeArrowChoice[F, A, B] = FAC.lift(fab)
     }
     implicit val freeArrowArrowK: ArrowF.Aux[FreeArrow, Arrow] = new ArrowF[FreeArrow] {
       override type Arr[f[_, _]] = Arrow[f]
-      def constArr[M: Monoid]: Arr[ConstA[M, ?, ?]] = ConstA.constArrow
+      def constArr[M: Monoid]: Arr[ConstP[M, ?, ?]] = ConstP.constArrow
       def arrow[F[_, _]]: Arr[FreeArrow[F, ?, ?]] = FA.freeArrArrow
       def lift[F[_, _], A, B](fab: F[A, B]): FreeArrow[F, A, B] = FA.lift(fab)
     }
     implicit val freeArrowPlusArrowK: ArrowF.Aux[FreeArrowPlus, ArrowPlus] = new ArrowF[FreeArrowPlus] {
       override type Arr[f[_, _]] = ArrowPlus[f]
-      def constArr[M: Monoid]: Arr[ConstA[M, ?, ?]] = ConstA.constArrow
+      def constArr[M: Monoid]: Arr[ConstP[M, ?, ?]] = ConstP.constArrow
       def arrow[F[_, _]]: Arr[FreeArrowPlus[F, ?, ?]] = FAP.freeArrArrowPlus
       def lift[F[_, _], A, B](fab: F[A, B]): FreeArrowPlus[F, A, B] = FAP.lift(fab)
     }
