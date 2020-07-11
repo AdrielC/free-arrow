@@ -1,10 +1,9 @@
 package com.adrielc.arrow
 package free
 
-import cats.data.AndThen
 import com.adrielc.arrow.data.ArrowDescr
+import com.adrielc.arrow.free.methods.ArrowF
 import io.circe.Json
-
 import syntax._
 
 import scala.io.StdIn
@@ -18,20 +17,22 @@ object ConsoleArr {
   case object GetLine                 extends ConsoleArr[Unit, String]
   case object GetInt                  extends ConsoleArr[Unit, Int]
   case object PutLine                 extends ConsoleArr[String, Unit]
+  case object Compute                 extends ConsoleArr[Unit, Unit]
   case object RepeatN                 extends ConsoleArr[(String, Int), Unit]
   case class Prompt(message: String)  extends ConsoleArr[Unit, Unit]
   case class Const[A](value: A)       extends ConsoleArr[Unit, A]
   case class Dictionary(dict: Map[String, String]) extends ConsoleArr[String, Option[String]]
 
-  implicit val functionInterpreter: ConsoleArr ~~> AndThen = new (ConsoleArr ~~> AndThen) {
-    override def apply[A, B](f: ConsoleArr[A, B]): AndThen[A, B] = f match {
-      case Prompt(message) => AndThen(_ => println(message))
-      case GetLine => AndThen(_ => StdIn.readLine())
-      case GetInt => AndThen(_ => Try(StdIn.readLong().toInt).getOrElse(1))
-      case PutLine => AndThen(println)
-      case RepeatN => AndThen((sn: (String, Int)) => for(_ <- 1 to sn._2) { println(sn._1) })
-      case Const(value) => AndThen(_ => value)
-      case Dictionary(dict) => AndThen(dict.get)
+  implicit val functionInterpreter: ConsoleArr ~~> Function1 = new (ConsoleArr ~~> Function1) {
+    override def apply[A, B](f: ConsoleArr[A, B]): A => B = f match {
+      case Prompt(message) => _ => println(message)
+      case GetLine => _ => StdIn.readLine()
+      case GetInt => _ => Try(StdIn.readLong().toInt).getOrElse(1)
+      case Compute => _ => Thread.sleep(1000) // trivial example
+      case PutLine => println
+      case RepeatN => (sn: (String, Int)) => for(_ <- 1 to sn._2) { println(sn._1) }
+      case Const(value) => _ => value
+      case Dictionary(dict) => dict.get
     }
   }
 
@@ -40,7 +41,7 @@ object ConsoleArr {
       case Prompt(message) => ArrowDescr(Json.obj("Prompt" -> Json.obj("message" -> Json.fromString(message))))
       case Const(value) => ArrowDescr(Json.obj("Const" -> Json.obj("value" -> Json.fromString(value.toString))))
       case Dictionary(dict) => ArrowDescr(Json.obj("Dictionary" -> Json.fromFields(dict.mapValues(Json.fromString))))
-      case command @ (GetLine | PutLine | RepeatN | GetInt) => ArrowDescr(command.toString)
+      case command @ (GetLine | PutLine | RepeatN | GetInt | Compute) => ArrowDescr(command.toString)
     }
   }
 
@@ -60,14 +61,14 @@ object ConsoleArr {
   }
 
   class FreeConsole[F[_[_, _], _, _] : ArrowF] {
-    type FrCnsl[A, B] = F[ConsoleArr, A, B]
-    val getLine: FrCnsl[Unit, String] = GetLine.lift[F]
-    val getInt: FrCnsl[Unit, Int] = GetInt.lift[F]
-    val putLine: FrCnsl[String, Unit] = PutLine.lift[F]
-    val repeatN: FrCnsl[(String, Int), Unit] = RepeatN.lift[F]
-    def prompt(message: String): FrCnsl[Unit, Unit] = Prompt(message).lift[F]
-    def const[A](value: A): FrCnsl[Unit, A] = Const(value).lift[F]
-    def dictionary(entry: (String, String)*): FrCnsl[String, Option[String]] = Dictionary(entry.toMap).lift[F]
+    val getLine = GetLine.lift[F]
+    val getInt = GetInt.lift[F]
+    val putLine = PutLine.lift[F]
+    val repeatN = RepeatN.lift[F]
+    val compute = Compute.lift[F]
+    def prompt(message: String) = Prompt(message).lift[F]
+    def const[A](value: A) = Const(value).lift[F]
+    def dictionary(entry: (String, String)*) = Dictionary(entry.toMap).lift[F]
   }
   object FreeConsole {
     @inline def apply[F[_[_, _], _, _] : ArrowF]: FreeConsole[F] = new FreeConsole[F]

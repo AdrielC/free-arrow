@@ -1,8 +1,8 @@
 package com.adrielc.arrow.data
 
 import cats.Monoid
-import cats.arrow.ArrowChoice
 import cats.implicits._
+import com.adrielc.arrow.ArrowChoicePlus
 import io.circe.Json.fromJsonObject
 import io.circe.{Json, JsonObject}
 
@@ -29,7 +29,13 @@ object ArrowDescr {
   implicit def monoidArrowDescr[A, B]: Monoid[ArrowDescr[A, B]] =
     Monoid.instance(ArrowDescr(JsonObject.empty), (a, b) => ArrowDescr(JsonObject.fromMap(a.obj.toMap |+| b.obj.toMap)))
 
-  implicit val arrowChoiceArrowDescr: ArrowChoice[ArrowDescr] = new ArrowChoice[ArrowDescr] {
+  implicit val arrowDescrArrow: ArrowChoicePlus[ArrowDescr] = new ArrowChoicePlus[ArrowDescr] {
+
+    override def zeroArrow[B, C]: ArrowDescr[B, C] =
+      ArrowDescr(JsonObject.empty)
+
+    override def plus[A, B](f: ArrowDescr[A, B], g: ArrowDescr[A, B]): ArrowDescr[A, B] =
+      ArrowDescr(JsonObject("plus" -> Json.obj("f" -> f.json, "g" -> g.json)))
 
     override def lift[A, B](f: A => B): ArrowDescr[A, B] =
       ArrowDescr(JsonObject.empty)
@@ -42,6 +48,12 @@ object ArrowDescr {
 
     override def choose[A, B, C, D](f: ArrowDescr[A, C])(g: ArrowDescr[B, D]): ArrowDescr[Either[A, B], Either[C, D]] =
       ArrowDescr(JsonObject("choose" -> Json.obj("left" -> f.json, "right" -> g.json)))
+
+    override def left[A, B, C](fab: ArrowDescr[A, B]): ArrowDescr[Either[A, C], Either[B, C]] =
+      ArrowDescr(JsonObject("choose" -> Json.obj("left" -> fab.json)))
+
+    override def right[A, B, C](fab: ArrowDescr[A, B]): ArrowDescr[Either[C, A], Either[C, B]] =
+      ArrowDescr(JsonObject("choose" -> Json.obj("right" -> fab.json)))
   }
 
 

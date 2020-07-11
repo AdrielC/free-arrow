@@ -35,19 +35,21 @@ Construct a program from your free operations
 
 ```scala
 
-val translator = prompt("Hello") >>>
+val translator = 
+    prompt("Hello") >>>
     prompt("Enter an English word to translate") >>>
-    getLine -| (
-      pure("Translating " + (_: String)) >>>
+    getLine -|> ( // dead end, return input to `getLine` after the following
+      ("Translating " + (_: String)) >>>
         putLine >>>
-        (prompt("...").rmap(_ => Thread.sleep(1000))).loopN(3)
+        (prompt("...") >>> (_ => Thread.sleep(1000))).loopN(3)
       ) >>>
     dictionary (
       "apple" -> "manzana",
       "blue" -> "azul",
       "hello" -> "hola",
       "goodbye" -> "adios"
-    ).rmap(_.getOrElse("I don't know that one")) >>>
+    ) >>> 
+    (_.getOrElse("I don't know that one")) >>>
     putLine
 
 ```

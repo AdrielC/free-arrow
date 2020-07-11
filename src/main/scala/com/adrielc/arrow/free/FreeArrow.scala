@@ -3,7 +3,7 @@ package free
 
 import cats.arrow.Arrow
 import cats.implicits._
-import cats.{Applicative, Eval}
+import cats.Eval
 import com.adrielc.arrow.free.methods.FreeArrowLike
 
 sealed abstract class FreeArrow[+F[_, _], A, B] extends FreeArrowLike[FreeArrow, Arrow, F, A, B] {
@@ -30,7 +30,6 @@ object FreeArrow { self =>
     case _ => AndThen(first, next)
   }
 
-
   @inline final def merge[F[_, _], A, B, C](fab: FA[F, A, B], fac: FA[F, A, C]): FA[F, A, (B, C)] = (fab, fac) match {
     case (Arr(f), Arr(g)) => arr(a => (f(a), g(a)))
     case _ => Merge(fab, fac)
@@ -47,15 +46,10 @@ object FreeArrow { self =>
     def compose[A, B, C](f: FA[F, B, C], g: FA[F, A, B]): FA[F, A, C] = FA.andThen(g, f)
     def first[A, B, C](fa: FA[F, A, B]): FA[F, (A, C), (B, C)] = FA.first(fa)
     override def second[A, B, C](fa: FA[F, A, B]): FA[F, (C, A), (C, B)] = FA.second(fa)
-    override def rmap[A, B, C](fab: FA[F, A, B])(f: B => C): FA[F, A, C] = FA.rmap(fab)(f)
-    override def lmap[A, B, C](fab: FA[F, A, B])(f: C => A): FA[F, C, B] = FA.lmap(fab)(f)
     override def split[A, B, C, D](f: FA[F, A, B], g: FA[F, C, D]): FA[F, (A, C), (B, D)] = FA.split(f, g)
     override def merge[A, B, C](f: FA[F, A, B], g: FA[F, A, C]): FA[F, A, (B, C)] = FA.merge(f, g)
-  }
-
-  implicit def freeArrowApplicative[F[_, _], C]: Applicative[FA[F, C, ?]] = new Applicative[FA[F, C, ?]] {
-    def pure[A](x: A): FA[F, C, A] = self.arr(_ => x)
-    def ap[A, B](ff: FA[F, C, A => B])(fa: FA[F, C, A]): FA[F, C, B] = (ff &&& fa).rmap { case (f, a) => f(a) }
+    override def rmap[A, B, C](fab: FA[F, A, B])(f: B => C): FA[F, A, C] = andThen(fab, lift(f))
+    override def lmap[A, B, C](fab: FA[F, A, B])(f: C => A): FA[F, C, B] = compose(fab, lift(f))
   }
 
   final private case class Id[A]() extends FA[Nothing, A, A] {

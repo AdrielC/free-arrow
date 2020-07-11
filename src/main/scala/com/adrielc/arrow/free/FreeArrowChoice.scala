@@ -30,9 +30,6 @@ object FreeArrowChoice {
     case (Arr(f), Arr(g)) => arr(a => (f(a), g(a)))
     case _ => Merge(fab, fac)
   }
-
-  @inline final def rmap[F[_, _], A, B, C](fab: FAC[F, A, B])(f: B => C): FAC[F, A, C] = andThen(fab, arr(f))
-  @inline final def lmap[F[_, _], A, B, C](fab: FAC[F, A, B])(f: C => A): FAC[F, C, B] = andThen(arr(f), fab)
   @inline final def first[F[_, _], A, B, C](fab: FAC[F, A, B]): FAC[F, (A, C), (B, C)] = First(fab)
   @inline final def second[F[_, _], A, B, C](fab: FAC[F, A, B]): FAC[F, (C, A), (C, B)] = Second(fab)
   @inline final def split[F[_, _], A, B, C, D](fab: FAC[F, A, B], fcd: FAC[F, C, D]): FAC[F, (A, C), (B, D)] = Split(fab, fcd)
@@ -47,8 +44,8 @@ object FreeArrowChoice {
     def first[A, B, C](fa: FAC[F, A, B]): FAC[F, (A, C), (B, C)] = FAC.first(fa)
     def compose[A, B, C](f: FAC[F, B, C], g: FAC[F, A, B]): FAC[F, A, C] = FAC.andThen(g, f)
     override def id[A]: FAC[F, A, A] = FAC.id
-    override def rmap[A, B, C](fab: FAC[F, A, B])(f: B => C): FAC[F, A, C] = FAC.rmap(fab)(f)
-    override def lmap[A, B, C](fab: FAC[F, A, B])(f: C => A): FAC[F, C, B] = FAC.lmap(fab)(f)
+    override def rmap[A, B, C](fab: FAC[F, A, B])(f: B => C): FAC[F, A, C] = andThen(fab, lift(f))
+    override def lmap[A, B, C](fab: FAC[F, A, B])(f: C => A): FAC[F, C, B] = compose(fab, lift(f))
     override def second[A, B, C](fa: FAC[F, A, B]): FAC[F, (C, A), (C, B)] = FAC.second(fa)
     override def choice[A, B, C](f: FAC[F, A, C], g: FAC[F, B, C]): FAC[F, Either[A, B], C] = FAC.choice(f, g)
     override def split[A, B, C, D](f: FAC[F, A, B], g: FAC[F, C, D]): FAC[F, (A, C), (B, D)] = FAC.split(f, g)
