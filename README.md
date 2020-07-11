@@ -38,7 +38,7 @@ Construct a program from your free operations
 val translator = 
     prompt("Hello") >>>
     prompt("Enter an English word to translate") >>>
-    getLine -|> ( // dead end, return input to `getLine` after the following
+    getLine -|> ( // dead end, return output of `getLine` after the following
       ("Translating " + (_: String)) >>>
         putLine >>>
         (prompt("...") >>> (_ => Thread.sleep(1000))).loopN(3)
