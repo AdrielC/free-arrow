@@ -41,20 +41,4 @@ object FunctionP {
     }
 
   def apply[F[_, _], G[_, _]](implicit B: F ~~> G): F ~~> G = B
-
-
-
-
-  sealed trait HStack extends Product with Serializable {
-    type Last[_]
-  }
-  final case object Empty extends HStack {
-    override type Last[A] = A
-  }
-  case class :*:[A, B <: HStack](head: A, tail: B) extends HStack {
-    override type Last[a] = tail.Last[A]
-  }
-//
-//  val xs: Int :*: String :*: Empty.type = :*:(1, :*:("", Empty))
-//  lazy val yy: xs.Last[Int] = xs.head
 }

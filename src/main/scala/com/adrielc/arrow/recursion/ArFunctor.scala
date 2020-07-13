@@ -1,7 +1,6 @@
 package com.adrielc.arrow.recursion
 
 import com.adrielc.arrow.~~>
-//import shapeless.{::, HNil}
 
 trait ArFunctor[Ar[_[_, _], _, _]] {
 
@@ -24,7 +23,4 @@ object ArEnvT {
           def apply[I, J](fm: ArEnvT[E, Ar, M, I, J]) = ArEnvT(fm.ask, F.armap(nt)(fm.fa))
         }
     }
-
-
-//  1 :: HNil
 }
