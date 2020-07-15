@@ -149,11 +149,11 @@ sealed trait FreeA[-Arr[f[_, _]] <: Arrow[f], +F[_, _], A, B] {
     self.|>* >^ (ba => if(ba._1) ba._2.asRight else ba._2.asLeft)
 
   def and[Ar[f[_, _]] <: Arr[f], FF[a, b] >: F[a, b]]
-  (fab: FreeA[Ar, FF, A, B])(implicit L: LubACP[Ar]): FreeA[Ar, FF, A, Either[B, B]] = arrowInstance[Ar, FF].and(self, fab)
+  (fab: FreeA[Ar, FF, A, B])(implicit L: LubACP[Ar]): FreeA[L.Lub, FF, A, Either[B, B]] = arrowInstance[Ar, FF].and(self, fab)
 
   /** Alias for [[and]] */
   def |&|[Ar[f[_, _]] <: Arr[f], FF[a, b] >: F[a, b]]
-  (fab: FreeA[Ar, FF, A, B])(implicit L: LubACP[Ar]): FreeA[Ar, FF, A, Either[B, B]] = and(fab)
+  (fab: FreeA[Ar, FF, A, B])(implicit L: LubACP[Ar]): FreeA[L.Lub, FF, A, Either[B, B]] = and(fab)
 
   /** Select first if output is a tuple */
   def _1[C](implicit ev: B <:< (C, Any)): FreeA[Arr, F, A, C] = self.rmap(_._1)

@@ -16,6 +16,14 @@ object examples {
     final case object Sub extends Expr[(Int, Int), Int]
     final case class Num(n: Int) extends Expr[Unit, Int]
 
+    val toFn = new (Expr ~~> Function1) {
+      def apply[A, B](f: Expr[A, B]): A => B = f match {
+        case Add => ((ab: (Int, Int)) => ab._1 + ab._2)
+        case Sub => ((ab: (Int, Int)) => ab._1 - ab._2)
+        case Num(n) => (_ => n)
+      }
+    }
+
     val toMaybeFn = new (Expr ~~> MaybeFn) {
       def apply[A, B](f: Expr[A, B]): MaybeFn[A, B] = f match {
         case Add => MaybeFn((ab: (Int, Int)) => ab._1 + ab._2)
