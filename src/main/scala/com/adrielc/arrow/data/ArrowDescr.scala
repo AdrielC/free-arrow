@@ -12,6 +12,8 @@ import io.circe.{Json, JsonObject}
  */
 case class ArrowDescr[-A, +B] private (obj: JsonObject) {
 
+  override def toString: String = json.spaces2
+
   def json: Json = Json.fromJsonObject(obj)
 
   def cast[C, D]: ArrowDescr[C, D] = this.asInstanceOf[ArrowDescr[C, D]]
@@ -48,6 +50,9 @@ object ArrowDescr {
 
     override def choose[A, B, C, D](f: ArrowDescr[A, C])(g: ArrowDescr[B, D]): ArrowDescr[Either[A, B], Either[C, D]] =
       ArrowDescr(JsonObject("choose" -> Json.obj("left" -> f.json, "right" -> g.json)))
+
+    override def choice[A, B, C](f: ArrowDescr[A, C], g: ArrowDescr[B, C]): ArrowDescr[Either[A, B], C] =
+      ArrowDescr(JsonObject("choice" -> Json.obj("left" -> f.json, "right" -> g.json)))
 
     override def left[A, B, C](fab: ArrowDescr[A, B]): ArrowDescr[Either[A, C], Either[B, C]] =
       ArrowDescr(JsonObject("choose" -> Json.obj("left" -> fab.json)))

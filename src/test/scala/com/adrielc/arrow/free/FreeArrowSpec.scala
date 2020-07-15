@@ -2,57 +2,81 @@ package com.adrielc.arrow.free
 
 import org.scalatest.{FlatSpec, Matchers}
 import cats.implicits._
-import ConsoleArr._
-import com.adrielc.arrow.{MaybeFn, ~~>}
-import syntax._
+import com.adrielc.arrow.examples.ConsoleArr, ConsoleArr._
+import com.adrielc.arrow.data.Tuple2P
+import com.adrielc.arrow.{~>>, ~~>}
+import implicits._
 
 class FreeArrowSpec extends FlatSpec with Matchers {
-  val freeArrow = FreeConsole[FreeArrow]
-  import freeArrow._
+
+  val printInt: FA[ConsoleArr, Unit, Unit] = ~GetInt >^ (_.toString) >>^ PutLine
+
+  val printLine: FA[ConsoleArr, Unit, Unit] = ~GetLine >>^ PutLine
 
   "ArrowDescr" should "render op Json" in {
 
-    val program = GetLine.A >>> PutLine >>> GetInt >>> (_.toString) >>> PutLine
+    val program3 = printLine >>> printInt
 
     val interpreter = stubGets andThen (functionInterpreter and jsonInterpreter)
 
-    val f = program foldMap interpreter
+    val Tuple2P(f, json) = program3 foldMap interpreter
 
-    println(f._2.json.spaces2)
+    println(json)
 
-    f._1(())
+    f(())
   }
 
 
-  def createTranslator(nComputations: Int): FrCnsl[Unit, Unit] = {
+  "FreeArrowChoice" should "allow for choice" in {
 
-    val computeLoop = (compute >>> prompt("...")) loopN nComputations
+    val program =
+      FreeA.fork >>>
+        (~Prompt("start left") +++ ~Prompt("right")) >>>
+        (~Const("done left") >>^ PutLine).left >>>
+        (~Const("done right") >>^ PutLine).right
 
-    prompt("Hello") >>>
-      prompt("Enter an English word to translate") >>>
-      getLine -|> (
-        ("Translating " + (_: String)) >>>
-          putLine >>>
+    val f = program foldMap functionInterpreter
+
+    f(false)
+  }
+
+
+  def createTranslator(nComputations: Int): FA[ConsoleArr, Unit, Unit] = {
+
+    val computeLoop = (~Compute >>^ Prompt("...")) loopN nComputations
+
+    ~Prompt("Hello") >>^
+      Prompt("Enter an English word to translate") >>^
+      GetLine >| (
+        ~("Translating " + (_: String)) >>^
+          PutLine >>>
           computeLoop
-        ) >>>
-      dictionary (
+        ) >>^
+      Dictionary(
         "apple" -> "manzana",
         "blue" -> "azul",
         "hello" -> "hola",
         "goodbye" -> "adios"
-      ) >>>
-      (_.getOrElse("I don't know that one")) >>>
-      putLine
+      ) >^
+      (_.getOrElse("I don't know that one")) >>^
+      PutLine
   }
 
 
   "FreeArrow" should "run translator and count printlns" in {
 
-    val translator = createTranslator(nComputations = 3)
+    val translator = {
 
-    val countComputes = new (ConsoleArr ~~> λ[(α, β) => Int]) {
+      val comp1 = createTranslator(nComputations = 1)
+
+      val comp3 = createTranslator(nComputations = 3)
+
+      ~((cmnd: String) => if(cmnd == "left") goL else goR ) >>> (comp1 ||| comp3)
+    }
+
+    val countComputes = new (ConsoleArr ~>> Int) {
       def apply[A, B](f: ConsoleArr[A, B]): Int = f match {
-        case Compute => 1
+        case ConsoleArr.Compute => 1
         case _ => 0
       }
     }
@@ -61,50 +85,55 @@ class FreeArrowSpec extends FlatSpec with Matchers {
 
       def apply[A, B](f: ConsoleArr[A, B]): FrCnsl[A, B] = f match {
 
-        case d if d.isInstanceOf[Dictionary] => // isInstance needed here to stop type from being refined
+        case d if d.isInstanceOf[Dictionary] => ~d >^ (o => { println("sorry for the wait"); o })
 
-          d.lift[FreeArrow].rmap(o => { println("sorry for the wait"); o })
-
-        case _ =>
-
-          f.lift[FreeArrow]
+        case _ => ~f
       }
     }
 
     val nComputes = translator analyze countComputes
 
-    val optimized = if(nComputes >= 3) translator foldMap withApology else translator
+    val optimized = if(nComputes >= 3) translator.foldMap(withApology) else translator
 
     val runnable = optimized foldMap (stubGets andThen functionInterpreter)
 
-    runnable(())
+    runnable("left")
   }
 
 
-  "FreeArrowPlus" should "add zero arrow" in {
+  "FreeArrowPlus" should "add zero arrow and mix in" in {
 
-    sealed trait Expr[A, B] extends Product with Serializable
-    final case object Add extends Expr[(Int, Int), Int]
-    final case object Sub extends Expr[(Int, Int), Int]
+    import com.adrielc.arrow.examples.Expr._
 
-    import FAP._
+    import FreeA._
 
-    val z = zero[Int, Int]
+    val z = zeroArrow[Int, Int]
 
-    val plusZeroId: FreeArrowPlus[Expr, Int, Int] = z <+> id
+    val plusZeroId = z <+> id
 
-    val addBoth = (plusZeroId &&& plusZeroId) >>> Add
-    val subBoth = (plusZeroId &&& plusZeroId) >>> Sub
-    val addAndSub = (addBoth &&& subBoth) >>> Sub
+    val addBoth = (plusZeroId &&& plusZeroId) >>^ Add
 
-    val toMaybeOp = addAndSub.foldMap(new (Expr ~~> MaybeFn) {
-      def apply[A, B](f: Expr[A, B]): MaybeFn[A, B] = f match {
-        case Add => MaybeFn((ab: (Int, Int)) => ab._1 + ab._2)
-        case Sub => MaybeFn((ab: (Int, Int)) => ab._1 - ab._2)
-      }
-    })
+    val add10 = ~Num(10) >>> addBoth
 
-    assert(toMaybeOp(10) contains 20)
+    val choice2 = ((~Num(1) >^ (_ => ())) +++ (~Num(2) >^ (_ => ()))) >^ (_.fold(_ => 1, _ => 0))
+
+    val choice = add10 ||| ~Num(100)
+
+    val _ = choice ||| choice2
+
+    val comp2 = choice >| ~((n: Int) => println(n))
+
+    val toMaybeOp = comp2 foldMap toMaybeFn
+
+    val c2 = (~Num(1) >^ (_ => ())) +++ (~Num(2) >^ (_ => ()))
+
+    val c = ~Num(100) ||| add10
+
+    val lmao = (c2 >>> c).foldMap(toMaybeFn)
+
+    assert(toMaybeOp(goL) contains 100)
+
+    assert(lmao(goR) contains 20)
   }
 }
 
