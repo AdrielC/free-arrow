@@ -1,4 +1,4 @@
-[error] /Users/acasellas/src/arrows/project/Dependencies.scala:38:3: '=' expected but '}' found.
-[error]   }
-[error]   ^
+[error] /Users/acasellas/src/free-arrow/project/Dependencies.scala:44:51: value %& is not a member of String
+[error]     lazy val silencer         = "com.github.ghik" %& "silencer-lib"         % Versions.silencer % Provided cross CrossVersion.full
+[error]                                                   ^
 [error] one error found

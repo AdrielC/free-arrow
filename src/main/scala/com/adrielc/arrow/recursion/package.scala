@@ -2,11 +2,11 @@ package com.adrielc.arrow
 
 package object recursion {
 
-  type PAlgebra[P[_[_, _], _, _], F[_, _]]   = P[F, ?, ?] ~~> F
-  type PCoalgebra[P[_[_, _], _, _], F[_, _]] = F ~~> P[F, ?, ?]
+  type ArAlgebra[A[_[_, _], _, _], F[_, _]]   = A[F, ?, ?] ~~> F
+  type ArCoalgebra[A[_[_, _], _, _], F[_, _]] = F ~~> A[F, ?, ?]
 
   def cataNT[S[_[_, _], _, _], F[_, _]](
-    alg: PAlgebra[S, F]
+    alg: ArAlgebra[S, F]
   )(implicit S: ArFunctor[S]): Fix[S, ?, ?] ~~> F =
     new (Fix[S, ?, ?] ~~> F) { self =>
 
@@ -15,8 +15,8 @@ package object recursion {
     }
 
   def hyloNT[S[_[_, _], _, _], F[_, _], G[_, _]](
-    coAlg: PCoalgebra[S, F],
-    alg: PAlgebra[S, G]
+    coAlg: ArCoalgebra[S, F],
+    alg: ArAlgebra[S, G]
   )(
     implicit S: ArFunctor[S]
   ): F ~~> G = new (F ~~> G) { self =>

@@ -1,10 +1,21 @@
 package com.adrielc.arrow.recursion
 
+import cats.arrow.Arrow
+import com.adrielc.arrow.free.FreeA
 import com.adrielc.arrow.~~>
 
 trait ArFunctor[Ar[_[_, _], _, _]] {
 
   def armap[F[_, _], G[_, _]](nt: F ~~> G): Ar[F, ?, ?] ~~> Ar[G, ?, ?]
+}
+
+object ArFunctor {
+
+  def freeAArFunctor[Ar[f[_, _]] <: Arrow[f]]: ArFunctor[FreeA[Ar, ?[_, _], ?, ?]] =
+    new ArFunctor[FreeA[Ar, ?[_, _], ?, ?]] {
+
+      override def armap[F[_, _], G[_, _]](nt: F ~~> G): FreeA[Ar, F, ?, ?] ~~> FreeA[Ar, G, ?, ?] = ???
+    }
 }
 
 final case class Fix[Ar[_[_, _], _, _], A, B](unFix: Ar[Fix[Ar, ?, ?], A, B])

@@ -30,11 +30,21 @@ package object free {
     implicit class FunctionArrOps[A, B](private val f: A => B) extends AnyVal {
 
       @inline def `unary_~`: FreeA[Arrow, Nothing, A, B] = FreeA.fn(f)
+
+      @inline def >>>[Arr[f[_, _]] <: Arrow[f], F[_, _], C](fbc: FreeA[Arr, F, B, C]): FreeA[Arr, F, A, C] = fbc <^ f
+
+      @inline def >>^[F[_, _], C](fbc: F[B, C]): FA[F, A, C] = ~fbc <^ f
+
+      @inline def <<<[Arr[f[_, _]] <: Arrow[f], F[_, _], C](fbc: FreeA[Arr, F, C, A]): FreeA[Arr, F, C, B] = fbc >^ f
+
+      @inline def <<^[F[_, _], C](fca: F[C, A]): FA[F, C, B] = ~fca >^ f
     }
   }
 
   type LubC[+F[_[_, _]]] = Lub[F, ArrowChoice]
   type LubP[+F[_[_, _]]] = Lub[F, ArrowPlus]
+  type LubACZ[+F[_[_, _]]] = Lub[F, ArrowChoiceZero]
+  type LubACP[+F[_[_, _]]] = Lub[F, ArrowChoicePlus]
 }
 
 package free {

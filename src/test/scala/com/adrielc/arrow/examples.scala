@@ -1,6 +1,6 @@
 package com.adrielc.arrow
 
-import com.adrielc.arrow.data.ArrowDescr
+import com.adrielc.arrow.data.JsonA
 import com.adrielc.arrow.free.{FA, FAC}
 import io.circe.Json
 
@@ -56,12 +56,12 @@ object examples {
       }
     }
 
-    val jsonInterpreter: ConsoleArr ~~> ArrowDescr = new (ConsoleArr ~~> ArrowDescr) {
-      override def apply[A, B](f: ConsoleArr[A, B]): ArrowDescr[A, B] = f match {
-        case Prompt(message) => ArrowDescr(Json.obj("Prompt" -> Json.obj("message" -> Json.fromString(message))))
-        case Const(value) => ArrowDescr(Json.obj("Const" -> Json.obj("value" -> Json.fromString(value.toString))))
-        case Dictionary(dict) => ArrowDescr(Json.obj("Dictionary" -> Json.fromFields(dict.mapValues(Json.fromString))))
-        case command @ (GetLine | PutLine | RepeatN | GetInt | Compute) => ArrowDescr(command.toString)
+    val jsonInterpreter: ConsoleArr ~~> JsonA = new (ConsoleArr ~~> JsonA) {
+      override def apply[A, B](f: ConsoleArr[A, B]): JsonA[A, B] = f match {
+        case Prompt(message) => JsonA(Json.obj("Prompt" -> Json.obj("message" -> Json.fromString(message))))
+        case Const(value) => JsonA(Json.obj("Const" -> Json.obj("value" -> Json.fromString(value.toString))))
+        case Dictionary(dict) => JsonA(Json.obj("Dictionary" -> Json.fromFields(dict.mapValues(Json.fromString))))
+        case command @ (GetLine | PutLine | RepeatN | GetInt | Compute) => JsonA(command.toString)
       }
     }
 

@@ -4,7 +4,7 @@ import cats.arrow.{Arrow, ArrowChoice}
 
 package object arrow {
 
-  type ~~>[-F[_, _], +G[_, _]] = FunctionP[F, G]
+  type ~~>[-F[_, _], +G[_, _]] = FunctionA[F, G]
 
   type ~>>[-F[_, _], +M] = ~~>[F, Const[M]#λ]
 

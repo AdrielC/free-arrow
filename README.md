@@ -24,10 +24,10 @@ Then define smart constructors to lift your algebra into the FreeArrow
 
 ```scala
 
-val getLine = FreeArrow.lift(GetLine)
-val putLine = FreeArrow.lift(PutLine)
-def prompt(message: String) = FreeArrow.lift(Prompt(message))
-def dictionary(entry: (String, String)*) = FreeArrow.lift(Dictionary(entry.toMap))
+val getLine = FreeA.lift(GetLine)
+val putLine = FreeA.lift(PutLine)
+def prompt(message: String) = FreeA.lift(Prompt(message))
+def dictionary(entry: (String, String)*) = FreeA.lift(Dictionary(entry.toMap))
 
 ```  
 
@@ -38,7 +38,7 @@ Construct a program from your free operations
 val translator = 
     prompt("Hello") >>>
     prompt("Enter an English word to translate") >>>
-    getLine -|> ( // dead end, return output of `getLine` after the following
+    getLine >| ( // dead end, return output of `getLine` after the following
       ("Translating " + (_: String)) >>>
         putLine >>>
         (prompt("...") >>> (_ => Thread.sleep(1000))).loopN(3)
@@ -98,8 +98,8 @@ number of getLines used
 
 import cats.implicits._
 
-val numGets = translator.analyze(new (ConsoleOp ~~> λ[(α, β) => Int]) {
-  override def apply[A, B](f: ConsoleOp[A, B]): Int = f match {
+val numGets = translator.analyze(new (ConsoleOp ~>> Int) {
+  def apply[A, B](f: ConsoleOp[A, B]): Int = f match {
     case GetLine => 1
     case _ => 0
   }

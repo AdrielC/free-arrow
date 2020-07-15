@@ -1,6 +1,6 @@
 package com.adrielc.arrow
 
-import com.adrielc.arrow.data.{EitherP, Tuple2P}
+import com.adrielc.arrow.data.{EitherA, Tuple2A}
 
 /**
  *
@@ -10,7 +10,7 @@ import com.adrielc.arrow.data.{EitherP, Tuple2P}
  * Like [[cats.arrow.FunctionK]] but for Profunctors
  *
  */
-trait FunctionP[-F[_, _], +G[_, _]] extends Serializable {
+trait FunctionA[-F[_, _], +G[_, _]] extends Serializable {
   self =>
 
   def apply[A, B](f: F[A, B]): G[A, B]
@@ -22,18 +22,18 @@ trait FunctionP[-F[_, _], +G[_, _]] extends Serializable {
 
   def andThen[H[_, _]](g: G ~~> H): F ~~> H = g.compose(self)
 
-  def and[H[_, _], FF[a, b] <: F[a, b], GG[a, b] >: G[a, b]](other: FF ~~> H): FF ~~> Tuple2P[GG, H, ?, ?] =
-    new (FF ~~> Tuple2P[GG, H, ?, ?]) {
-      def apply[A, B](f: FF[A, B]): Tuple2P[GG, H, A, B] = Tuple2P(self(f), other(f))
+  def and[H[_, _], FF[a, b] <: F[a, b], GG[a, b] >: G[a, b]](other: FF ~~> H): FF ~~> Tuple2A[GG, H, ?, ?] =
+    new (FF ~~> Tuple2A[GG, H, ?, ?]) {
+      def apply[A, B](f: FF[A, B]): Tuple2A[GG, H, A, B] = Tuple2A(self(f), other(f))
     }
 
-  def or[H[_, _], FF[a, b] <: F[a, b], GG[a, b] >: G[a, b]](h: H ~~> GG): EitherP[FF, H, ?, ?] ~~> GG =
-    new (EitherP[FF, H, ?, ?] ~~> GG) {
-      override def apply[A, B](f: EitherP[FF, H, A, B]): GG[A, B] = f.run.fold(self(_), h(_))
+  def or[H[_, _], FF[a, b] <: F[a, b], GG[a, b] >: G[a, b]](h: H ~~> GG): EitherA[FF, H, ?, ?] ~~> GG =
+    new (EitherA[FF, H, ?, ?] ~~> GG) {
+      override def apply[A, B](f: EitherA[FF, H, A, B]): GG[A, B] = f.run.fold(self(_), h(_))
     }
 }
 
-object FunctionP {
+object FunctionA {
 
   def id[F[_, _]]: F ~~> F =
     new (F ~~> F) {

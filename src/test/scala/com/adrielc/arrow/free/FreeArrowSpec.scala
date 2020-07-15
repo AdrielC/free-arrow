@@ -3,7 +3,7 @@ package com.adrielc.arrow.free
 import org.scalatest.{FlatSpec, Matchers}
 import cats.implicits._
 import com.adrielc.arrow.examples.ConsoleArr, ConsoleArr._
-import com.adrielc.arrow.data.Tuple2P
+import com.adrielc.arrow.data.Tuple2A
 import com.adrielc.arrow.{~>>, ~~>}
 import implicits._
 
@@ -19,7 +19,7 @@ class FreeArrowSpec extends FlatSpec with Matchers {
 
     val interpreter = stubGets andThen (functionInterpreter and jsonInterpreter)
 
-    val Tuple2P(f, json) = program3 foldMap interpreter
+    val Tuple2A(f, json) = program3 foldMap interpreter
 
     println(json)
 
@@ -43,14 +43,12 @@ class FreeArrowSpec extends FlatSpec with Matchers {
 
   def createTranslator(nComputations: Int): FA[ConsoleArr, Unit, Unit] = {
 
-    val computeLoop = (~Compute >>^ Prompt("...")) loopN nComputations
-
     ~Prompt("Hello") >>^
       Prompt("Enter an English word to translate") >>^
       GetLine >| (
-        ~("Translating " + (_: String)) >>^
+        ("Translating " + (_: String)) >>^
           PutLine >>>
-          computeLoop
+          (~Compute >>^ Prompt("...")).loopN(nComputations)
         ) >>^
       Dictionary(
         "apple" -> "manzana",
@@ -97,7 +95,7 @@ class FreeArrowSpec extends FlatSpec with Matchers {
 
     val runnable = optimized foldMap (stubGets andThen functionInterpreter)
 
-    runnable("left")
+    runnable("right")
   }
 
 
@@ -107,33 +105,30 @@ class FreeArrowSpec extends FlatSpec with Matchers {
 
     import FreeA._
 
-    val z = zeroArrow[Int, Int]
-
-    val plusZeroId = z <+> id
+    val plusZeroId = zeroArrow[Int, Int] <+> id
 
     val addBoth = (plusZeroId &&& plusZeroId) >>^ Add
 
     val add10 = ~Num(10) >>> addBoth
 
-    val choice2 = ((~Num(1) >^ (_ => ())) +++ (~Num(2) >^ (_ => ()))) >^ (_.fold(_ => 1, _ => 0))
-
     val choice = add10 ||| ~Num(100)
-
-    val _ = choice ||| choice2
 
     val comp2 = choice >| ~((n: Int) => println(n))
 
     val toMaybeOp = comp2 foldMap toMaybeFn
 
-    val c2 = (~Num(1) >^ (_ => ())) +++ (~Num(2) >^ (_ => ()))
+    assert(toMaybeOp(goR) contains 100)
 
-    val c = ~Num(100) ||| add10
+    assert(toMaybeOp(goL) contains 20)
+  }
 
-    val lmao = (c2 >>> c).foldMap(toMaybeFn)
+  "FreeArrowChoicePlus" should "add" in {
+    import com.adrielc.arrow.examples.Expr._
 
-    assert(toMaybeOp(goL) contains 100)
+    val and = ~Num(10) |&| ~Num(20)
 
-    assert(lmao(goR) contains 20)
+    assert(and.foldMap(toMaybeFn).apply(()).contains(Left(10)))
+    assert((~Num(10)).foldMap(toMaybeFn).apply(()).contains(10))
   }
 }
 
