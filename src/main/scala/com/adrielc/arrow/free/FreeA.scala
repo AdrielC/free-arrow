@@ -34,15 +34,6 @@ sealed trait FreeA[-Arr[f[_, _]] <: Arrow[f], +F[_, _], A, B] {
     case _ => AndThen(self, fbc)
   }
 
-  final def compose[Ar[f[_, _]] <: Arr[f], FF[a, b] >: F[a, b], C]
-  (fca: FreeA[Ar, FF, C, A]): FreeA[Ar, FF, C, B] = fca andThen self
-
-  /** [[compose]] with a lifted function */
-  final def lmap[C](f: C => A): FreeA[Arr, F, C, B] = compose(fn(f))
-
-  /** [[andThen]] on lifted function */
-  final def rmap[C](f: B => C): FreeA[Arr, F, A, C] = andThen(fn(f))
-
   /**
    * Merges pure functions if possible, otherwise wraps the arrows in [[Merge]]
    */
@@ -89,6 +80,104 @@ sealed trait FreeA[-Arr[f[_, _]] <: Arrow[f], +F[_, _], A, B] {
   final def split[Ar[f[_, _]] <: Arr[f], FF[a, b] >: F[a, b], C, D]
   (fcd: FreeA[Ar, FF, C, D])
   : FreeA[Ar, FF, (A, C), (B, D)] = Split(self, fcd)
+
+
+  /**
+   * Aliases / Utility methods
+   */
+
+  final def compose[Ar[f[_, _]] <: Arr[f], FF[a, b] >: F[a, b], C]
+  (fca: FreeA[Ar, FF, C, A]): FreeA[Ar, FF, C, B] = fca andThen self
+
+  /** [[compose]] with a lifted function */
+  final def lmap[C](f: C => A): FreeA[Arr, F, C, B] = compose(fn(f))
+
+  /** [[andThen]] on lifted function */
+  final def rmap[C](f: B => C): FreeA[Arr, F, A, C] = andThen(fn(f))
+
+  /** Alias for [[andThen]] */
+  def >>>[Ar[f[_, _]] <: Arr[f], FF[a, b] >: F[a, b], C]
+  (fbc: FreeA[Ar, FF, B, C]): FreeA[Ar, FF, A, C] = self.andThen(fbc)
+
+  /** Alias for [[compose]] */
+  def <<<[Ar[f[_, _]] <: Arr[f], FF[a, b] >: F[a, b], C]
+  (fca: FreeA[Ar, FF, C, A]): FreeA[Ar, FF, C, B] = self compose fca
+
+  /** [[andThen]] with an [[F]] value to be lifted into [[FreeA]] */
+  def >>^[FF[a, b] >: F[a, b], C]
+  (fbc: FF[B, C]): FreeA[Arr, FF, A, C] = self andThen lift(fbc)
+
+  /** [[compose]] with an [[F]] value to be lifted into [[FreeA]] */
+  def <<^[FF[a, b] >: F[a, b], C]
+  (fca: FF[C, A]): FreeA[Arr, FF, C, B] = self compose lift(fca)
+
+  /** Alias for [[rmap]] */
+  def >^[C](f: B => C): FreeA[Arr, F, A, C] = self.rmap(f)
+
+  /** Alias for [[lmap]] */
+  def <^[C](f: C => A): FreeA[Arr, F, C, B] = self.lmap(f)
+
+  /** Alias for [[split]] */
+  def ***[Ar[f[_, _]] <: Arr[f], FF[a, b] >: F[a, b], C, D]
+  (fcd: FreeA[Ar, FF, C, D]): FreeA[Ar, FF, (A, C), (B, D)] = self.split(fcd)
+
+  /** Alias for [[merge]] */
+  def &&&[Ar[f[_, _]] <: Arr[f], FF[a, b] >: F[a, b], C]
+  (fac: FreeA[Ar, FF, A, C]): FreeA[Ar, FF, A, (B, C)] = self.merge(fac)
+
+  /** Alias for [[choose]] */
+  final def +++[Ar[f[_, _]] <: Arr[f], FF[a, b] >: F[a, b], C, D]
+  (fcd: FreeA[Ar, FF, C, D])(implicit L: LubC[Ar]): FreeA[L.Lub, FF, Either[A, C], Either[B, D]] = self.choose(fcd)
+
+  /** Alias for [[choice]] */
+  final def |||[Ar[f[_, _]] <: Arr[f], FF[a, b] >: F[a, b], C]
+  (fcb: FreeA[Ar, FF, C, B])(implicit L: LubC[Ar]): FreeA[L.Lub, FF, Either[A, C], B] = self.choice(fcb)
+
+  /** Alias for [[plus]] */
+  final def <+>[Ar[f[_, _]] <: Arr[f], FF[a, b] >: F[a, b]]
+  (fcb: FreeA[Ar, FF, A, B])(implicit L: Lub[Ar, ArrowPlus]): FreeA[L.Lub, FF, A, B] = self.plus(fcb)
+
+  /** test condition [[B]], Right == true */
+  def test(implicit ev: B =:= Boolean): FreeA[Arr, F, A, Either[A, A]] =
+    self.|>* >^ (ba => if(ba._1) ba._2.asRight else ba._2.asLeft)
+
+  /** Select first if output is a tuple */
+  def _1[C](implicit ev: B <:< (C, Any)): FreeA[Arr, F, A, C] = self.rmap(_._1)
+
+  /** Select second if output is a tuple */
+  def _2[C](implicit ev: B <:< (Any, C)): FreeA[Arr, F, A, C] = self.rmap(_._2)
+
+  /** Return a tuple with output [[B]] first and input [[A]] second  */
+  def `|>*`: FreeA[Arr, F, A, (B, A)] = self.merge(id)
+
+  /** Return a tuple with input [[A]] first and output [[B]] second  */
+  def `|*>`: FreeA[Arr, F, A, (A, B)] = id.merge(self)
+
+  /** Feed input [[A]] to two copies of this arrow and tuple the outputs */
+  def `|>>`: FreeA[Arr, F, A, (B, B)] = self.merge(self)
+
+  /** Dead end. Discard the output [[B]] and Return the input [[A]] */
+  def `|*`: FreeA[Arr, F, A, A] = self.|>*._2
+
+  /** Appends a dead end arrow */
+  def `>|`[Ar[f[_, _]] <: Arr[f], FF[a, b] >: F[a, b]]
+  (deadEnd: FreeA[Ar, FF, B, Unit]): FreeA[Ar, FF, A, B] = self.andThen(deadEnd.|*)
+
+
+  /**
+   * If this arrows output is type equivalent to the input, then feed the output to this arrows input n times
+   * [[andThen]] is Stack-safe when compiling the [[FreeA]] to some target arrow, but if the targets arrow
+   * implementation has a stack-unsafe [[cats.arrow.Arrow.andThen]] implementation, running the interpretation
+   * may blow the stack
+   *
+   * */
+  @inline def loopN(n: Int)(implicit ev: B =:= A): FreeA[Arr, F, A, B] = {
+    val _ = ev
+    val init = self.asInstanceOf[FreeA[Arr, F, B, B]]
+    var g = init
+    for (_ <- 1 until n) { g = g.andThen(init) }
+    g.asInstanceOf[FreeA[Arr, F, A, B]]
+  }
 }
 
 object FreeA {
@@ -108,89 +197,6 @@ object FreeA {
   @inline def justRight[A, B]: FACZ[Nothing, Either[A, B], B] = arrowInstance[ArrowChoiceZero, Nothing].justRight
 
   val fork: FA[Nothing, Boolean, Either[Unit, Unit]] = FreeA.fn((b: Boolean) => if(b) ().asRight else ().asLeft)
-
-  implicit class FreeAOps[Arr[f[_, _]] <: Arrow[f], F[_, _], A, B](private val fab: FreeA[Arr, F, A, B]) extends AnyVal {
-
-    /** Alias for [[FreeA.andThen]] */
-    def >>>[Ar[f[_, _]] <: Arr[f], FF[a, b] >: F[a, b], C]
-    (fbc: FreeA[Ar, FF, B, C]): FreeA[Ar, FF, A, C] = fab.andThen(fbc)
-
-    /** Alias for [[FreeA.compose]] */
-    def <<<[Ar[f[_, _]] <: Arr[f], FF[a, b] >: F[a, b], C]
-    (fca: FreeA[Ar, FF, C, A]): FreeA[Ar, FF, C, B] = fab compose fca
-
-    /** [[FreeA.andThen]] with an [[F]] value to be lifted into [[FreeA]] */
-    def >>^[FF[a, b] >: F[a, b], C]
-    (fbc: FF[B, C]): FreeA[Arr, FF, A, C] = fab andThen lift(fbc)
-
-    /** [[FreeA.compose]] with an [[F]] value to be lifted into [[FreeA]] */
-    def <<^[FF[a, b] >: F[a, b], C]
-    (fca: FF[C, A]): FreeA[Arr, FF, C, B] = fab compose lift(fca)
-
-    /** Alias for [[FreeA.rmap]] */
-    def >^[C](f: B => C): FreeA[Arr, F, A, C] = fab.rmap(f)
-
-    /** Alias for [[FreeA.lmap]] */
-    def <^[C](f: C => A): FreeA[Arr, F, C, B] = fab.lmap(f)
-
-    /** Alias for [[FreeA.split]] */
-    def ***[Ar[f[_, _]] <: Arr[f], FF[a, b] >: F[a, b], C, D]
-    (fcd: FreeA[Ar, FF, C, D]): FreeA[Ar, FF, (A, C), (B, D)] = fab.split(fcd)
-
-    /** Alias for [[FreeA.merge]] */
-    def &&&[Ar[f[_, _]] <: Arr[f], FF[a, b] >: F[a, b], C]
-    (fac: FreeA[Ar, FF, A, C]): FreeA[Ar, FF, A, (B, C)] = fab.merge(fac)
-
-    /** Alias for [[FreeA.choose]] */
-    final def +++[Ar[f[_, _]] <: Arr[f], FF[a, b] >: F[a, b], C, D]
-    (fcd: FreeA[Ar, FF, C, D])(implicit L: LubC[Ar]): FreeA[L.Lub, FF, Either[A, C], Either[B, D]] = fab.choose(fcd)
-
-    /** Alias for [[FreeA.choice]] */
-    final def |||[Ar[f[_, _]] <: Arr[f], FF[a, b] >: F[a, b], C]
-    (fcb: FreeA[Ar, FF, C, B])(implicit L: LubC[Ar]): FreeA[L.Lub, FF, Either[A, C], B] = fab.choice(fcb)
-
-    /** Alias for [[FreeA.plus]] */
-    final def <+>[Ar[f[_, _]] <: Arr[f], FF[a, b] >: F[a, b]]
-    (fcb: FreeA[Ar, FF, A, B])(implicit L: Lub[Ar, ArrowPlus]): FreeA[L.Lub, FF, A, B] = fab.plus(fcb)
-
-    /** Select first if output is a tuple */
-    def _1[C](implicit ev: B <:< (C, Any)): FreeA[Arr, F, A, C] = fab.rmap(_._1)
-
-    /** Select second if output is a tuple */
-    def _2[C](implicit ev: B <:< (Any, C)): FreeA[Arr, F, A, C] = fab.rmap(_._2)
-
-    /** Return a tuple with output [[B]] first and input [[A]] second  */
-    def `|>*`: FreeA[Arr, F, A, (B, A)] = fab.merge(id)
-
-    /** Return a tuple with input [[A]] first and output [[B]] second  */
-    def `|*>`: FreeA[Arr, F, A, (A, B)] = id.merge(fab)
-
-    /** Feed input [[A]] to two copies of this arrow and tuple the outputs */
-    def `|>>`: FreeA[Arr, F, A, (B, B)] = fab.merge(fab)
-
-    /** Dead end. Discard the output [[B]] and Return the input [[A]] */
-    def `|*`: FreeA[Arr, F, A, A] = fab.|>*._2
-
-    /** Appends a dead end arrow */
-    def `>|`[Ar[f[_, _]] <: Arr[f], FF[a, b] >: F[a, b]]
-    (deadEnd: FreeA[Ar, FF, B, Unit]): FreeA[Ar, FF, A, B] = fab.andThen(deadEnd.|*)
-
-
-    /**
-     * If this arrows output is type equivalent to the input, then feed the output to this arrows input n times
-     * [[andThen]] is Stack-safe when compiling the [[FreeA]] to some target arrow, but if the targets arrow
-     * implementation has a stack-unsafe [[cats.arrow.Arrow.andThen]] implementation, running the interpretation
-     * may blow the stack
-     *
-     * */
-    @inline def loopN(n: Int)(implicit ev: B =:= A): FreeA[Arr, F, A, B] = {
-      val _ = ev
-      val init = fab.asInstanceOf[FreeA[Arr, F, B, B]]
-      var g = init
-      for (_ <- 1 until n) { g = g.andThen(init) }
-      g.asInstanceOf[FreeA[Arr, F, A, B]]
-    }
-  }
 
   final implicit def arrowInstance[Arr[f[_, _]] <: Arrow[f], F[_, _]]
   (implicit L1: Lub[Arr, ArrowPlus], L2: Lub[Arr, ArrowChoice]): ArrowChoicePlus[FreeA[Arr, F, ?, ?]] =
