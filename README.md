@@ -5,6 +5,27 @@
 
 Implementation of the Free Arrow in Scala and other helpful tools for working with Arrows
 
+
+Based on the paper [Generalizing Monads to Arrows]("http://www.cse.chalmers.se/~rjmh/Papers/arrows.pdf")
+
+Use Free Arrow (`FreeA`) to build a computation graph for any context `F[A, B]` as if it were an arrow
+without needing the corresponding Arrow instance. Typically `FreeA` is used to compose
+values of some embedded DSL `F[A, B]` into a structure.
+
+The primary motivation for using `FreeA` is to decouple the construction of a program
+from its interpretation, enabling the following features:
+
+-  Create reusable and modular components to build complex programs from simpler ones
+-  Change the program's interpretation without altering its structure
+-  Statically introspect the graph to describe the flow
+-  Optimize/rewrite a program using results from its analysis
+ 
+As Free constructions go, here's how `FreeA` sits on the spectrum of power and expressiveness:
+
+(Co)Yoneda < Free Applicative < Free Arrow < Free Monad
+
+Free Arrow has both the static introspection of the Free Applicative and the sequencing capability of the Free Monad
+
 ### Example
 
 First define a minmal set of operations (algebra)
@@ -98,7 +119,7 @@ number of getLines used
 
 import cats.implicits._
 
-val numGets = translator.analyze(new (ConsoleOp ~>> Int) {
+val numGets = translator.analyze(new (ConsoleOp ~>| Int) {
   def apply[A, B](f: ConsoleOp[A, B]): Int = f match {
     case GetLine => 1
     case _ => 0
