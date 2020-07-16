@@ -2,11 +2,18 @@ package com.adrielc.arrow
 
 package object recursion {
 
-  type ArAlgebra[A[_[_, _], _, _], F[_, _]]   = A[F, ?, ?] ~~> F
-  type ArCoalgebra[A[_[_, _], _, _], F[_, _]] = F ~~> A[F, ?, ?]
+  type Alg[A[_[_, _], _, _], F[_, _]]   = A[F, ?, ?] ~~> F
+
+  type Coalg[A[_[_, _], _, _], F[_, _]] = F ~~> A[F, ?, ?]
+
+  type CoalgEnv[A[_[_, _], _, _], F[_, _], M] = λ[(α, β) => (M, F[α, β])] ~~> A[F, ?, ?]
+
+  type Analyze[A[_[_, _], _, _], F[_, _], M] = A[F, ?, ?] ~>| M
+
+  type CofreeA[Arr[_[_, _], _, _], E, A, B] = Fix[AEnvT[E, Arr, ?[_, _], ?, ?], A, B]
 
   def cataNT[S[_[_, _], _, _], F[_, _]](
-    alg: ArAlgebra[S, F]
+    alg: Alg[S, F]
   )(implicit S: ArFunctor[S]): Fix[S, ?, ?] ~~> F =
     new (Fix[S, ?, ?] ~~> F) { self =>
 
@@ -15,8 +22,8 @@ package object recursion {
     }
 
   def hyloNT[S[_[_, _], _, _], F[_, _], G[_, _]](
-    coAlg: ArCoalgebra[S, F],
-    alg: ArAlgebra[S, G]
+    coAlg: Coalg[S, F],
+    alg: Alg[S, G]
   )(
     implicit S: ArFunctor[S]
   ): F ~~> G = new (F ~~> G) { self =>

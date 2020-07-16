@@ -23,7 +23,7 @@ object ConstA {
 
     def choose[A, B, C, D](f: ConstA[V, A, C])(g: ConstA[V, B, D]): ConstA[V, Either[A, B], Either[C, D]] = (f |+| g.tag).tag
 
-    def compose[A, B, C](f: ConstA[V, B, C], g: ConstA[V, A, B]): ConstA[V, A, C] = (f |+| g.tag).tag
+    def compose[A, B, C](f: ConstA[V, B, C], g: ConstA[V, A, B]): ConstA[V, A, C] = (g |+| f.tag).tag
 
     def plus[A, B](f: ConstA[V, A, B], g: ConstA[V, A, B]): ConstA[V, A, B] = (f |+| g.tag).tag
 

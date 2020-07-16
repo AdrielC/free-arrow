@@ -1,34 +1,85 @@
-package com.adrielc.arrow.free
+package com.adrielc.arrow
+package free
 
 import cats.{Eval, Monoid}
 import cats.arrow.{Arrow, ArrowChoice}
-import com.adrielc.arrow.{ArrowChoicePlus, ArrowChoiceZero, ArrowPlus, ArrowZero, ~>>, ~~>}
-import cats.implicits._
+import com.adrielc.arrow.{ArrowChoicePlus, ArrowPlus, ArrowZero, ~>|, ~~>}
+import cats.syntax.{either, flatMap}, either._, flatMap._
 import com.adrielc.arrow.data.ConstA
 
-sealed trait FreeA[-Arr[f[_, _]] <: Arrow[f], +F[_, _], A, B] {
+/** <<< Free Arrow >>>
+ *
+ * Free construction of an Arrow for any context [[F]] with interpretation requirements of [[R]]
+ *
+ * Based on the paper "Generalizing Monads to Arrows"
+ *
+ * @see "http://www.cse.chalmers.se/~rjmh/Papers/arrows.pdf"
+ *
+ * Use [[FreeA]] to build a computation graph for any context [[F]] as if it were an arrow
+ * without needing the corresponding Arrow instance. Typically [[FreeA]] is used to compose
+ * values of some embedded DSL [[F]] into a structure.
+ *
+ * The primary motivation for using [[FreeA]] is to decouple the construction of a program
+ * from its interpretation, enabling the following feaatures:
+ *
+ * -  Create reusable and modular components to build complex programs from simpler ones
+ * -  Change the program's interpretation without altering its structure
+ * -  Statically introspect the graph to describe the flow
+ * -  Optimize/rewrite a program using results from its analysis
+ *
+ *
+ * As Free constructions go, here's how [[FreeA]] sits on the spectrum of power and expressiveness:
+ *
+ * (Co)Yoneda > Free Applicative > Free Arrow > Free Monad
+ *
+ * Free Arrow has both the static introspection of the Free Applicative and the sequencing capability of the Free Monad
+ * @tparam R The capabilities required to interpret/fold this free arrow into [[F]]
+ *           These capabilities adjust based on the methods used to create/compose
+ *           the free arrow.
+ *
+ *           Must be a subtype of [[Arrow]] and supertype of [[ArrowChoicePlus]] since those
+ *           are the currently supported typeclasses
+ * @tparam F The underlying arrow context. Any type of kind (* -> * -> *) e.g. `AST[In, Out]` can be
+ *           be composed together using methods from [[Arrow]] to [[ArrowChoicePlus]] without requiring
+ *           an instance of the desired type class
+ */
+sealed trait FreeA[-R[a[_, _]] <: Arrow[a], +F[_, _], A, B] {
   self =>
   import FreeA._
 
-  def foldMap[G[_, _]](fg: F ~~> G)(implicit A: Arr[G]): G[A, B]
+  def foldMap[G[_, _]](fg: F ~~> G)(implicit A: R[G]): G[A, B]
 
-  final def analyze[M: Monoid](m: F ~>> M)(implicit A: Arr[ConstA[M, ?, ?]]): M =
+  final def analyze[M: Monoid](m: F ~>| M): M =
     foldMap(new (F ~~> ConstA[M, ?, ?]) {
       def apply[C, D](f: F[C, D]): ConstA[M, C, D] = ConstA(m.apply(f))
-    }).getConst
+    })(ConstA.constArrow[M](Monoid[M]).asInstanceOf[R[ConstA[M, ?, ?]]]).getConst
 
-  final def compile[Ar[f[_, _]] <: Arr[f], G[_, _]]
-  (fg: F ~~> G)(implicit A: Arr[FreeA[Ar, G, ?, ?]])
-  : FreeA[Ar, G, A, B] =
-    foldMap(new (F ~~> FreeA[Ar, G, ?, ?]) {
-      def apply[C, D](f: F[C, D]): FreeA[Ar, G, C, D] = lift(fg(f))
-    })
+  /**
+   * Modify the functor context `F` using transformation `fg`.
+   *
+   * This is effectively compiling your free arrow into another
+   * language by applying the given `fg` each [[F]]
+   *
+   * If your binatural transformation is effectful, be careful. These
+   * effects will be applied by `compile`.
+   */
+  final def compile[Ar[f[_, _]] >: ACP[f] <: R[f], G[_, _]](
+    fg: F ~~> G
+  ): FreeA[Ar, G, A, B] =
+    foldMap(fg.andThen[FreeA[Ar, G, ?, ?]](lift))(arrowInstance[Ar, G])
+
+  final def optimize[M: Monoid, Ar[f[_, _]] >: ACP[f] <: R[f], FF[a, b] >: F[a, b]](
+    inspect: F ~>| M,
+    optimize: |~>[M, Ar, FF]
+  ): FreeA[Ar, FF, A, B] =
+    foldMap[FreeA[Ar, FF, ?, ?]](FunctionA.id[F].withEnv(analyze[M](inspect)).andThen(optimize))(arrowInstance[Ar, FF])
 
   /**
    * Fuses any pure functions if possible, otherwise wraps the arrows in [[AndThen]]
    */
-  def andThen[Ar[f[_, _]] <: Arr[f], FF[a, b] >: F[a, b], C]
-  (fbc: FreeA[Ar, FF, B, C]): FreeA[Ar, FF, A, C] = self match {
+  def andThen[Ar[f[_, _]] <: R[f], FF[a, b] >: F[a, b], C](
+    fbc: FreeA[Ar, FF, B, C]
+  ): FreeA[Ar, FF, A, C] = self match {
 
     case Fn(f) => fbc match {
       case Fn(g) => Fn(f andThen g)
@@ -44,137 +95,135 @@ sealed trait FreeA[-Arr[f[_, _]] <: Arrow[f], +F[_, _], A, B] {
   /**
    * Merges pure functions if possible, otherwise wraps the arrows in [[Merge]]
    */
-  final def merge[Ar[f[_, _]] <: Arr[f], FF[a, b] >: F[a, b], C]
-  (fac: FreeA[Ar, FF, A, C])
-  : FreeA[Ar, FF, A, (B, C)] =
+  final def merge[Ar[f[_, _]] <: R[f], FF[a, b] >: F[a, b], C](
+    fac: FreeA[Ar, FF, A, C]
+  ): FreeA[Ar, FF, A, (B, C)] =
     (self, fac) match {
       case (Fn(f), Fn(g)) => fn(a => (f(a), g(a)))
       case _ => Merge(self, fac)
     }
 
   /** [[First]], equivalent to [[cats.arrow.Strong.first]] */
-  final def first[C]
-  : FreeA[Arr, F, (A, C), (B, C)] = First(self)
+  final def first[C]: FreeA[R, F, (A, C), (B, C)] = First(self)
 
   /** [[Second]], equivalent to [[cats.arrow.Strong.second]] */
-  final def second[C]
-  : FreeA[Arr, F, (C, A), (C, B)] = Second(self)
+  final def second[C]: FreeA[R, F, (C, A), (C, B)] = Second(self)
 
   /** [[Left]] */
-  final def left[Ar[f[_, _]] <: Arr[f], FF[a, b] >: F[a, b], C](implicit L: LubC[Ar])
+  final def left[Ar[f[_, _]] >: ACP[f] <: R[f], FF[a, b] >: F[a, b], C](implicit L: |||@[Ar])
   : FreeA[L.Lub, FF, Either[A, C], Either[B, C]] = Left(self)
 
   /** [[Right]] */
-  final def right[Ar[f[_, _]] <: Arr[f], FF[a, b] >: F[a, b], C](implicit L: LubC[Ar])
+  final def right[Ar[f[_, _]] >: ACP[f] <: R[f], FF[a, b] >: F[a, b], C](implicit L: |||@[Ar])
   : FreeA[L.Lub, FF, Either[C, A], Either[C, B]] = Right(self)
 
   /** [[Choice]] */
-  final def choice[Ar[f[_, _]] <: Arr[f], FF[a, b] >: F[a, b], C]
-  (fcb: FreeA[Ar, FF, C, B])(implicit L: LubC[Ar])
-  : FreeA[L.Lub, FF, Either[A, C], B] = Choice(self, fcb)
+  final def choice[Ar[f[_, _]] >: ACP[f] <: R[f], FF[a, b] >: F[a, b], C](
+    fcb: FreeA[Ar, FF, C, B]
+  )(implicit L: |||@[Ar]): FreeA[L.Lub, FF, Either[A, C], B] = Choice(self, fcb)
 
   /** [[Choose]] */
-  final def choose[Ar[f[_, _]] <: Arr[f], FF[a, b] >: F[a, b], C, D]
-  (fcd: FreeA[Ar, FF, C, D])(implicit L: LubC[Ar])
-  : FreeA[L.Lub, FF, Either[A, C], Either[B, D]] = Choose(self, fcd)
-
-  /** [[Plus]] */
-  final def plus[Ar[f[_, _]] <: Arr[f], FF[a, b] >: F[a, b]]
-  (fcb: FreeA[Ar, FF, A, B])(implicit L: LubP[Ar])
-  : FreeA[L.Lub, FF, A, B] = Plus(self, fcb)
+  final def choose[Ar[f[_, _]] >: ACP[f] <: R[f], FF[a, b] >: F[a, b], C, D](
+    fcd: FreeA[Ar, FF, C, D]
+  )(implicit L: |||@[Ar]): FreeA[L.Lub, FF, Either[A, C], Either[B, D]] = Choose(self, fcd)
 
   /** [[Split]] */
-  final def split[Ar[f[_, _]] <: Arr[f], FF[a, b] >: F[a, b], C, D]
-  (fcd: FreeA[Ar, FF, C, D])
-  : FreeA[Ar, FF, (A, C), (B, D)] = Split(self, fcd)
+  final def split[Ar[f[_, _]] <: R[f], FF[a, b] >: F[a, b], C, D](
+    fcd: FreeA[Ar, FF, C, D]
+  ): FreeA[Ar, FF, (A, C), (B, D)] = Split(self, fcd)
+
+  /** [[Plus]] */
+  final def plus[Ar[f[_, _]] >: ACP[f] <: R[f], FF[a, b] >: F[a, b]](
+    fcb: FreeA[Ar, FF, A, B]
+  )(implicit L: <+>@[Ar]): FreeA[L.Lub, FF, A, B] = Plus(self, fcb)
 
 
   /**
    * Aliases / Utility methods
    */
 
-  final def compose[Ar[f[_, _]] <: Arr[f], FF[a, b] >: F[a, b], C]
+  final def compose[Ar[f[_, _]] <: R[f], FF[a, b] >: F[a, b], C]
   (fca: FreeA[Ar, FF, C, A]): FreeA[Ar, FF, C, B] = fca andThen self
 
   /** [[compose]] with a lifted function */
-  final def lmap[C](f: C => A): FreeA[Arr, F, C, B] = compose(fn(f))
+  final def lmap[C](f: C => A): FreeA[R, F, C, B] = compose(fn(f))
 
   /** [[andThen]] on lifted function */
-  final def rmap[C](f: B => C): FreeA[Arr, F, A, C] = andThen(fn(f))
+  final def rmap[C](f: B => C): FreeA[R, F, A, C] = andThen(fn(f))
 
   /** Alias for [[andThen]] */
-  def >>>[Ar[f[_, _]] <: Arr[f], FF[a, b] >: F[a, b], C]
+  def >>>[Ar[f[_, _]] <: R[f], FF[a, b] >: F[a, b], C]
   (fbc: FreeA[Ar, FF, B, C]): FreeA[Ar, FF, A, C] = self.andThen(fbc)
 
   /** Alias for [[compose]] */
-  def <<<[Ar[f[_, _]] <: Arr[f], FF[a, b] >: F[a, b], C]
+  def <<<[Ar[f[_, _]] <: R[f], FF[a, b] >: F[a, b], C]
   (fca: FreeA[Ar, FF, C, A]): FreeA[Ar, FF, C, B] = self compose fca
 
   /** [[andThen]] with an [[F]] value to be lifted into [[FreeA]] */
   def >>^[FF[a, b] >: F[a, b], C]
-  (fbc: FF[B, C]): FreeA[Arr, FF, A, C] = self andThen lift(fbc)
+  (fbc: FF[B, C]): FreeA[R, FF, A, C] = self andThen lift(fbc)
 
   /** [[compose]] with an [[F]] value to be lifted into [[FreeA]] */
   def <<^[FF[a, b] >: F[a, b], C]
-  (fca: FF[C, A]): FreeA[Arr, FF, C, B] = self compose lift(fca)
+  (fca: FF[C, A]): FreeA[R, FF, C, B] = self compose lift(fca)
 
   /** Alias for [[rmap]] */
-  def >^[C](f: B => C): FreeA[Arr, F, A, C] = self.rmap(f)
+  def >^[C](f: B => C): FreeA[R, F, A, C] = self.rmap(f)
 
   /** Alias for [[lmap]] */
-  def <^[C](f: C => A): FreeA[Arr, F, C, B] = self.lmap(f)
+  def <^[C](f: C => A): FreeA[R, F, C, B] = self.lmap(f)
 
   /** Alias for [[split]] */
-  def ***[Ar[f[_, _]] <: Arr[f], FF[a, b] >: F[a, b], C, D]
+  def ***[Ar[f[_, _]] <: R[f], FF[a, b] >: F[a, b], C, D]
   (fcd: FreeA[Ar, FF, C, D]): FreeA[Ar, FF, (A, C), (B, D)] = self.split(fcd)
 
   /** Alias for [[merge]] */
-  def &&&[Ar[f[_, _]] <: Arr[f], FF[a, b] >: F[a, b], C]
+  def &&&[Ar[f[_, _]] <: R[f], FF[a, b] >: F[a, b], C]
   (fac: FreeA[Ar, FF, A, C]): FreeA[Ar, FF, A, (B, C)] = self.merge(fac)
 
   /** Alias for [[choose]] */
-  final def +++[Ar[f[_, _]] <: Arr[f], FF[a, b] >: F[a, b], C, D]
-  (fcd: FreeA[Ar, FF, C, D])(implicit L: LubC[Ar]): FreeA[L.Lub, FF, Either[A, C], Either[B, D]] = self.choose(fcd)
+  final def +++[Ar[f[_, _]] >: ACP[f] <: R[f], FF[a, b] >: F[a, b], C, D]
+  (fcd: FreeA[Ar, FF, C, D])(implicit L: |||@[Ar]): FreeA[L.Lub, FF, Either[A, C], Either[B, D]] = self.choose(fcd)
 
   /** Alias for [[choice]] */
-  final def |||[Ar[f[_, _]] <: Arr[f], FF[a, b] >: F[a, b], C]
-  (fcb: FreeA[Ar, FF, C, B])(implicit L: LubC[Ar]): FreeA[L.Lub, FF, Either[A, C], B] = self.choice(fcb)
+  final def |||[Ar[f[_, _]] >: ACP[f] <: R[f], FF[a, b] >: F[a, b], C]
+  (fcb: FreeA[Ar, FF, C, B])(implicit L: |||@[Ar]): FreeA[L.Lub, FF, Either[A, C], B] = self.choice(fcb)
 
   /** Alias for [[plus]] */
-  final def <+>[Ar[f[_, _]] <: Arr[f], FF[a, b] >: F[a, b]]
-  (fcb: FreeA[Ar, FF, A, B])(implicit L: Lub[Ar, ArrowPlus]): FreeA[L.Lub, FF, A, B] = self.plus(fcb)
+  final def <+>[Ar[f[_, _]] >: ACP[f] <: R[f], FF[a, b] >: F[a, b]]
+  (fcb: FreeA[Ar, FF, A, B])(implicit L: <+>@[Ar]): FreeA[L.Lub, FF, A, B] = self.plus(fcb)
 
   /** test condition [[B]], Right == true */
-  def test(implicit ev: B =:= Boolean): FreeA[Arr, F, A, Either[A, A]] =
+  def test(implicit ev: B =:= Boolean): FreeA[R, F, A, Either[A, A]] =
     self.|>* >^ (ba => if(ba._1) ba._2.asRight else ba._2.asLeft)
 
-  def and[Ar[f[_, _]] <: Arr[f], FF[a, b] >: F[a, b]]
-  (fab: FreeA[Ar, FF, A, B])(implicit L: LubACP[Ar]): FreeA[L.Lub, FF, A, Either[B, B]] = arrowInstance[Ar, FF].and(self, fab)
+  def and[Ar[f[_, _]] >: ACP[f] <: R[f] : |||@, FF[a, b] >: F[a, b]]
+  (fab: FreeA[Ar, FF, A, B])(implicit L: |&|@[Ar]): FreeA[L.Lub, FF, A, Either[B, B]] = arrowInstance[Ar, FF].and(self, fab)
 
   /** Alias for [[and]] */
-  def |&|[Ar[f[_, _]] <: Arr[f], FF[a, b] >: F[a, b]]
-  (fab: FreeA[Ar, FF, A, B])(implicit L: LubACP[Ar]): FreeA[L.Lub, FF, A, Either[B, B]] = and(fab)
+  def |&|[Ar[f[_, _]] >: ACP[f] <: R[f], FF[a, b] >: F[a, b]]
+  (fab: FreeA[Ar, FF, A, B])(implicit L: |&|@[Ar]): FreeA[L.Lub, FF, A, Either[B, B]] = and(fab)
 
   /** Select first if output is a tuple */
-  def _1[C](implicit ev: B <:< (C, Any)): FreeA[Arr, F, A, C] = self.rmap(_._1)
+  def _1[C](implicit ev: B <:< (C, Any)): FreeA[R, F, A, C] = self.rmap(_._1)
 
   /** Select second if output is a tuple */
-  def _2[C](implicit ev: B <:< (Any, C)): FreeA[Arr, F, A, C] = self.rmap(_._2)
+  def _2[C](implicit ev: B <:< (Any, C)): FreeA[R, F, A, C] = self.rmap(_._2)
 
   /** Return a tuple with output [[B]] first and input [[A]] second  */
-  def `|>*`: FreeA[Arr, F, A, (B, A)] = self.merge(id)
+  def `|>*`: FreeA[R, F, A, (B, A)] = self.merge(id)
 
   /** Return a tuple with input [[A]] first and output [[B]] second  */
-  def `|*>`: FreeA[Arr, F, A, (A, B)] = id.merge(self)
+  def `|*>`: FreeA[R, F, A, (A, B)] = id.merge(self)
 
   /** Feed input [[A]] to two copies of this arrow and tuple the outputs */
-  def `|>>`: FreeA[Arr, F, A, (B, B)] = self.merge(self)
+  def `|>>`: FreeA[R, F, A, (B, B)] = self.merge(self)
 
   /** Dead end. Discard the output [[B]] and Return the input [[A]] */
-  def `|*`: FreeA[Arr, F, A, A] = self.|>*._2
+  def `|*`: FreeA[R, F, A, A] = self.|>*._2
 
   /** Appends a dead end arrow */
-  def `>|`[Ar[f[_, _]] <: Arr[f], FF[a, b] >: F[a, b]]
+  def `>|`[Ar[f[_, _]] <: R[f], FF[a, b] >: F[a, b]]
   (deadEnd: FreeA[Ar, FF, B, Unit]): FreeA[Ar, FF, A, B] = self.andThen(deadEnd.|*)
 
 
@@ -185,24 +234,24 @@ sealed trait FreeA[-Arr[f[_, _]] <: Arrow[f], +F[_, _], A, B] {
    * may blow the stack
    *
    * */
-  @inline def loopN(n: Int)(implicit ev: B =:= A): FreeA[Arr, F, A, B] = {
+  @inline def loopN(n: Int)(implicit ev: B =:= A): FreeA[R, F, A, B] = {
     val _ = ev
-    val init = self.asInstanceOf[FreeA[Arr, F, B, B]]
+    val init = self.asInstanceOf[FreeA[R, F, B, B]]
     var g = init
     for (_ <- 1 until n) { g = g.andThen(init) }
-    g.asInstanceOf[FreeA[Arr, F, A, B]]
+    g.asInstanceOf[FreeA[R, F, A, B]]
   }
 }
 
 object FreeA {
 
-  @inline final def id[A]: FA[Nothing, A, A] = Id()
+  @inline final def id[A]: A >>> A = >>>[A]
 
-  /** Lift a pure function into [[FAC]]. Can be composed with any context */
-  @inline def fn[A, B](f: A => B): FA[Nothing, A, B] = Fn(cats.data.AndThen(f))
+  /** Lift a pure function into [[FA]]. Can be composed with any arrow context */
+  @inline def fn[A, B](f: A => B): A >>> B = Fn(cats.data.AndThen(f))
 
-  /** Lift an algebra [[F]] into [[FAC]] */
-  @inline def lift[F[_, _], A, B](fab: F[A, B]): FA[F, A, B] = Lift(fab)
+  /** Lift an algebra [[F]] into [[FA]] */
+  @inline def lift[F[_, _]]: F ~~> FA[F, ?, ?] = new (F ~~> FA[F, ?, ?]) { def apply[A, B](f: F[A, B]): FA[F, A, B] = Lift(f) }
 
   @inline def zeroArrow[A, B]: FAZ[Nothing, A, B] = Zero()
 
@@ -212,14 +261,14 @@ object FreeA {
 
   val fork: FA[Nothing, Boolean, Either[Unit, Unit]] = FreeA.fn((b: Boolean) => if(b) ().asRight else ().asLeft)
 
-  final implicit def arrowInstance[Arr[f[_, _]] <: Arrow[f], F[_, _]]
-  (implicit L1: Lub[Arr, ArrowPlus], L2: Lub[Arr, ArrowChoice]): ArrowChoicePlus[FreeA[Arr, F, ?, ?]] =
+  implicit def arrowInstance[Arr[f[_, _]] >: ArrowChoicePlus[f] <: Arrow[f], F[_, _]]
+  : ArrowChoicePlus[FreeA[Arr, F, ?, ?]] with Arr[FreeA[Arr, F, ?, ?]] =
     new ArrowChoicePlus[FreeA[Arr, F, ?, ?]] {
       def compose[A, B, C](f: FreeA[Arr, F, B, C], g: FreeA[Arr, F, A, B]): FreeA[Arr, F, A, C] = g andThen f
       def lift[A, B](f: A => B): FreeA[Arr, F, A, B] = FreeA.fn(f)
       def first[A, B, C](fa: FreeA[Arr, F, A, B]): FreeA[Arr, F, (A, C), (B, C)] = fa.first
       def plus[A, B](f: FreeA[Arr, F, A, B], g: FreeA[Arr, F, A, B]): FreeA[Arr, F, A, B] =
-        (f <+> g).asInstanceOf[FreeA[Arr, F, A, B]]
+        f.plus(g).asInstanceOf[FreeA[Arr, F, A, B]]
       def zeroArrow[B, C]: FreeA[Arr, F, B, C] =
         FreeA.zeroArrow[B, C].asInstanceOf[FreeA[Arr, F, B, C]]
       def choose[A, B, C, D](f: FreeA[Arr, F, A, C])(g: FreeA[Arr, F, B, D]): FreeA[Arr, F, Either[A, B], Either[C, D]] =
@@ -239,16 +288,16 @@ object FreeA {
    * but encoding it into the GADT comes in handy when introspecting the [[FreeA]] structure since
    * it can be distinguished from other anonymous functions.
    */
-  final private case class Id[A]() extends FreeA[Arrow, Nothing, A, A] {
+  final private[free] case class Id[A]() extends FreeA[Arrow, Nothing, A, A] {
     def foldMap[G[_, _]](fg: Nothing ~~> G)(implicit A: Arrow[G]): G[A, A] = A.id
   }
-  final private case class Fn[A, B](f: A => B) extends FreeA[Arrow, Nothing, A, B] {
+  final private[free] case class Fn[A, B](f: A => B) extends FreeA[Arrow, Nothing, A, B] {
     def foldMap[G[_, _]](fg: Nothing ~~> G)(implicit A: Arrow[G]): G[A, B] = A.lift(f)
   }
-  final private case class Lift[F[_, _], A, B](fab: A F B) extends FreeA[Arrow, F, A, B] {
+  final private[free] case class Lift[F[_, _], A, B](fab: A F B) extends FreeA[Arrow, F, A, B] {
     def foldMap[G[_, _]](fg: F ~~> G)(implicit A: Arrow[G]): G[A, B] = fg(fab)
   }
-  final private case class AndThen[Arr[f[_, _]] <: Arrow[f], F[_, _], A, B, C](
+  final private[free] case class AndThen[Arr[f[_, _]] <: Arrow[f], F[_, _], A, B, C](
     begin: FreeA[Arr, F, A, B],
     end: FreeA[Arr, F, B, C]
   ) extends FreeA[Arr, F, A, C] {
@@ -261,7 +310,7 @@ object FreeA {
             for {
               b <- Eval.later(apply(a.begin)).flatten
               e <- apply(a.end)
-            } yield b.andThen(e)
+            } yield A.andThen(b, e)
 
           case _ => Eval.now(f.foldMap(fk))
         }
@@ -270,66 +319,67 @@ object FreeA {
       val eval = for {
         e <- lazyAnd(begin)
         b <- Eval.later(lazyAnd(end)).flatten
-      } yield e andThen b
+      } yield A.andThen(e, b)
       eval.value
     }
   }
-  final private case class Merge[Arr[f[_, _]] <: Arrow[f], F[_, _], A, B, C](
+  final private[free] case class Merge[Arr[f[_, _]] <: Arrow[f], F[_, _], A, B, C](
     _first: FreeA[Arr, F, A, B],
     _second: FreeA[Arr, F, A, C]
   ) extends FreeA[Arr, F, A, (B, C)] {
     def foldMap[G[_, _]](fk: F ~~> G)(implicit A: Arr[G]): G[A, (B, C)] =
       A.merge(_first.foldMap(fk), _second.foldMap(fk))
   }
-  final private case class Split[Arr[f[_, _]] <: Arrow[f], F[_, _], A, B, C, D](
+  final private[free] case class Split[Arr[f[_, _]] <: Arrow[f], F[_, _], A, B, C, D](
     _first: FreeA[Arr, F, A, B],
     _second: FreeA[Arr, F, C, D]
   ) extends FreeA[Arr, F, (A, C), (B, D)] {
     def foldMap[G[_, _]](fk: F ~~> G)(implicit A: Arr[G]): G[(A, C), (B, D)] =
       A.split(_first.foldMap(fk), _second.foldMap(fk))
   }
-  final private case class First[Arr[f[_, _]] <: Arrow[f], F[_, _], A, B, C](
+  final private[free] case class First[Arr[f[_, _]] <: Arrow[f], F[_, _], A, B, C](
     _first: FreeA[Arr, F, A, B]
   ) extends FreeA[Arr, F, (A, C), (B, C)] {
     def foldMap[G[_, _]](fk: F ~~> G)(implicit A: Arr[G]): G[(A, C), (B, C)] =
       A.first(_first.foldMap(fk))
   }
-  final private case class Second[Arr[f[_, _]] <: Arrow[f], F[_, _], A, B, C](
+  final private[free] case class Second[Arr[f[_, _]] <: Arrow[f], F[_, _], A, B, C](
     _second: FreeA[Arr, F, A, B]) extends FreeA[Arr, F, (C, A), (C, B)] {
     def foldMap[G[_, _]](fk: F ~~> G)(implicit A: Arr[G]): G[(C, A), (C, B)] =
       A.second(_second.foldMap(fk))
   }
-  final private case class Choose[Arr[f[_, _]] <: Arrow[f], F[_, _], A, B, C, D](
+  final private[free] case class Choose[Arr[f[_, _]] <: Arrow[f], F[_, _], A, B, C, D](
     _left: FreeA[Arr, F, A, B],
     _right: FreeA[Arr, F, C, D]
   ) extends FreeA[λ[α[_, _] => Arr[α] with ArrowChoice[α]], F, Either[A, C], Either[B, D]] {
     def foldMap[G[_, _]](fg: F ~~> G)(implicit A: Arr[G] with ArrowChoice[G]): G[Either[A, C], Either[B, D]] =
       A.choose(_left.foldMap(fg))(_right.foldMap(fg))
   }
-  final private case class Left[Arr[f[_, _]] <: Arrow[f], F[_, _], A, B, C](
+  final private[free] case class Left[Arr[f[_, _]] <: Arrow[f], F[_, _], A, B, C](
     _left: FreeA[Arr, F, A, B]
   ) extends FreeA[λ[α[_, _] => Arr[α] with ArrowChoice[α]], F, Either[A, C], Either[B, C]] {
+
     def foldMap[G[_, _]](fg: F ~~> G)(implicit A: Arr[G] with ArrowChoice[G]): G[Either[A, C], Either[B, C]] =
       A.left(_left.foldMap(fg))
   }
-  final private case class Right[Arr[f[_, _]] <: Arrow[f], F[_, _], A, B, C](
+  final private[free] case class Right[Arr[f[_, _]] <: Arrow[f], F[_, _], A, B, C](
     _right: FreeA[Arr, F, A, B]
   ) extends FreeA[λ[α[_, _] => Arr[α] with ArrowChoice[α]], F, Either[C, A], Either[C, B]] {
     def foldMap[G[_, _]](fg: F ~~> G)(implicit A: Arr[G] with ArrowChoice[G]): G[Either[C, A], Either[C, B]] =
       A.right(_right.foldMap(fg))
   }
-  final private case class Choice[Arr[f[_, _]] <: Arrow[f], F[_, _], A, B, C](
+  final private[free] case class Choice[Arr[f[_, _]] <: Arrow[f], F[_, _], A, B, C](
     _left: FreeA[Arr, F, A, B],
     _right: FreeA[Arr, F, C, B]
   ) extends FreeA[λ[α[_, _] => Arr[α] with ArrowChoice[α]], F, Either[A, C], B] {
     def foldMap[G[_, _]](fg: F ~~> G)(implicit A: Arr[G] with ArrowChoice[G]): G[Either[A, C], B] =
       A.choice(_left.foldMap(fg), _right.foldMap(fg))
   }
-  final private case class Zero[A, B]() extends FreeA[ArrowZero, Nothing, A, B] {
+  final private[free] case class Zero[A, B]() extends FreeA[ArrowZero, Nothing, A, B] {
     def foldMap[G[_, _]](fg: Nothing ~~> G)(implicit A: ArrowZero[G]): G[A, B] =
       A.zeroArrow
   }
-  final private case class Plus[Arr[f[_, _]] <: Arrow[f], F[_, _], A, B](
+  final private[free] case class Plus[Arr[f[_, _]] <: Arrow[f], F[_, _], A, B](
     f: FreeA[Arr, F, A, B],
     g: FreeA[Arr, F, A, B]
   ) extends FreeA[λ[α[_, _] => Arr[α] with ArrowPlus[α]], F, A, B] {

@@ -16,7 +16,7 @@ object ArrowLoop {
 
   implicit val functionArrowLoop: ArrowLoop[Function1] = new ArrowLoopInstance(catsStdInstancesForFunction1) {
     def loop[A, B, C](f: Loop[Function1, A, B, C]): A => B = { a =>
-      new { val cd: B :&: C = f(LazyTuple(a, cd._2)) }.cd._1
+      new { val cd: B :&: C = f(lzy(a, cd._2)) }.cd._1
     }
   }
 

@@ -7,7 +7,7 @@ import io.circe.Json
 import scala.io.StdIn
 import scala.util.Try
 
-object examples {
+object exampleDsl {
 
   sealed trait Expr[A, B] extends Product with Serializable
   object Expr {
@@ -40,8 +40,8 @@ object examples {
     type FrCnslCh[A, B] = FAC[ConsoleArr, A, B]
 
     case object GetLine                 extends ConsoleArr[Unit, String]
-    case object GetInt                  extends ConsoleArr[Unit, Int]
     case object PutLine                 extends ConsoleArr[String, Unit]
+    case object GetInt                  extends ConsoleArr[Unit, Int]
     case object Compute                 extends ConsoleArr[Unit, Unit]
     case object RepeatN                 extends ConsoleArr[(String, Int), Unit]
     case class Prompt(message: String)  extends ConsoleArr[Unit, Unit]
@@ -81,7 +81,7 @@ object examples {
       }
     }
 
-    val countPrintlns: ConsoleArr ~>> Int = new (ConsoleArr ~>> Int) {
+    val countPrintlns: ConsoleArr ~>| Int = new (ConsoleArr ~>| Int) {
       def apply[A, B](f: ConsoleArr[A, B]): Int = f match {
         case PutLine | Prompt(_)  => 1
         case _                    => 0
