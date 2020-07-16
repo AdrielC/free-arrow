@@ -7,32 +7,10 @@ import com.adrielc.arrow.{ArrowChoicePlus, ArrowPlus, ArrowZero, ~>|, ~~>}
 import cats.syntax.{either, flatMap}, either._, flatMap._
 import com.adrielc.arrow.data.ConstA
 
-/** <<< Free Arrow >>>
+/** Free Arrow
  *
  * Free construction of an Arrow for any context [[F]] with interpretation requirements of [[R]]
  *
- * Based on the paper "Generalizing Monads to Arrows"
- *
- * @see "http://www.cse.chalmers.se/~rjmh/Papers/arrows.pdf"
- *
- * Use [[FreeA]] to build a computation graph for any context [[F]] as if it were an arrow
- * without needing the corresponding Arrow instance. Typically [[FreeA]] is used to compose
- * values of some embedded DSL [[F]] into a structure.
- *
- * The primary motivation for using [[FreeA]] is to decouple the construction of a program
- * from its interpretation, enabling the following feaatures:
- *
- * -  Create reusable and modular components to build complex programs from simpler ones
- * -  Change the program's interpretation without altering its structure
- * -  Statically introspect the graph to describe the flow
- * -  Optimize/rewrite a program using results from its analysis
- *
- *
- * As Free constructions go, here's how [[FreeA]] sits on the spectrum of power and expressiveness:
- *
- * (Co)Yoneda > Free Applicative > Free Arrow > Free Monad
- *
- * Free Arrow has both the static introspection of the Free Applicative and the sequencing capability of the Free Monad
  * @tparam R The capabilities required to interpret/fold this free arrow into [[F]]
  *           These capabilities adjust based on the methods used to create/compose
  *           the free arrow.
