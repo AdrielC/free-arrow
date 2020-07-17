@@ -1,13 +1,13 @@
 package com.adrielc.arrow
 
 import com.adrielc.arrow.data.JsonA
-import com.adrielc.arrow.free.{FA, FAC}
 import io.circe.Json
 
 import scala.io.StdIn
 import scala.util.Try
 
 object exampleDsl {
+  import com.adrielc.arrow.free.FreeArrow.lift
 
   sealed trait Expr[A, B] extends Product with Serializable
   object Expr {
@@ -15,6 +15,10 @@ object exampleDsl {
     final case object Add extends Expr[(Int, Int), Int]
     final case object Sub extends Expr[(Int, Int), Int]
     final case class Num(n: Int) extends Expr[Unit, Int]
+
+    val add = lift(Add)
+    val sub = lift(Sub)
+    def num(n: Int) = lift(Num(n))
 
     val toFn = new (Expr ~~> Function1) {
       def apply[A, B](f: Expr[A, B]): A => B = f match {
@@ -36,9 +40,6 @@ object exampleDsl {
 
   sealed trait ConsoleArr[-A, +B]
   object ConsoleArr {
-    type FrCnsl[A, B] = FA[ConsoleArr, A, B]
-    type FrCnslCh[A, B] = FAC[ConsoleArr, A, B]
-
     case object GetLine                 extends ConsoleArr[Unit, String]
     case object PutLine                 extends ConsoleArr[String, Unit]
     case object GetInt                  extends ConsoleArr[Unit, Int]
@@ -47,9 +48,16 @@ object exampleDsl {
     case class Prompt(message: String)  extends ConsoleArr[Unit, Unit]
     case class Const[A](value: A)       extends ConsoleArr[Unit, A]
     case class Dictionary(dict: Map[String, String]) extends ConsoleArr[String, Option[String]]
-    object Dictionary {
-      def apply(entries: (String, String)*): Dictionary = new Dictionary(entries.toMap)
-    }
+
+
+    val getLine = lift(GetLine)
+    val putLine = lift(PutLine)
+    val getInt  = lift(GetInt)
+    val compute = lift(Compute)
+    val repeatN = lift(RepeatN)
+    def prompt(message: String) = lift(Prompt(message))
+    def const[A](value: A) = lift(Const(value))
+    def dictionary(entries: (String, String)*) = lift(Dictionary(entries.toMap))
 
     implicit val functionInterpreter: ConsoleArr ~~> Function1 = new (ConsoleArr ~~> Function1) {
       override def apply[A, B](f: ConsoleArr[A, B]): A => B = f match {

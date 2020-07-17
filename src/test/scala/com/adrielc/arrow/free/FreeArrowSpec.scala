@@ -3,20 +3,19 @@ package com.adrielc.arrow.free
 import org.scalatest.{FlatSpec, Matchers}
 import cats.instances.all._
 import com.adrielc.arrow.exampleDsl.ConsoleArr
-import ConsoleArr.{GetLine, Prompt, PutLine, _}
-import cats.arrow.ArrowChoice
+import ConsoleArr._
 import com.adrielc.arrow.data.Tuple2A
 import com.adrielc.arrow.{~>|}
-import implicits._
 
 class FreeArrowSpec extends FlatSpec with Matchers {
-  import FreeA.{lift, id, fn}
+  import FreeArrow.{id, fn, lift}
 
-  val printInt: FA[ConsoleArr, Unit, Unit] = ~GetInt >^ (_.toString) >>^ PutLine
-
-  val printLine: FA[ConsoleArr, Unit, Unit] = ~GetLine >>^ PutLine
 
   "ArrowDescr" should "render op Json" in {
+
+    val printInt = getInt >>^ (_.toString) >>> putLine
+
+    val printLine = getLine >>> putLine
 
     val program3 = printLine >>> printInt
 
@@ -33,9 +32,9 @@ class FreeArrowSpec extends FlatSpec with Matchers {
   "FreeArrowChoice" should "allow for choice" in {
 
     val program =
-        (~Prompt("start left") +++ ~Prompt("right")) >>>
-        (~Const("done left") >>^ PutLine).left >>>
-        (~Const("done right") >>^ PutLine).right
+        (prompt("start left") +++ prompt("right")) >>>
+        (const("done left") >>> putLine).left >>>
+        (const("done right") >>> putLine).right
 
     val f = program.foldMap(functionInterpreter)
 
@@ -47,37 +46,38 @@ class FreeArrowSpec extends FlatSpec with Matchers {
 
   "FreeArrow" should "run translator and count printlns" in {
 
-    val translator = ~Prompt("Hello") >>^
-      Prompt("Enter an English word to translate") >>^
-      GetLine >| (
-      ("Translating " + (_: String)) >>^
-        PutLine >>>
-        (~Compute >>^ Prompt("...")).loopN(3)
-      ) >>^
-      Dictionary(
+    val translator =
+      prompt("Hello") >>>
+        prompt("Enter an English word to translate") >>>
+        getLine >| (
+          fn("Translating " + (_: String)) >>>
+            putLine >>>
+            (compute >>> prompt("...")).loopN(3)
+      ) >>>
+      dictionary(
         "apple" -> "manzana",
         "blue" -> "azul",
         "hello" -> "hola",
         "goodbye" -> "adios"
-      ) >^
-      (_.getOrElse("I don't know that one")) >>^
-      PutLine
+      ) >>^
+      (_.getOrElse("I don't know that one")) >>>
+      putLine
 
-    val optimized = translator.optimize[Int, ArrowChoice, ConsoleArr](
+    val optimized = translator.optimize(
       new (ConsoleArr ~>| Int) {
         def apply[A, B](f: ConsoleArr[A, B]): Int = f match {
           case Compute  => 1
           case _        => 0
         }
       },
-      new (|~>[Int, ArrowChoice, ConsoleArr]) {
-        def apply[A, B](f: (Int, ConsoleArr[A, B])): FAC[ConsoleArr, A, B] = f._2 match {
+      new (|~>[AC, ConsoleArr, Int]) {
+        def apply[A, B](f: (Int, ConsoleArr[A, B])): FC[ConsoleArr, A, B] = f._2 match {
 
           case d if d.isInstanceOf[Dictionary]  =>
 
             val tested = lift(d) >>> fn((_: B) => f._1 > 3).test
 
-            val finalize = (id[B] ||| fn((o: B) => { println("sorry for the wait"); o }))
+            val finalize = id[B] ||| fn((o: B) => { println("sorry for the wait"); o })
 
             tested >>> finalize
 
@@ -96,19 +96,19 @@ class FreeArrowSpec extends FlatSpec with Matchers {
 
     import com.adrielc.arrow.exampleDsl.Expr._
 
-    import FreeA._
+    import FreeArrow._
 
     val plusZeroId = zeroArrow[Int, Int] <+> id
 
-    val addBoth = (plusZeroId &&& plusZeroId) >>^ Add
+    val addBoth = (plusZeroId &&& plusZeroId) >>> add
 
-    val add10 = ~Num(10) >>> addBoth
+    val add10 = num(10) >>> addBoth
 
-    val choice = add10 ||| ~Num(100)
+    val choice = add10 ||| num(100)
 
-    val comp2 = choice >| ~((n: Int) => println(n))
+    val comp2 = choice >| fn((n: Int) => println(n))
 
-    val toMaybeOp = comp2 foldMap toMaybeFn
+    val toMaybeOp = comp2.foldMap(toMaybeFn)
 
     assert(toMaybeOp(|>) contains 100)
 
@@ -118,10 +118,14 @@ class FreeArrowSpec extends FlatSpec with Matchers {
   "FreeArrowChoicePlus" should "add" in {
     import com.adrielc.arrow.exampleDsl.Expr._
 
-    val and = ~Num(10) +++ ~Num(20)
+    val and = num(10) +++ num(20)
 
-    assert(and.foldMap(toMaybeFn).apply(<|).contains(Left(10)))
-    assert((~Num(10)).foldMap(toFn).apply(()) == 10)
+    val maybe = and.foldMap(toMaybeFn)
+
+    val pure = and.foldMap(toFn)
+
+    assert(maybe(<|).contains(Left(10)))
+    assert(pure(|>) == Right(20))
   }
 }
 
