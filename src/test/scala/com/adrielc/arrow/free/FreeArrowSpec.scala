@@ -8,7 +8,7 @@ import com.adrielc.arrow.data.Tuple2A
 import com.adrielc.arrow.{~>|}
 
 class FreeArrowSpec extends FlatSpec with Matchers {
-  import FreeArrow.{id, fn, lift}
+  import FreeA.{id, fn, lift, zeroArrow}
 
 
   "ArrowDescr" should "render op Json" in {
@@ -88,6 +88,11 @@ class FreeArrowSpec extends FlatSpec with Matchers {
 
     val runnable = optimized.foldMap(stubGets andThen functionInterpreter)
 
+    val idTest = id[String] ||| fn((o: String) => { println("sorry for the wait"); o })
+
+    idTest.foldMap(functionInterpreter)
+
+
     runnable(())
   }
 
@@ -95,8 +100,6 @@ class FreeArrowSpec extends FlatSpec with Matchers {
   "FreeArrowPlus" should "add zero arrow and mix in" in {
 
     import com.adrielc.arrow.exampleDsl.Expr._
-
-    import FreeArrow._
 
     val plusZeroId = zeroArrow[Int, Int] <+> id
 
@@ -118,11 +121,11 @@ class FreeArrowSpec extends FlatSpec with Matchers {
   "FreeArrowChoicePlus" should "add" in {
     import com.adrielc.arrow.exampleDsl.Expr._
 
-    val and = num(10) +++ num(20)
+    val and = num(10) +++ (zeroArrow[Unit, Int] <+> num(20))
 
     val maybe = and.foldMap(toMaybeFn)
 
-    val pure = and.foldMap(toFn)
+    val pure = and.foldMap(toPartialFn)
 
     assert(maybe(<|).contains(Left(10)))
     assert(pure(|>) == Right(20))

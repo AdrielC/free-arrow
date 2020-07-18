@@ -7,7 +7,7 @@ import scala.io.StdIn
 import scala.util.Try
 
 object exampleDsl {
-  import com.adrielc.arrow.free.FreeArrow.lift
+  import com.adrielc.arrow.free.FreeA.lift
 
   sealed trait Expr[A, B] extends Product with Serializable
   object Expr {
@@ -19,6 +19,15 @@ object exampleDsl {
     val add = lift(Add)
     val sub = lift(Sub)
     def num(n: Int) = lift(Num(n))
+
+    val toPartialFn = new (Expr ~~> PartialFunction) {
+
+      def apply[A, B](f: Expr[A, B]): PartialFunction[A, B] = f match {
+        case Add => PartialFunction((ab: (Int, Int)) => ab._1 + ab._2)
+        case Sub => PartialFunction((ab: (Int, Int)) => ab._1 - ab._2)
+        case Num(n) => PartialFunction(_ => n)
+      }
+    }
 
     val toFn = new (Expr ~~> Function1) {
       def apply[A, B](f: Expr[A, B]): A => B = f match {

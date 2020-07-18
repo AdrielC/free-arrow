@@ -14,7 +14,7 @@ object ExampleMain extends App {
   case object PutLine          extends ConsoleDSL[String, Unit]
   case class Prompt(s: String) extends ConsoleDSL[Unit, Unit]
 
-  import FreeArrow.{lift, fn}
+  import FreeA.{lift, fn}
 
   // Define smart constructors to lift dsl into FreeA
   val getLine = lift(GetLine)
