@@ -7,3 +7,8 @@ import simulacrum.{op, typeclass}
   @op("<+>", alias = true)
   def plus[A, B](f: A ~> B, g: A ~> B): A ~> B
 }
+
+object ArrowPlus {
+
+  implicit val partialFunction: ArrowPlus[PartialFunction] = ArrowChoicePlus.partialFunction
+}

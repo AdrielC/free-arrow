@@ -16,15 +16,13 @@ object MaybeFn {
   case class Op[A, B](f: A => B) extends MaybeFn[A, B]
   case object No extends MaybeFn[Any, Nothing]
 
-  implicit val arrowPlus: ArrowChoicePlus[MaybeFn] = new ArrowChoicePlus[MaybeFn] {
+  implicit val arrowZero: ArrowChoiceZero[MaybeFn] = new ArrowChoiceZero[MaybeFn] {
 
     def choose[A, B, C, D](f: MaybeFn[A, C])(g: MaybeFn[B, D]): MaybeFn[Either[A, B], Either[C, D]] =
       (f, g) match {
         case (Op(f), Op(g)) => MaybeFn(f +++ g)
         case _ => No
       }
-
-    def plus[A, B](f: MaybeFn[A, B], g: MaybeFn[A, B]): MaybeFn[A, B] = if(f == No) g else f
 
     def zeroArrow[B, C]: MaybeFn[B, C] = No
 

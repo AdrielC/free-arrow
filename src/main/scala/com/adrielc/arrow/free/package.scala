@@ -48,7 +48,7 @@ package object free {
 
   val `|>`: Either[Unit, Unit] = Right(())
 
-  type |||@[+F[f[_, _]] >: AC[f] with AP[f]] = Lub[F, AC, ACP]
+  type |||@[+F[f[_, _]] >: AC[f]] = Lub[F, AC, ACP]
   type <+>@[+F[f[_, _]] >: AP[f]] = Lub[F, AP, ACP]
   type ^|-@[+F[f[_, _]] >: AZ[f]] = Lub[F, AZ, ACP]
   type |&|@[+F[f[_, _]] >: ACP[f]] = Lub[F, ACP, ACP]
@@ -57,24 +57,24 @@ package object free {
 package free {
 
   /** For unifying types between Arrows when mixing FreeA capabilities */
-  trait Lub[+F[f[_, _]] >: B[f], +G[f[_, _]] >: B[f], B[_[_, _]]] {
+  trait Lub[+F[f[_, _]] >: B[f], +G[f[_, _]] >: B[f], -B[_[_, _]]] {
     type Lub[f[_, _]] >: B[f] <: G[f] with F[f]
   }
   object Lub extends LubArrow0 {
-    type Aux[F[f[_, _]] >: ACP[f], G[f[_, _]] >: ACP[f], Ar[f[_, _]]] = Lub[F, G, ACP] { type Lub[f[_, _]] = Ar[f] }
-    implicit val ar: Lub.Aux[AR, AR, AR] = new Lub[AR, AR, ACP] { type Lub[f[_, _]] = AR[f] }
+    type Aux[+F[f[_, _]] >: B[f], +G[f[_, _]] >: B[f], -B[_[_, _]], O[_[_, _]]] = Lub[F, G, B] { type Lub[f[_, _]] = O[f] }
+    implicit val ar: Lub.Aux[AR, AR, ACP, AR] = new Lub[AR, AR, ACP] { type Lub[f[_, _]] = AR[f] }
   }
   trait LubArrow0 extends LubArrow1 {
-    implicit val az: Lub.Aux[AZ, AZ, AZ] = new Lub[AZ, AZ, ACP] { type Lub[f[_, _]] = AZ[f] }
-    implicit val ac: Lub.Aux[AC, AC, AC] = new Lub[AC, AC, ACP] { type Lub[f[_, _]] = AC[f] }
+    implicit val az: Lub.Aux[AZ, AZ, ACP, AZ] = new Lub[AZ, AZ, ACP] { type Lub[f[_, _]] = AZ[f] }
+    implicit val ac: Lub.Aux[AC, AC, ACP, AC] = new Lub[AC, AC, ACP] { type Lub[f[_, _]] = AC[f] }
   }
   trait LubArrow1 extends LubArrow2 {
-    implicit val ap: Lub.Aux[AP, AP, AP] = new Lub[AP, AP, ACP] { type Lub[f[_, _]] = AP[f] }
+    implicit val ap: Lub.Aux[AP, AP, ACP, AP] = new Lub[AP, AP, ACP] { type Lub[f[_, _]] = AP[f] }
   }
   trait LubArrow2 extends LubArrow3 {
-    implicit val acz: Lub.Aux[ACZ, ACZ, ACZ] = new Lub[ACZ, ACZ, ACP] { type Lub[f[_, _]] = ACZ[f] }
+    implicit val acz: Lub.Aux[ACZ, ACZ, ACP, ACZ] = new Lub[ACZ, ACZ, ACP] { type Lub[f[_, _]] = ACZ[f] }
   }
   trait LubArrow3 {
-    implicit val acp: Lub.Aux[ACP, ACP, ACP] = new Lub[ACP, ACP, ACP] { type Lub[f[_, _]] = ACP[f] }
+    implicit val acp: Lub.Aux[ACP, ACP, ACP, ACP] = new Lub[ACP, ACP, ACP] { type Lub[f[_, _]] = ACP[f] }
   }
 }

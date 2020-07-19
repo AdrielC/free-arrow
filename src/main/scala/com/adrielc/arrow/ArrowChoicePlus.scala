@@ -35,7 +35,6 @@ object ArrowChoicePlus {
       override def isDefinedAt(x: (A, C)): Boolean = fa.isDefinedAt(x._1)
       override def apply(v1: (A, C)): (B, C) = (fa(v1._1), v1._2)
     }
-
   }
 
 }

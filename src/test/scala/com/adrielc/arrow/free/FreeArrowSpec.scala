@@ -111,24 +111,25 @@ class FreeArrowSpec extends FlatSpec with Matchers {
 
     val comp2 = choice >| fn((n: Int) => println(n))
 
-    val toMaybeOp = comp2.foldMap(toMaybeFn)
+    val toMaybeOp = comp2.foldMap(toPartialFn)
 
-    assert(toMaybeOp(|>) contains 100)
+    assert(toMaybeOp(|>) === 100)
 
-    assert(toMaybeOp(<|) contains 20)
+    assert(toMaybeOp(<|) === 20)
   }
 
-  "FreeArrowChoicePlus" should "add" in {
+  "FreeA" should "infer R to be ArrowChoiceZero" in {
     import com.adrielc.arrow.exampleDsl.Expr._
 
-    val and = num(10) +++ (zeroArrow[Unit, Int] <+> num(20))
+    val z = zeroArrow[Unit, Int] >>^ (_.toLong) >>^ (_ + 100)
 
-    val maybe = and.foldMap(toMaybeFn)
+    val add100 = id[Unit] >>> num(0) >>^ (_.toLong) >>^ (_ + 100)
 
-    val pure = and.foldMap(toPartialFn)
+    val acz = z ||| add100
 
-    assert(maybe(<|).contains(Left(10)))
-    assert(pure(|>) == Right(20))
+    val maybe = acz.foldMap(toMaybeFn)
+
+    assert(maybe(|>).contains(100))
   }
 }
 
