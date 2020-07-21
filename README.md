@@ -147,7 +147,7 @@ val unit: FreeA[Arrow,      Nothing, Unit, Unit]                = FreeA.id[Unit]
 
 val ar: FreeA[Arrow,        Nothing, Unit, Unit]                = unit >>> unit
 
-val _: FreeA[ArrowChoice,   Nothing, Either[Unit, Unit], Unit]  = ar ||| ar
+val ac: FreeA[ArrowChoice,  Nothing, Either[Unit, Unit], Unit]  = ar ||| ar
 
 val az: FreeA[ArrowZero,    Nothing, Unit, Unit]                = ar >>> zeroArrow[Unit, Unit]
 
