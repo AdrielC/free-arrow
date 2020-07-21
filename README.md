@@ -157,7 +157,7 @@ val ap: FreeA[ArrowPlus,    Nothing, Unit, Unit]                = az <+> ar <+> 
 // `Function1` does not have an ArrowPlus instance
 
 val run = ap.foldMap(BiFunctionK.id[Function1].kleisli[List]) // compiles
-// Any Kleisli[M, A, B] that has a MonoidK[M] has an ArrowPlus[Kleisli[M, ?, ?]] instance
+// Any Kleisli[M, A, B] that has a Monad[M] and MonoidK[M] has an ArrowPlus[Kleisli[M, ?, ?]] instance
 
 run(()) // List((), ())
 
