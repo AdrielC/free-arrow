@@ -10,6 +10,9 @@ import com.adrielc.arrow.{BiFunctionK, ~>|}
 import FreeA._
 import cats.data.NonEmptyMap
 
+import scala.concurrent.duration.{Duration, MILLISECONDS}
+import scala.concurrent.{Await, ExecutionContext, Future}
+
 class FreeArrowSpec extends FlatSpec with Matchers {
   import FreeA.{id, fn, lift, zeroArrow}
 
@@ -137,6 +140,17 @@ class FreeArrowSpec extends FlatSpec with Matchers {
     val run = program.foldMap(Expr.~~>.function.kleisli[List])
 
     assert(run(0) === List(20, 20, 20))
+  }
+
+  "FreeA.foldMap" should "not overflow" in {
+
+    implicit val ec: ExecutionContext = ExecutionContext.global
+
+    val add10Loop = (id[Int] ->/ num(1) >>> add).loopN(10000)
+
+    val f = add10Loop.foldMap(Expr.~~>.function.kleisli[Future])
+
+    println(Await.result(f(0), Duration(1000, MILLISECONDS)))
   }
 
   /**

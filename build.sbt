@@ -39,6 +39,13 @@ lazy val core = (project in file("core"))
     )
   )
 
+lazy val zio = (project in file("zio"))
+  .dependsOn(core)
+  .settings(
+    commonSettings,
+    libraryDependencies += "dev.zio" %% "zio" % "1.0.0-RC21-2"
+  )
+
 lazy val `free-arrow` = (project in file("."))
   .settings(commonSettings: _*)
-  .aggregate(macros, core)
+  .aggregate(macros, core, zio)
