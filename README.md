@@ -5,7 +5,6 @@
 
 Implementation of the Free Arrow in Scala and other helpful tools for working with Arrows
 
-
 Based on the paper [Generalizing Monads to Arrows](http://www.cse.chalmers.se/~rjmh/Papers/arrows.pdf)
 
 Use Free Arrow (`FreeA`) to build a computation graph for any context `F[A, B]` as if it were an arrow
@@ -147,6 +146,11 @@ typeclass hierarchy.
  `FreeA.inl`/`FreeA.inr` and the `BiFunctionK.or` combinators respectively.
     - e.g. A `FreeA[R, ConsoleOp, A, B]` and a `FreeA[R, MathOp, A, B]` can be combined to a
     `EitherFreeA[R, ConsoleOp, MathOp, A, B]`
+    
+### Type Classes Supported by FreeA
+
+
+
 
 ### Credits
 
