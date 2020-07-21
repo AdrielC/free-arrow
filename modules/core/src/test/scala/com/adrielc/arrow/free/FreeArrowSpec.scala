@@ -6,8 +6,9 @@ import com.adrielc.arrow.exampleDsl.{Cnsl, Expr}
 import Cnsl.free._
 import Expr.free._
 import com.adrielc.arrow.data.EnvA
-import com.adrielc.arrow.{BiFunctionK, ~>|}
+import com.adrielc.arrow.{ArrowPlus, ArrowZero, BiFunctionK, ~>|}
 import FreeA._
+import cats.arrow.{Arrow, ArrowChoice}
 import cats.data.NonEmptyMap
 
 import scala.concurrent.duration.{Duration, MILLISECONDS}
@@ -173,6 +174,23 @@ class FreeArrowSpec extends FlatSpec with Matchers {
     val run = both.foldMap(stubGets.andThen(Cnsl.~~>.function) or Expr.~~>.function)
 
     run(())
+  }
+
+  "FreeA" should "infer capabilities" in {
+
+    val unit: FreeA[Arrow,      Nothing, Unit, Unit]                = FreeA.id[Unit]
+
+    val ar: FreeA[Arrow,        Nothing, Unit, Unit]                = unit >>> unit
+
+    val _: FreeA[ArrowChoice,   Nothing, Either[Unit, Unit], Unit]  = ar ||| ar
+
+    val az: FreeA[ArrowZero,    Nothing, Unit, Unit]                = ar >>> zeroArrow[Unit, Unit]
+
+    val ap: FreeA[ArrowPlus,    Nothing, Unit, Unit]                = az <+> ar <+> ar
+
+    val run = ap.foldMap(BiFunctionK.id[Function1].kleisli[List])
+
+    assert(run(()) === List((), ()))
   }
 }
 

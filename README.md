@@ -7,7 +7,7 @@ Implementation of the Free Arrow in Scala and other helpful tools for working wi
 
 Based on the paper [Generalizing Monads to Arrows](http://www.cse.chalmers.se/~rjmh/Papers/arrows.pdf)
 
-Use Free Arrow (`FreeA`) to build a computation graph for any context `F[A, B]` as if it were an arrow
+Use Free Arrow (`FreeA[R, F, A, B]`) to build a computation graph for any context `F[A, B]` as if it were an arrow
 without needing the corresponding Arrow instance. Typically `FreeA` is used to compose
 values of some embedded DSL `F[A, B]` into a structure.
 
@@ -134,22 +134,42 @@ Here is the output of an interpreter that draws a computation graph.
  
  
 ### Other Features:
-- FreeA is implemented as a sealed trait that supports operations from several levels of the Arrow
+
+FreeA is implemented as a sealed trait that supports operations from several levels of the Arrow
 typeclass hierarchy. 
-    - The typeclass required to run/interpret a FreeA is inferred by the operations
-    used to build it. Only the most general and least powerful Arrow subtype will be required. 
-    For example, if the only operations used to build a `FreeA[R, F, A, B]` are `>>>`, `***` 
-    and `&&&`, Then the required arrow instance `R` will be inferred as `Arrow`.
-    If that `FreeA` is futher composed using `|||`, then the requirement type `R` will 
-    automatically update to `ArrowChoice`
-- Different DSLs and their interpreters can be composed together in `FreeA` using 
+    
+The typeclass required to run/interpret a FreeA is inferred by the operations
+used to build it. Only the most general and least powerful Arrow subtype will be required.
+
+```scala
+
+val unit: FreeA[Arrow,      Nothing, Unit, Unit]                = FreeA.id[Unit]
+
+val ar: FreeA[Arrow,        Nothing, Unit, Unit]                = unit >>> unit
+
+val _: FreeA[ArrowChoice,   Nothing, Either[Unit, Unit], Unit]  = ar ||| ar
+
+val az: FreeA[ArrowZero,    Nothing, Unit, Unit]                = ar >>> zeroArrow[Unit, Unit]
+
+val ap: FreeA[ArrowPlus,    Nothing, Unit, Unit]                = az <+> ar <+> ar
+
+// val run = ap.foldMap(BiFunctionK.id[Function1]) // wont compile, 
+// `Function1` does not have an ArrowPlus instance
+
+val run = ap.foldMap(BiFunctionK.id[Function1].kleisli[List]) // compiles
+// Any Kleisli[M, A, B] that has a MonoidK[M] has an ArrowPlus[Kleisli[M, ?, ?]] instance
+
+```    
+
+Different DSLs and their interpreters can be composed together in `FreeA` using 
  `FreeA.inl`/`FreeA.inr` and the `BiFunctionK.or` combinators respectively.
-    - e.g. A `FreeA[R, ConsoleOp, A, B]` and a `FreeA[R, MathOp, A, B]` can be combined to a
+    
+   - e.g. A `FreeA[R, ConsoleOp, A, B]` and a `FreeA[R, MathOp, A, B]` can be combined to a
     `EitherFreeA[R, ConsoleOp, MathOp, A, B]`
     
 ### Type Classes Supported by FreeA
 
-
+![type-classes](docs/Arrow%20Hierarchy.png)
 
 
 ### Credits

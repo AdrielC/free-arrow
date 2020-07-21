@@ -119,7 +119,7 @@ sealed trait FreeA[-R[f[_, _]] >: ACP[f] <: AR[f], +Pipe[_, _], In, Out] {
   ): FreeA[RR, FF, In, (Out, C)] = self.merge(fac)
 
   /** Alias for [[choose]] */
-  final def +++[RR[f[_, _]] >: AC[f] <: R[f], FF[a, b] >: Pipe[a, b], C, D](
+  final def +++[RR[f[_, _]] >: ACP[f] <: R[f], FF[a, b] >: Pipe[a, b], C, D](
     fcd: FreeA[RR, FF, C, D]
   )(implicit L: |||@[RR]): FreeA[L.Lub, FF, Either[In, C], Either[Out, D]] =
     self.choose(fcd)
@@ -131,7 +131,7 @@ sealed trait FreeA[-R[f[_, _]] >: ACP[f] <: AR[f], +Pipe[_, _], In, Out] {
     self.choice[RR, FF, C](fcb)
 
   /** Alias for [[plus]] */
-  final def <+>[RR[f[_, _]] >: AP[f] <: R[f], FF[a, b] >: Pipe[a, b]](
+  final def <+>[RR[f[_, _]] >: ACP[f] <: R[f], FF[a, b] >: Pipe[a, b]](
     fcb: FreeA[RR, FF, In, Out]
   )(implicit L: <+>@[RR]): FreeA[L.Lub, FF, In, Out] =
     self.plus(fcb)
@@ -273,7 +273,7 @@ sealed trait FreeA[-R[f[_, _]] >: ACP[f] <: AR[f], +Pipe[_, _], In, Out] {
     Split(self, fcd)
 
   /** [[Plus]] */
-  final def plus[RR[f[_, _]] >: AP[f] <: R[f], FF[a, b] >: Pipe[a, b]](
+  final def plus[RR[f[_, _]] >: ACP[f] <: R[f], FF[a, b] >: Pipe[a, b]](
     fcb: FreeA[RR, FF, In, Out]
   )(implicit L: <+>@[RR]): FreeA[L.Lub, FF, In, Out] =
     Plus[RR, FF, In, Out](self, fcb)
@@ -445,7 +445,7 @@ object FreeA {
     def foldMap[G[_, _]](fg: Nothing ~~> G)(implicit A: ArrowZero[G]): G[A, B] =
       A.zeroArrow
   }
-  final private[free] case class Plus[R[f[_, _]] >: AP[f] <: AR[f], F[_, _], A, B](
+  final private[free] case class Plus[R[f[_, _]] >: ACP[f] <: AR[f], F[_, _], A, B](
     f: FreeA[R, F, A, B],
     g: FreeA[R, F, A, B]
   ) extends FreeA[λ[α[_, _] => R[α] with ArrowPlus[α]], F, A, B] {
