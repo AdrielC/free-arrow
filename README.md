@@ -150,11 +150,11 @@ typeclass hierarchy.
 
 ### Credits
 
-Based on https://www.youtube.com/watch?v=A-lmrvsUi2Y
+Based on the talks [Beyond Free Monads](https://www.youtube.com/watch?v=A-lmrvsUi2Y) and [Blazing Fast, Pure Effects without Monads](https://www.youtube.com/watch?v=L8AEj6IRNEE) by John A De Goes
 
 The ZIO arrow module has been adapted from the work in https://github.com/zio-crew/zio-arrow. Only main difference that the code in this repo has is that
 Impure function compisition is made stack safe.
-and based on the talk [Blazing Fast, Pure Effects without Monads](https://www.youtube.com/watch?v=L8AEj6IRNEE) by John A De Goes
+
 
 ### Usage
 
