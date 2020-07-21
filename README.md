@@ -159,6 +159,8 @@ val ap: FreeA[ArrowPlus,    Nothing, Unit, Unit]                = az <+> ar <+> 
 val run = ap.foldMap(BiFunctionK.id[Function1].kleisli[List]) // compiles
 // Any Kleisli[M, A, B] that has a MonoidK[M] has an ArrowPlus[Kleisli[M, ?, ?]] instance
 
+run(()) // List((), ())
+
 ```    
 
 Different DSLs and their interpreters can be composed together in `FreeA` using 
