@@ -150,7 +150,8 @@ typeclass hierarchy.
 
 ### Credits
 
-The ZIO arrow module has been adapted from the work in https://github.com/zio-crew/zio-arrow
+The ZIO arrow module has been adapted from the work in https://github.com/zio-crew/zio-arrow 
+and based on this talk https://www.youtube.com/watch?v=L8AEj6IRNEE
 
 ### Usage
 
