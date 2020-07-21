@@ -59,7 +59,7 @@ Construct a program from your free operations
 val translator = 
     prompt("Hello") >>>
     prompt("Enter an English word to translate") >>>
-    getLine >| ( // dead end, return output of `getLine` after the following
+    getLine ->| ( // dead end, return output of `getLine` after the following
       ("Translating " + (_: String)) >>>
         putLine >>>
         (prompt("...") >>> (_ => Thread.sleep(1000))).loopN(3)
@@ -133,7 +133,20 @@ Here is the output of an interpreter that draws a computation graph.
 
 ![translator](docs/translator.png)
  
-
+ 
+### Other Features:
+- FreeA is implemented as a sealed trait that supports operations from several levels of the Arrow
+typeclass hierarchy. 
+    - The typeclass required to run/interpret a FreeA is inferred by the operations
+    used to build it. Only the most general and least powerful Arrow subtype will be required. 
+    For example, if the only operations used to build a `FreeA[R, F, A, B]` are `>>>`, `***` 
+    and `&&&`, Then the required arrow instance `R` will be inferred as `Arrow`.
+    If that `FreeA` is futher composed using `|||`, then the requirement type `R` will 
+    automatically update to `ArrowChoice`
+- Different DSLs and their interpreters can be composed together in `FreeA` using 
+ `FreeA.inl`/`FreeA.inr` and the `BiFunctionK.or` combinators respectively.
+    - e.g. A `FreeA[R, ConsoleOp, A, B]` and a `FreeA[R, MathOp, A, B]` can be combined to a
+    `EitherFreeA[R, ConsoleOp, MathOp, A, B]`
 
 ### Usage
 

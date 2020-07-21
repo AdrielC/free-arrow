@@ -19,11 +19,12 @@ import com.adrielc.arrow.data.{BiConst, BiEitherK, EnvA}
  *           These capabilities adjust based on the methods used to create/compose
  *           the free arrow.
  *
- *           Must be a subtype of [[R]] and supertype of [[ArrowChoicePlus]] since those
+ *           Must be a subtype of [[Arrow]] and supertype of [[ArrowChoicePlus]] since those
  *           are the currently supported typeclasses
+ *
  * @tparam Pipe The underlying arrow context. Any type of kind (* -> * -> *) e.g. `AST[In, Out]` can be
- *           be composed together using methods from [[R]] to [[ArrowChoicePlus]] without requiring
- *           an instance of the desired type class
+ *              be composed together using methods from [[R]] to [[ArrowChoicePlus]] without requiring
+ *              an instance of the desired type class
  */
 sealed trait FreeA[-R[f[_, _]] >: ACP[f] <: AR[f], +Pipe[_, _], In, Out] {
   self =>
@@ -69,13 +70,22 @@ sealed trait FreeA[-R[f[_, _]] >: ACP[f] <: AR[f], +Pipe[_, _], In, Out] {
 
   /**
    *
+   * Optimize/rewrite this FreeA by using a summary value [[M]].
+   *
+   * @param analyze A binatural function from [[Pipe]] to some monoid [[M]]
+   *                that will be folded over this structure to create a summary value.
+   *                This is lazily executed, and will only fold over the structure if
+   *                the [[M]] value is used in `optimize`
+   *
+   * @param optimize A binatural function that can use the summary [[M]] to
+   *                 rewrite [[Pipe]] into a new [[FreeA]].
    *
    */
-  final def optimize[RR[f[_, _]] >: ACP[f] <: AR[f], FF[a, b] >: Pipe[a, b], M: Monoid](
-    inspect: FF ~>| M,
+  final def optimize[RR[f[_, _]] >: ACP[f] <: R[f], FF[a, b] >: Pipe[a, b], M: Monoid](
+    analyze: FF ~>| M,
     optimize: |~>[M, RR, FF]
   ): FreeA[RR, FF, In, Out] =
-    foldMap(EnvA[FF](self.analyze[M](inspect)).andThen(optimize))
+    foldMap(EnvA[FF](self.analyze[M](analyze)).andThen(optimize))
 
 
   // Combinators
