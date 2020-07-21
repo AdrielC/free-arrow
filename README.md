@@ -150,6 +150,8 @@ typeclass hierarchy.
 
 ### Credits
 
+Based on https://www.youtube.com/watch?v=A-lmrvsUi2Y
+
 The ZIO arrow module has been adapted from the work in https://github.com/zio-crew/zio-arrow 
 and based on the talk [Blazing Fast, Pure Effects without Monads](https://www.youtube.com/watch?v=L8AEj6IRNEE) by John A De Goes
 
