@@ -350,7 +350,7 @@ object FreeA {
   final private[free] case class Fn[A, B](f: A => B) extends FreeA[Arrow, Nothing, A, B] {
     def foldMap[G[_, _]](fg: Nothing ~~> G)(implicit A: Arrow[G]): G[A, B] = A.lift(f)
   }
-  final private[free] case class Lift[F[_, _], A, B](fab: A F B) extends FreeA[Arrow, F, A, B] {
+  final private[free] case class Lift[F[_, _], A, B](fab: F[A, B]) extends FreeA[Arrow, F, A, B] {
     def foldMap[G[_, _]](fg: F ~~> G)(implicit A: Arrow[G]): G[A, B] = fg(fab)
   }
   final private[free] case class AndThen[Arr[f[_, _]] >: ACP[f] <: AR[f], F[_, _], A, B, C](
