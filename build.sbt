@@ -48,4 +48,4 @@ lazy val zio = (project in file("zio"))
 
 lazy val `free-arrow` = (project in file("."))
   .settings(commonSettings: _*)
-  .aggregate(macros, core, zio, reftree)
+  .aggregate(macros, core, zio)
