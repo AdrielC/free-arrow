@@ -152,7 +152,8 @@ typeclass hierarchy.
 
 Based on https://www.youtube.com/watch?v=A-lmrvsUi2Y
 
-The ZIO arrow module has been adapted from the work in https://github.com/zio-crew/zio-arrow 
+The ZIO arrow module has been adapted from the work in https://github.com/zio-crew/zio-arrow. Only main difference that the code in this repo has is that
+Impure function compisition is made stack safe.
 and based on the talk [Blazing Fast, Pure Effects without Monads](https://www.youtube.com/watch?v=L8AEj6IRNEE) by John A De Goes
 
 ### Usage
