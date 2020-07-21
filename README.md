@@ -148,6 +148,10 @@ typeclass hierarchy.
     - e.g. A `FreeA[R, ConsoleOp, A, B]` and a `FreeA[R, MathOp, A, B]` can be combined to a
     `EitherFreeA[R, ConsoleOp, MathOp, A, B]`
 
+### Credits
+
+The ZIO arrow module has been adapted from the work in https://github.com/zio-crew/zio-arrow
+
 ### Usage
 
 Add this to your `build.sbt`:
