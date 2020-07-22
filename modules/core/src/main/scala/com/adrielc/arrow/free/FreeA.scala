@@ -247,12 +247,12 @@ sealed trait FreeA[-R[f[_, _]] >: ACP[f] <: AR[f], +Pipe[_, _], In, Out] {
     Second(self)
 
   /** [[Left]] */
-  final def left[RR[f[_, _]] >: AC[f] <: R[f], FF[a, b] >: Pipe[a, b], C](implicit L: |||@[RR])
-  : FreeA[L.Lub, FF, Either[In, C], Either[Out, C]] = Left[RR, Pipe, In, Out, C](self)
+  final def left[C](implicit L: |||@[R]): FreeA[L.Lub, Pipe, Either[In, C], Either[Out, C]] =
+    Left(self)
 
   /** [[Right]] */
-  final def right[RR[f[_, _]] >: AC[f] <: R[f], FF[a, b] >: Pipe[a, b], C](implicit L: |||@[RR])
-  : FreeA[L.Lub, FF, Either[C, In], Either[C, Out]] = Right[RR, Pipe, In, Out, C](self)
+  final def right[C](implicit L: |||@[R]): FreeA[L.Lub, Pipe, Either[C, In], Either[C, Out]] =
+    Right(self)
 
   /** [[Choice]] */
   final def choice[RR[f[_, _]] >: ACP[f] <: R[f], FF[a, b] >: Pipe[a, b], C](

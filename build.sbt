@@ -15,7 +15,9 @@ lazy val commonSettings = Seq(
   scalafmtOnCompile := false,
   libraryDependencies ++= Seq(
     scalaOrganization.value % "scala-compiler" % scalaVersion.value,
-    compilerPlugin(Libraries.paradise cross CrossVersion.patch)
+    compilerPlugin(Libraries.paradise cross CrossVersion.patch),
+    Libraries.scalaTest  % Test,
+    Libraries.scalaCheck % Test
   )
 )
 
@@ -32,9 +34,6 @@ lazy val core = (project in file("modules/core"))
     libraryDependencies ++= Seq(
       Libraries.cats,
       Libraries.simulacrum,
-      Libraries.scalaTest  % Test,
-      Libraries.scalaCheck % Test,
-      "com.codecommit" %% "skolems" % "0.1.2",
       compilerPlugin(Libraries.kindProjector)
     )
   )
@@ -46,6 +45,14 @@ lazy val zio = (project in file("modules/zio"))
     libraryDependencies += "dev.zio" %% "zio" % "1.0.0-RC21-2"
   )
 
+lazy val akka = (project in file("modules/akka"))
+  .dependsOn(core)
+  .settings(
+    commonSettings,
+    libraryDependencies += "com.typesafe.akka" %% "akka-stream" % "2.6.8"
+  )
+
+
 lazy val `free-arrow` = (project in file("."))
   .settings(commonSettings: _*)
-  .aggregate(macros, core, zio)
+  .aggregate(macros, core, zio, akka)

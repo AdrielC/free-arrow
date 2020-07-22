@@ -1,6 +1,7 @@
 package com.adrielc.arrow.zio
 import cats.arrow.ArrowChoice
 import cats.data.AndThen
+import com.adrielc.arrow.ArrowChoicePlus
 import zio.{IO, ZIO}
 
 sealed trait ZArrow[+E, -A, +B] extends Serializable { self =>
@@ -147,15 +148,17 @@ sealed trait ZArrow[+E, -A, +B] extends Serializable { self =>
   final def asEffect[A1]: ZArrow[E, (A, A1), A1] = self.first[A1] >>> ZArrow.snd
 }
 
-object ZArrow extends Serializable {
+object ZArrow extends Serializable with ZArrowInstances {
 
-  type Z[+f[_, _], -A, +B] = ZArrow[Any, A, B]
+  type ZA[-A, +B] = ZArrow[Throwable, A, B]
+
+  case object ZeroArrow extends Throwable
 
   def arr[E, A, B](f: A => B): ZArrow[E, A, B] = lift(f)
 
   def apply[E, A, B](f: A => B): ZArrow[E, A, B] = lift(f)
 
-  private class ZArrowError[E](error: E) extends Throwable {
+  private[zio] class ZArrowError[E](error: E) extends Throwable {
     final def unsafeCoerce[E2] = error.asInstanceOf[E2]
   }
 
@@ -447,19 +450,43 @@ object ZArrow extends Serializable {
         })
     }
 
+  implicit val zArrArrowChoicePlus: ArrowChoicePlus[ZA] =
+    new ZArrowArrowChoice[Throwable] with ArrowChoicePlus[ZA] {
 
-  implicit def zArrArrowChoice[E]: ArrowChoice[({ type z[A, B] = ZArrow[E, A, B]})#z] = new ArrowChoice[({ type z[A, B] = ZArrow[E, A, B]})#z] {
+      def zeroArrow[B, C]: ZA[B, C] = ZArrow.fail(ZeroArrow)
 
-    def choose[A, B, C, D](f: ZArrow[E, A, C])(g: ZArrow[E, B, D]): ZArrow[E, Either[A, B], Either[C, D]] = ZArrow.choose(f)(g)
+      def plus[A, B](f: ZA[A, B], g: ZA[A, B]): ZA[A, B] =
+        (f, g) match {
+          case (l: Impure[_, A, B], r: Impure[_, A, B]) =>
+            Impure { a =>
+              try l.apply0(a)
+              catch {
+                case _: ZArrowError[_] => r.apply0(a)
+              }
+            }
 
-    def lift[A, B](f: A => B): ZArrow[E, A, B] = ZArrow.lift(f)
+          case _ =>
+            ZArrow.liftM[Throwable, A, B](a => f.run(a).orElse(g.run(a)))
+        }
+    }
+}
 
-    override def id[A]: ZArrow[E, A, A] = ZArrow.identity
+trait ZArrowInstances {
 
-    def first[A, B, C](fa: ZArrow[E, A, B]): ZArrow[E, (A, C), (B, C)] = fa.first
+  implicit def zArrArrowChoice[E]: ArrowChoice[({ type z[A, B] = ZArrow[E, A, B]})#z] = new ZArrowArrowChoice[E] {}
+}
 
-    def compose[A, B, C](f: ZArrow[E, B, C], g: ZArrow[E, A, B]): ZArrow[E, A, C] = ZArrow.compose(f, g)
+private[zio] trait ZArrowArrowChoice[E] extends ArrowChoice[({ type Z[A, B] = ZArrow[E, A, B]})#Z] {
 
-    override def choice[A, B, C](f: ZArrow[E, A, C], g: ZArrow[E, B, C]): ZArrow[E, Either[A, B], C] = ZArrow.join(f, g)
-  }
+  def choose[A, B, C, D](f: ZArrow[E, A, C])(g: ZArrow[E, B, D]): ZArrow[E, Either[A, B], Either[C, D]] = ZArrow.choose(f)(g)
+
+  def lift[A, B](f: A => B): ZArrow[E, A, B] = ZArrow.lift(f)
+
+  override def id[A]: ZArrow[E, A, A] = ZArrow.identity
+
+  def first[A, B, C](fa: ZArrow[E, A, B]): ZArrow[E, (A, C), (B, C)] = fa.first
+
+  def compose[A, B, C](f: ZArrow[E, B, C], g: ZArrow[E, A, B]): ZArrow[E, A, C] = ZArrow.compose(f, g)
+
+  override def choice[A, B, C](f: ZArrow[E, A, C], g: ZArrow[E, B, C]): ZArrow[E, Either[A, B], C] = ZArrow.join(f, g)
 }
