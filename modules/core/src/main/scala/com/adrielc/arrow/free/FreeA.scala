@@ -137,8 +137,8 @@ sealed trait FreeA[-R[f[_, _]] >: ACP[f] <: AR[f], +Pipe[_, _], In, Out] {
     self.plus(fcb)
 
   /** Alias for [[and]] */
-  def |&|[FF[a, b] >: Pipe[a, b]](
-    fab: FreeA[AR, FF, In, Out]
+  def |&|[RR[f[_, _]] >: ACP[f] <: AR[f], FF[a, b] >: Pipe[a, b]](
+    fab: FreeA[RR, FF, In, Out]
   ): FreeA[ACP, FF, In, Either[Out, Out]] =
     self.and(fab)
 
@@ -278,10 +278,10 @@ sealed trait FreeA[-R[f[_, _]] >: ACP[f] <: AR[f], +Pipe[_, _], In, Out] {
   )(implicit L: <+>@[RR]): FreeA[L.Lub, FF, In, Out] =
     Plus[RR, FF, In, Out](self, fcb)
 
-  def and[FF[a, b] >: Pipe[a, b]](
-    fab: FreeA[AR, FF, In, Out]
+  def and[RR[f[_, _]] >: ACP[f] <: AR[f], FF[a, b] >: Pipe[a, b]](
+    fab: FreeA[RR, FF, In, Out]
   ): FreeA[ACP, FF, In, Either[Out, Out]] =
-    arrowInstance[R, FF].and(self, fab)
+    arrowInstance[ACP, FF].and(self, fab)
 }
 
 object FreeA {

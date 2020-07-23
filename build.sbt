@@ -49,7 +49,8 @@ lazy val akka = (project in file("modules/akka"))
   .dependsOn(core)
   .settings(
     commonSettings,
-    libraryDependencies += "com.typesafe.akka" %% "akka-stream" % "2.6.8"
+    libraryDependencies += "com.typesafe.akka" %% "akka-stream" % "2.6.8",
+    scalacOptions --= List("-Xfatal-warnings")
   )
 
 

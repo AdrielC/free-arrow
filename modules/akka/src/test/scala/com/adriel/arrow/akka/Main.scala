@@ -1,17 +1,23 @@
 package com.adriel.arrow.akka
 
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.logging.Logger
+
+import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.scaladsl.{Flow, Sink, Source}
-import com.adrielc.arrow.~~>
-import org.scalatest.{FlatSpec, Matchers}
+import com.adrielc.arrow.{Pure, ~~>}
+import com.typesafe.config.ConfigFactory
+import cats.implicits._
 
 import scala.util.Random
 
-class AkkaArrowSpec extends FlatSpec with Matchers {
+object Main extends App {
+
+  val logger = Logger.getGlobal
+
   import Recs._
   import com.adrielc.arrow.free.FreeA._
-
-  implicit val sys: ActorSystem = ActorSystem()
 
   case class User(id: Long)
   case class Product(id: Long)
@@ -43,6 +49,7 @@ class AkkaArrowSpec extends FlatSpec with Matchers {
     }
 
 
+    // Smart constructors
     val getUserInfo         = lift(GetUserInfo)
     val getProductInfo      = lift(GetProductInfo)
     val getRecommendations  = lift(GetRecommendations)
@@ -50,15 +57,21 @@ class AkkaArrowSpec extends FlatSpec with Matchers {
     val sendRecommend       = lift(SendRecommend)
 
     object ~~> {
-
       private val SEED = 100
       private val rng = new Random(SEED)
-      private val users = List.fill(SEED)(User(rng.nextLong()))
+
+      val users: List[User] = List.fill(SEED)(User(rng.nextLong()))
+
       private val userInfo = users.map(u => u.id -> UserInfo(u.id, rng.nextBoolean())).toMap
       private val products = Array.fill(SEED * 10)(Product(rng.nextLong()))
       private val productInfo = products.map(p => p.id -> ProductInfo(p.id, math.abs(rng.nextDouble()) % 100.0)).toMap
+      private val userIdx = new AtomicInteger(0)
 
-      val usersSource = Source(users)
+      def getUser: User = users(userIdx.incrementAndGet() % SEED)
+
+      def userStream(n: Int): Iterator[User] = Stream.fill(n)(getUser).toIterator
+
+      def usersSource(n: Int): Source[User, NotUsed] = Source.fromIterator(() => userStream(n))
 
       val toAkka = new (Recs ~~> PureFlow) {
 
@@ -66,7 +79,8 @@ class AkkaArrowSpec extends FlatSpec with Matchers {
 
           case GetRecommendations => Flow[User].map { u =>
             val r = new Random(u.id)
-            List.fill(u.id.toInt % 10)(products(r.nextInt() % SEED))
+            val prods = List.fill(10)(products(math.abs(r.nextInt() % SEED)))
+            prods
           }
 
           case GetUserInfo => Flow[User].map(u => userInfo(u.id))
@@ -78,28 +92,44 @@ class AkkaArrowSpec extends FlatSpec with Matchers {
           case SendRecommend => Flow[Product].map(p => println(s"sent $p"))
         }
       }
+
+      val pure = new Pure[Recs] {
+        def apply[A, B](fab: Recs[A, B]): A => B = fab match {
+          case GetUserInfo => (u: User) => userInfo(u.id)
+          case GetRecommendations => (u: User) => {
+            val r = new Random(u.id)
+            val prods = List.fill(10)(products(math.abs(r.nextInt() % SEED)))
+            prods
+          }
+          case GetProductInfo => (p: Product) => productInfo(p.id)
+          case ValidateUser => ((_: UserInfo).isMember)
+          case SendRecommend => p => println(s"sent $p")
+        }
+      }
     }
   }
 
-  val freeFlow =
-    fn((u: User) => { println(u); u }) >>>
-    (getUserInfo >>> needsRecommendation).test >>>
-    (fn(InvalidUser.apply _ andThen logError) |||
-      getRecommendations >>^
-        getTopRecommend >>>
-        (fn(logError) ||| sendRecommend))
 
-  val recsFlow = freeFlow.foldMap(Recs.~~>.toAkka)
-
-  val graph =
-    Recs.~~>
-    .usersSource
-    .via(recsFlow)
-    .to(Sink.ignore)
-
-  "Graph" should "run" in {
-
-    graph.run()
+  implicit val system: ActorSystem = {
+    val classLoader = getClass.getClassLoader
+    ActorSystem("QuickStart", ConfigFactory.load(classLoader), classLoader)
   }
-}
 
+  val handleInvalidUser = fn(InvalidUser(_: User)) >>> fn(logError)
+
+  val getRecsAndSend = getRecommendations >>> fn(getTopRecommend) >>> (fn(logError) ||| sendRecommend)
+
+  val freeFlow = (getUserInfo >>> needsRecommendation).test >>> (handleInvalidUser ||| getRecsAndSend)
+
+  val flows = freeFlow <+> freeFlow
+
+  val recsFlow = flows.foldMap(Recs.~~>.toAkka)
+
+  Recs.~~>
+    .usersSource(2)
+    .via(recsFlow)
+    .recover {
+      case e: Throwable => logger.warning(e.getMessage)
+    }
+    .runWith(Sink.ignore)
+}
