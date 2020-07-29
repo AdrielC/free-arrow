@@ -1,7 +1,8 @@
 package com.adrielc.arrow.data
 
-import cats.arrow.{Arrow, ArrowChoice}
+import cats.arrow.Arrow
 import cats.{Applicative, CoflatMap, Comonad, Distributive, FlatMap, Functor, Monad, MonoidK}
+import com.adrielc.arrow.ArrowChoicePlus
 
 case class BiKleisli[W[_], M[_], A, B](run: W[A] => M[B]) {
 
@@ -22,12 +23,18 @@ case class BiKleisli[W[_], M[_], A, B](run: W[A] => M[B]) {
 
   def first[C](implicit M: Applicative[M], C: Comonad[W]): BiKleisli[W, M, (A, C), (B, C)] =
     BiKleisli(wac => M.product(run(C.map(wac)(_._1)), M.pure(C.extract(wac)._2)))
+
+  def plus(g: BiKleisli[W, M, A, B])(implicit M: MonoidK[M]): BiKleisli[W, M, A, B] =
+    BiKleisli(wa => M.combineK(run(wa), g.run(wa)))
 }
 
 object BiKleisli {
 
   def lift[W[_], M[_], A, B](f: A => B)(implicit M: Monad[M], C: Comonad[W]): BiKleisli[W, M, A, B] =
     BiKleisli(wa => M.pure(f(C.extract(wa))))
+
+  def empty[W[_], M[_], A, B](implicit M: MonoidK[M]): BiKleisli[W, M, A, B] =
+    BiKleisli(_ => M.empty)
 
   implicit def arrowBiKleisli[W[_], M[_]](implicit C: Comonad[W], M: Monad[M], D: Distributive[M]): Arrow[BiKleisli[W, M, ?, ?]] =
     new Arrow[BiKleisli[W, M, ?, ?]] {
@@ -43,8 +50,14 @@ object BiKleisli {
     }
 
 
-  implicit def arrowChoiceBiKleisli[W[_], M[_]](implicit A: MonoidK[M], C: Comonad[W], M: Monad[M], D: Distributive[M]): ArrowChoice[BiKleisli[W, M, ?, ?]] =
-    new ArrowChoice[BiKleisli[W, M, ?, ?]] {
+  implicit def arrowChoicePlusBiKleisli[W[_], M[_]](implicit A: MonoidK[M], C: Comonad[W], M: Monad[M], D: Distributive[M]): ArrowChoicePlus[BiKleisli[W, M, ?, ?]] =
+    new ArrowChoicePlus[BiKleisli[W, M, ?, ?]] {
+
+      def zeroArrow[B, C]: BiKleisli[W, M, B, C] =
+        BiKleisli.empty
+
+      def plus[A, B](f: BiKleisli[W, M, A, B], g: BiKleisli[W, M, A, B]): BiKleisli[W, M, A, B] =
+        f.plus(g)
 
       def choose[A, B, C, D](f: BiKleisli[W, M, A, C])(g: BiKleisli[W, M, B, D]): BiKleisli[W, M, Either[A, B], Either[C, D]] =
         f.choose(g)
