@@ -61,25 +61,23 @@ class FreeArrowSpec extends FlatSpec with Matchers {
 
 
 
+  val translator =
+    prompt("Hello") >>>
+      prompt("Enter an English word to translate") >>>
+      getLine >>| ( // dead end, return output of `getLine` after the following
+        putLine.lmap("Translating " + (_: String)) >>>
+        prompt("...").rmap(_ => Thread.sleep(1000)).loopN(3)) >>>
+      dictionary(
+        "apple" -> "manzana",
+        "blue" -> "azul",
+        "hello" -> "hola",
+        "goodbye" -> "adios")
+        .rmap(_.getOrElse("I don't know that one")) >>>
+      putLine
+
+
   "FreeArrow" should "run translator, count printlns and optimize" in {
     import Cnsl.~~>._
-
-    val translator =
-      prompt("Hello") >>>
-        prompt("Enter an English word to translate") >>>
-        getLine >>| (
-        lift("Translating " + (_: String)) >>>
-          putLine >>>
-          (compute >>> prompt("...")).loopN(4)
-        ) >>>
-        dictionary(
-          "apple" -> "manzana",
-          "blue" -> "azul",
-          "hello" -> "hola",
-          "goodbye" -> "adios"
-        ) >>^
-        (_.getOrElse("I don't know that one")) >>>
-        putLine
 
     val optimized = translator.optimize(
       new (Cnsl ~>| Int) {
@@ -107,6 +105,35 @@ class FreeArrowSpec extends FlatSpec with Matchers {
     val runnable = optimized.foldMap(stubGets.andThen(function))
 
     runnable(())
+  }
+
+  "FreeA" should "run translator not evaluate analyzer if optimizer doesn't use value" in {
+    import Cnsl.~~>._
+
+    var folds = 0
+
+    val optimized = translator.optimize(
+      new (Cnsl ~>| Int) {
+        def apply[A, B](f: Cnsl[A, B]): Int = {
+
+          folds += 1 // This shouldn't execute ever if the sum value is not referenced below
+
+          f match {
+            case Cnsl.Compute   => 1
+            case _              => 0
+          }
+        }
+      },
+      new (|~>[Int, AC, Cnsl]) {
+        def apply[A, B](f: EnvA[Int, Cnsl, A, B]): FC[Cnsl, A, B] = liftK(f._2)
+      }
+    )
+
+    val runnable = optimized.foldMap(stubGets.andThen(function))
+
+    runnable(())
+
+    assert(folds == 0)
   }
 
 
