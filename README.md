@@ -51,7 +51,7 @@ Then define smart constructors to lift your algebra into the FreeArrow
 
 
 ```scala
-import FreeA.{liftK, lift} // `liftK` for lifting `F[A, B]` to `FreeA`, `lift` for lifting pure functions `A => B` to `FreeA`
+import FreeA.{liftK, lift} // for lifting `F[A, B]` to `FreeA`
 
 val getLine = liftK(GetLine)
 val putLine = liftK(PutLine)
@@ -68,17 +68,15 @@ val translator =
     prompt("Hello") >>>
     prompt("Enter an English word to translate") >>>
     getLine ->| ( // dead end, return output of `getLine` after the following
-      lift("Translating " + (_: String)) >>>
-        putLine >>>
-        (prompt("...") >>> lift(_ => Thread.sleep(1000))).loopN(3)
+        putLine.lmap("Translating " + (_: String)) >>>
+        prompt("...").rmap(_ => Thread.sleep(1000)).loopN(3)
       ) >>>
-    dictionary (
+    dictionary(
       "apple" -> "manzana",
       "blue" -> "azul",
       "hello" -> "hola",
-      "goodbye" -> "adios"
-    ) >>> 
-    lift(_.getOrElse("I don't know that one")) >>>
+      "goodbye" -> "adios")
+      .rmap(_.getOrElse("I don't know that one")) >>>
     putLine
 
 ```
