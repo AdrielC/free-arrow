@@ -91,11 +91,10 @@ class FreeArrowSpec extends FlatSpec with Matchers {
 
           case d if d.isInstanceOf[Cnsl.Dictionary]  =>
 
-            val tested = liftK(d) >>> lift((_: B) => f._1.getConst.value > 3).test
-
-            val finalize = id[B] ||| lift((o: B) => { println("sorry for the wait"); o })
-
-            tested >>> finalize
+            liftK(d) >>> lift((_: B) => f._1.getConst.value > 3).test >>^ (_.fold(
+              identity,
+              (o: B) => { println("sorry for the wait"); o }
+            ))
 
           case other => liftK(other)
         }
