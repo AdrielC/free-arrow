@@ -70,7 +70,7 @@ val translator =
     getLine ->| ( // dead end, return output of `getLine` after the following
       lift("Translating " + (_: String)) >>>
         putLine >>>
-        (prompt("...") >>> always(Thread.sleep(1000))).loopN(3)
+        (prompt("...") >>> lift(_ => Thread.sleep(1000))).loopN(3)
       ) >>>
     dictionary (
       "apple" -> "manzana",
