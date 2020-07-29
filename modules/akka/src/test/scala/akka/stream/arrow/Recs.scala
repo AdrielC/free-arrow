@@ -16,7 +16,7 @@ object Recs {
   case object GetRecommendations  extends Recs[User, List[Product]]
   case object GetProductInfo      extends Recs[Product, ProductInfo]
   case object ValidateUser        extends Recs[UserInfo, Boolean]
-  case object SendRecommend       extends Recs[Product, Unit]
+  case object SendRecommend       extends Recs[Product, Product]
 
   case class User(id: Long)
   case class Product(id: Long)
@@ -34,7 +34,7 @@ object Recs {
     }
 
   def logError(error: RecsError): Unit = error match {
-    case InvalidUser(user) => println(s"invalid user ${user.id}")
+    case InvalidUser(user) => ()
     case NoRecs => println("noRecs")
   }
 
@@ -65,9 +65,9 @@ object Recs {
 
     val usersInfSource: Source[User, NotUsed] = Source.fromIterator(() => Stream.iterate(getUser)(_ => getUser).toIterator)
 
-    val toAkka = new (Recs ~~> FlowN) {
+    val toAkka = new (Recs ~~> AkkaFlow) {
 
-      def apply[A, B](fab: Recs[A, B]): FlowN[A, B] = fab match {
+      def apply[A, B](fab: Recs[A, B]): AkkaFlow[A, B] = fab match {
 
         case GetRecommendations => Flow[User].map { u =>
           val r = new Random(u.id)
@@ -81,7 +81,7 @@ object Recs {
 
         case ValidateUser => Flow[UserInfo].map(_.isMember)
 
-        case SendRecommend => Flow[Product].map(p => println(s"sent $p"))
+        case SendRecommend => Flow[Product]
       }
     }
 
@@ -95,7 +95,7 @@ object Recs {
         }
         case GetProductInfo => (p: Product) => productInfo(p.id)
         case ValidateUser => ((_: UserInfo).isMember)
-        case SendRecommend => p => println(s"sent $p")
+        case SendRecommend => identity[Product]
       }
     }
   }

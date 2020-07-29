@@ -12,5 +12,5 @@ import simulacrum.{op, typeclass}
 
 object ArrowPlus {
 
-  implicit def kleisliArrowPlus[M[_]: Monad : MonoidK]: ArrowPlus[Kleisli[M, ?, ?]] = ArrowChoicePlus.kleisliACP
+  implicit def kleisliArrowPlus[M[_]: Monad : MonoidK]: ArrowPlus[Kleisli[M, ?, ?]] = ArrowChoicePlus.arrowChoicePlusForKleisli
 }

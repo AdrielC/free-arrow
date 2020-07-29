@@ -16,7 +16,7 @@ import cats.syntax.all._
 
 object ArrowChoicePlus {
 
-  implicit def kleisliACP[M[_] : Monad : MonoidK]: ArrowChoicePlus[Kleisli[M, ?, ?]] =
+  implicit def arrowChoicePlusForKleisli[M[_] : Monad : MonoidK]: ArrowChoicePlus[Kleisli[M, ?, ?]] =
     new ArrowChoicePlusInstance[Kleisli[M, ?, ?]] {
 
       val A: ArrowChoice[Kleisli[M, ?, ?]] = Kleisli.catsDataArrowChoiceForKleisli
