@@ -45,14 +45,14 @@ object Iso {
       Iso.id[Function1, A]
   }
 
-  implicit val nisoDistributesOverProduct: Distributes[NIso, Tuple2] =
-    new Distributes[NIso, Tuple2] {
+  implicit val nisoDistributesOverProduct: BiDistributes[NIso, Tuple2] =
+    new BiDistributes[NIso, Tuple2] {
 
       def dist[A0, A1, B0, B1](pa: NIso[A0, A1], pb: NIso[B0, B1]): NIso[(A0, B0), (A1, B1)] =
         NIso(p0 => (pa.to(p0._1), pb.to(p0._2)), p1 => (pa.from(p1._1), pb.from(p1._2)))
     }
 
-  implicit val nisoDistributesOverSum: Distributes[NIso, Either] = new Distributes[NIso, Either] {
+  implicit val nisoDistributesOverSum: BiDistributes[NIso, Either] = new BiDistributes[NIso, Either] {
 
     def dist[A0, A1, B0, B1](pa: NIso[A0, A1], pb: NIso[B0, B1]): NIso[Either[A0, B0], Either[A1, B1]] =
       NIso(e0 => e0.bimap(pa.to, pb.to), e1 => e1.bimap(pa.from, pb.from))

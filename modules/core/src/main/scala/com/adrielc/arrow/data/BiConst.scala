@@ -4,7 +4,7 @@ import cats.Monoid
 import cats.kernel.Semigroup
 import cats.syntax.monoid._
 import com.adrielc.arrow.ArrowChoicePlus
-import com.adrielc.arrow.util.Distributes
+import com.adrielc.arrow.util.BiDistributes
 
 /** Like [[cats.data.Const]] */
 case class BiConst[M, -A, +B](getConst: M) {
@@ -32,8 +32,8 @@ object BiConst {
     def first[A, B, C](fa: BiConst[V, A, B]): BiConst[V, (A, C), (B, C)] = fa.tag
   }
 
-  implicit def constDistributes[S: Semigroup]: Distributes[BiConst[S, ?, ?], BiConst[S, ?, ?]] =
-    new Distributes[BiConst[S, ?, ?], BiConst[S, ?, ?]] {
+  implicit def constDistributes[S: Semigroup]: BiDistributes[BiConst[S, ?, ?], BiConst[S, ?, ?]] =
+    new BiDistributes[BiConst[S, ?, ?], BiConst[S, ?, ?]] {
       def dist[A0, A1, B0, B1](pa: BiConst[S, A0, A1], pb: BiConst[S, B0, B1]): BiConst[S, BiConst[S, A0, B0], BiConst[S, A1, B1]] =
         BiConst(pa.getConst |+| pb.getConst)
     }
