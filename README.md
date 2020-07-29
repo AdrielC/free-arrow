@@ -9,7 +9,7 @@ Based on the paper [Generalizing Monads to Arrows](http://www.cse.chalmers.se/~r
 
 Use Free Arrow (`FreeA[R, F, A, B]`) to build a computation graph for any context `F[A, B]` as if it were an arrow
 without needing the corresponding Arrow instance. Typically `FreeA` is used to compose
-values of some embedded DSL `F[A, B]` into a structure.
+values of some embedded DSL `F[A, B]` into a flow-like computation graph.
 
 The primary motivation for using `FreeA` is to decouple the construction of a program
 from its interpretation, enabling the following features:
