@@ -25,6 +25,14 @@ as a stream processor. With Free Arrow, you would write the flow logic
 once, and have two interpreters; one for a pure function and a second 
 for the stream processor.
 
+### Free Comparison
+ 
+As Free constructions go, here's how `FreeA` sits on the spectrum of power and expressiveness:
+
+(Co)Yoneda < Free Applicative < Free Arrow < Free Monad
+
+Free Arrow has both the static introspection of the Free Applicative and the sequencing capability of the Free Monad
+
 ### Example
 
 First define a minmal set of operations (algebra)
@@ -43,11 +51,12 @@ Then define smart constructors to lift your algebra into the FreeArrow
 
 
 ```scala
+import FreeA.liftK
 
-val getLine = FreeA.lift(GetLine)
-val putLine = FreeA.lift(PutLine)
-def prompt(message: String) = FreeA.lift(Prompt(message))
-def dictionary(entry: (String, String)*) = FreeA.lift(Dictionary(entry.toMap))
+val getLine = liftK(GetLine)
+val putLine = liftK(PutLine)
+def prompt(message: String) = liftK(Prompt(message))
+def dictionary(entry: (String, String)*) = liftK(Dictionary(entry.toMap))
 
 ```  
 
@@ -172,14 +181,6 @@ Different DSLs and their interpreters can be composed together in `FreeA` using
 ### Type Classes Supported by FreeA
 
 ![type-classes](docs/Arrow%20Hierarchy.png)
-
-### Free Comparison
- 
-As Free constructions go, here's how `FreeA` sits on the spectrum of power and expressiveness:
-
-(Co)Yoneda < Free Applicative < Free Arrow < Free Monad
-
-Free Arrow has both the static introspection of the Free Applicative and the sequencing capability of the Free Monad
 
 ### Credits
 
