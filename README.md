@@ -18,12 +18,12 @@ from its interpretation, enabling the following features:
 -  Change the program's interpretation without altering its structure
 -  Statically introspect the graph to describe the flow
 -  Optimize/rewrite a program using results from its analysis
- 
-As Free constructions go, here's how `FreeA` sits on the spectrum of power and expressiveness:
 
-(Co)Yoneda < Free Applicative < Free Arrow < Free Monad
-
-Free Arrow has both the static introspection of the Free Applicative and the sequencing capability of the Free Monad
+An example use case may be creating a data processing flow which can 
+be used both as a stand alone function for single data points or
+as a stream processor. With Free Arrow, you would write the flow logic 
+once, and have two interpreters; one for a pure function and a second 
+for the stream processor.
 
 ### Example
 
@@ -173,6 +173,13 @@ Different DSLs and their interpreters can be composed together in `FreeA` using
 
 ![type-classes](docs/Arrow%20Hierarchy.png)
 
+### Free Comparison
+ 
+As Free constructions go, here's how `FreeA` sits on the spectrum of power and expressiveness:
+
+(Co)Yoneda < Free Applicative < Free Arrow < Free Monad
+
+Free Arrow has both the static introspection of the Free Applicative and the sequencing capability of the Free Monad
 
 ### Credits
 

@@ -1,37 +1,21 @@
 package akka.stream.arrow
 
-import java.util.logging.Logger
-
 import akka.actor.ActorSystem
 import akka.stream.scaladsl.Sink
-import com.typesafe.config.ConfigFactory
+import com.adrielc.arrow.free.FreeA._
 
 import cats.instances.all._
 
+import Recs._
+
 object Main extends App {
+  implicit val system: ActorSystem = ActorSystem.create("QuickStart")
 
-  val logger = Logger.getGlobal
+  val handleError = lift(logError)
 
+  val getRecsAndSend = getRecommendations >>> lift(getTopRecommend) >>> (handleError ||| sendRecommend)
 
-  implicit val system: ActorSystem = {
-    val classLoader = getClass.getClassLoader
-    ActorSystem("QuickStart", ConfigFactory.load(classLoader), classLoader)
-  }
-
-  val flow = {
-    import com.adrielc.arrow.free.FreeA._
-    import Recs._
-
-    val handleError = lift(logError)
-
-    val getRecsAndSend =
-      getRecommendations >>> lift(getTopRecommend) >>> (handleError ||| sendRecommend)
-
-    val flow =
-      (getUserInfo >>> needsRecommendation).test >>> (handleError.lmap(InvalidUser) ||| getRecsAndSend)
-
-    flow <+> zeroArrow
-  }
+  val flow = (getUserInfo >>> needsRecommendation).test >>> (handleError <<^ InvalidUser ||| getRecsAndSend)
 
   // Interpret flow as pure function and test with one user
   flow
@@ -42,7 +26,6 @@ object Main extends App {
   // Interpret flow as stream and run
   flow
     .foldMap(Recs.~~>.toAkka)
-    .recover { case e: Throwable => logger.warning(e.getMessage) }
     .runWith(
       Recs.~~>.usersInfSource,
       Sink.ignore
