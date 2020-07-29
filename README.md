@@ -9,7 +9,7 @@ Based on the paper [Generalizing Monads to Arrows](http://www.cse.chalmers.se/~r
 
 Use Free Arrow (`FreeA[R, F, A, B]`) to build a computation graph for any context `F[A, B]` as if it were an arrow
 without needing the corresponding Arrow instance. Typically `FreeA` is used to compose
-values of some embedded DSL `F[A, B]` into a structure.
+values of some embedded DSL `F[A, B]` into a flow-like computation graph.
 
 The primary motivation for using `FreeA` is to decouple the construction of a program
 from its interpretation, enabling the following features:
@@ -51,7 +51,7 @@ Then define smart constructors to lift your algebra into the FreeArrow
 
 
 ```scala
-import FreeA.liftK
+import FreeA.{liftK, lift} // for lifting `F[A, B]` to `FreeA`
 
 val getLine = liftK(GetLine)
 val putLine = liftK(PutLine)
@@ -68,17 +68,15 @@ val translator =
     prompt("Hello") >>>
     prompt("Enter an English word to translate") >>>
     getLine ->| ( // dead end, return output of `getLine` after the following
-      ("Translating " + (_: String)) >>>
-        putLine >>>
-        (prompt("...") >>> (_ => Thread.sleep(1000))).loopN(3)
+        putLine.lmap("Translating " + (_: String)) >>>
+        prompt("...").rmap(_ => Thread.sleep(1000)).loopN(3)
       ) >>>
-    dictionary (
+    dictionary(
       "apple" -> "manzana",
       "blue" -> "azul",
       "hello" -> "hola",
-      "goodbye" -> "adios"
-    ) >>> 
-    (_.getOrElse("I don't know that one")) >>>
+      "goodbye" -> "adios")
+      .rmap(_.getOrElse("I don't know that one")) >>>
     putLine
 
 ```
