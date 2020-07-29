@@ -67,7 +67,7 @@ class FreeArrowSpec extends FlatSpec with Matchers {
     val translator =
       prompt("Hello") >>>
         prompt("Enter an English word to translate") >>>
-        getLine ->| (
+        getLine >>| (
         lift("Translating " + (_: String)) >>>
           putLine >>>
           (compute >>> prompt("...")).loopN(4)
@@ -120,7 +120,7 @@ class FreeArrowSpec extends FlatSpec with Matchers {
 
     val choice = num(100) ||| add10
 
-    val comp2 = choice ->| lift((n: Int) => println(n))
+    val comp2 = choice >>| lift((n: Int) => println(n))
 
     val toMaybeOp = comp2.foldMap(Expr.~~>.function.kleisli[List])
 
@@ -131,7 +131,7 @@ class FreeArrowSpec extends FlatSpec with Matchers {
 
   "FreeA" should "infer R to be ArrowChoicePlus" in {
 
-    val add10 = id[Int] ->/ num(10) >>> add
+    val add10 = id[Int] >>/ num(10) >>> add
 
     val program = (add10 <+> zeroArrow <+> add10 <+> add10) >>> add10
 
@@ -144,7 +144,7 @@ class FreeArrowSpec extends FlatSpec with Matchers {
 
     implicit val ec: ExecutionContext = ExecutionContext.global
 
-    val add10Loop = (id[Int] ->/ num(1) >>> add).loopN(10000)
+    val add10Loop = (id[Int] >>/ num(1) >>> add).loopN(10000)
 
     val f = add10Loop.foldMap(Expr.~~>.function.kleisli[Future])
 

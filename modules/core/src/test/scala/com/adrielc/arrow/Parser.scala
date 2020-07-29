@@ -42,7 +42,7 @@ object Parser {
           ))
       }
 
-    def zeroArrow[B, C]: Parser[S, B, C] = P(SP(empty = true, Nil), DP((a, b) => (a.asInstanceOf[C], b)))
+    def zeroArrow[B, C]: Parser[S, B, C] = P(SP(empty = true, Nil), DP(zeroArrow.dp.run))
 
     def first[A, B, C](fa: Parser[S, A, B]): Parser[S, (A, C), (B, C)] = ???
   }

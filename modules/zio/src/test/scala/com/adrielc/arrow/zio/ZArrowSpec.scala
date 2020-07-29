@@ -10,10 +10,10 @@ class ZArrowSpec extends FlatSpec with Matchers {
 
     var z = add1
 
-    for (_ <- 0 to 10000) z = z.andThen(add1)
+    for (_ <- 1 until 10000) z = z.andThen(add1)
 
-    val run = z.andThen(ZArrow.arrPrint()).run(0)
+    val run = z.run(0)
 
-    zio.Runtime.default.unsafeRun(run)
+    assert(zio.Runtime.default.unsafeRun(run) === 10000)
   }
 }

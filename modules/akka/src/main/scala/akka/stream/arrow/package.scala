@@ -31,14 +31,14 @@ package object arrow {
         import GraphDSL.Implicits._
 
         val broadcast = builder.add(WireTap[A])
-        val concat    = builder.add(Merge[Either[B, C]](inputPorts = 2))
+        val merge     = builder.add(Merge[Either[B, C]](inputPorts = 2))
 
 
-        broadcast.out0 ~>   first   ~> concat.in(0)
-        broadcast.out1 ~>   second  ~> concat.in(1)
+        broadcast.out0 ~>   first   ~> merge.in(0)
+        broadcast.out1 ~>   second  ~> merge.in(1)
 
 
-        FlowShape(broadcast.in, concat.out)
+        FlowShape(broadcast.in, merge.out)
       })
 
     def choose[A, B, C, D](f: AkkaFlow[A, C])(g: AkkaFlow[B, D]): AkkaFlow[Either[A, B], Either[C, D]] =

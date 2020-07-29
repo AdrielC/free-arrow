@@ -24,7 +24,7 @@ class AkkaStreamArrowSpec extends FlatSpec with Matchers {
 
   "FreeA" should "interpret to Function" in {
 
-    val errorCounter: AtomicInteger = new AtomicInteger(0)
+    val errorCounter = new AtomicInteger(0)
 
     val flow = createFlow(errorCounter)
 
@@ -54,7 +54,7 @@ class AkkaStreamArrowSpec extends FlatSpec with Matchers {
 
     implicit val system: ActorSystem = ActorSystem.create("PlusTest")
 
-    val errorCounter: AtomicInteger = new AtomicInteger(0)
+    val errorCounter = new AtomicInteger(0)
 
     val flow = {
 

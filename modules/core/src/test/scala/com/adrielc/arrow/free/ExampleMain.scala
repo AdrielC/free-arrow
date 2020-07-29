@@ -34,7 +34,7 @@ object ExampleMain extends App {
 
   val program = prompt("Favorite album?") >>> getLine >>> lift("Blackwater Park is better than " + _) >>> putLine
 
-  val or = getLine >>> putLine >>> ^[Unit].~@~[Unit]
+  val or = getLine >>> putLine >>> zeroArrow[Unit, Unit]
 
 
   // interpret program
