@@ -1,7 +1,7 @@
 package com.adrielc.arrow
 
 import cats.arrow.{Arrow, ArrowChoice}
-import com.adrielc.arrow.data.{BiEitherK, EnvA}
+import com.adrielc.arrow.data.{BiEitherK, EnvA, ~~>}
 
 package object free {
 

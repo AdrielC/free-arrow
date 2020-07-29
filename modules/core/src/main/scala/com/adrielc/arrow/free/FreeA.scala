@@ -1,14 +1,13 @@
-package com.adrielc.arrow
-package free
+package com.adrielc.arrow.free
 
 import cats.{Eval, Monoid}
 import cats.arrow.{Arrow, ArrowChoice}
 import cats.kernel.Semigroup
-import com.adrielc.arrow.{ArrowChoicePlus, ArrowPlus, ArrowZero, ~>|, ~~>}
+import com.adrielc.arrow.{ArrowChoicePlus, ArrowChoiceZero, ArrowPlus, ArrowZero}
 import cats.syntax.{either, flatMap}
 import either._
 import flatMap._
-import com.adrielc.arrow.data.{BiConst, BiEitherK, EnvA}
+import com.adrielc.arrow.data.{BiConst, BiEitherK, BiFunctionK, EnvA, ~>|, ~~>}
 
 /** Free Arrow
  *

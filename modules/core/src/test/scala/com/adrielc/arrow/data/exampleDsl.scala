@@ -1,4 +1,4 @@
-package com.adrielc.arrow
+package com.adrielc.arrow.data
 
 import cats.data.AndThen
 

@@ -5,7 +5,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import akka.NotUsed
 import akka.stream.scaladsl.{Flow, Source}
 import com.adrielc.arrow.free.FreeA.liftK
-import com.adrielc.arrow.{Pure, ~~>}
+import com.adrielc.arrow.data.{Pure, ~~>}
 
 import scala.util.Random
 
@@ -34,7 +34,7 @@ object Recs {
     }
 
   def logError(error: RecsError): Unit = error match {
-    case InvalidUser(user) => ()
+    case InvalidUser(u) => println(s"invalid user: ${u.id}")
     case NoRecs => println("noRecs")
   }
 

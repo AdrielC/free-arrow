@@ -2,7 +2,8 @@ package com.adrielc.arrow.recursion
 
 import cats.arrow.Arrow
 import com.adrielc.arrow.free.FreeA
-import com.adrielc.arrow.{ArrowChoicePlus, ~~>}
+import com.adrielc.arrow.ArrowChoicePlus
+import com.adrielc.arrow.data.~~>
 
 trait ArFunctor[Ar[_[_, _], _, _]] {
 

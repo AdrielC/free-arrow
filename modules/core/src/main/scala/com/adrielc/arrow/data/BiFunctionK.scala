@@ -1,8 +1,7 @@
-package com.adrielc.arrow
+package com.adrielc.arrow.data
 
 import cats.Applicative
 import cats.data.Kleisli
-import com.adrielc.arrow.data.{BiEitherK, BiTuple2K}
 
 /**
  *

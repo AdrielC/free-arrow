@@ -1,7 +1,7 @@
 package com.adrielc.arrow.free
 
 import cats.implicits._
-import com.adrielc.arrow.{Pure, ~>|}
+import com.adrielc.arrow.data.{Pure, ~>|}
 
 import scala.io.StdIn
 

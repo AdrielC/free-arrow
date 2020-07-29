@@ -1,6 +1,6 @@
 package com.adrielc.arrow.recursion
 
-import com.adrielc.arrow.~~>
+import com.adrielc.arrow.data.~~>
 
 /**
  * An interpreter able to derive a `F[A]` from a schema for `A` (for any `A`).

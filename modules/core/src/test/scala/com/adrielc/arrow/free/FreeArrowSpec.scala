@@ -2,13 +2,13 @@ package com.adrielc.arrow.free
 
 import org.scalatest.{FlatSpec, Matchers}
 import cats.instances.all._
-import com.adrielc.arrow.exampleDsl.{Cnsl, Expr}
-import Cnsl.free._
-import Expr.free._
-import com.adrielc.arrow.data.EnvA
-import com.adrielc.arrow.{ArrowPlus, ArrowZero, BiFunctionK, ~>|}
+import com.adrielc.arrow.data.exampleDsl.Cnsl.free._
+import com.adrielc.arrow.data.exampleDsl.Expr.free._
+import com.adrielc.arrow.data.{BiFunctionK, EnvA, ~>|}
+import com.adrielc.arrow.{ArrowPlus, ArrowZero}
 import cats.arrow.{Arrow, ArrowChoice}
 import cats.data.NonEmptyMap
+import com.adrielc.arrow.data.exampleDsl.{Cnsl, Expr}
 
 import scala.concurrent.duration.{Duration, MILLISECONDS}
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -18,7 +18,7 @@ class FreeArrowSpec extends FlatSpec with Matchers {
 
   "ArrowDescr" should "render op Json" in {
 
-    import Cnsl.~~>._
+    import com.adrielc.arrow.data.exampleDsl.Cnsl.~~>._
 
     val printInt = getInt >>^ (_.toString) >>> putLine
 

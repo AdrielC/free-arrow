@@ -1,4 +1,4 @@
-package com.adrielc.arrow
+package com.adrielc.arrow.data
 
 import scala.reflect.macros.blackbox
 
@@ -33,7 +33,7 @@ private[arrow] object BiFunctionKMacros {
         val G = punchHole(evG.tpe)
 
         q"""
-        new _root_.com.adrielc.arrow.BiFunctionK[$F, $G] {
+        new _root_.com.adrielc.arrow.data.BiFunctionK[$F, $G] {
           def apply[A, B](fab: $F[A, B]): $G[A, B] = $trans(fab)
         }
        """

@@ -6,13 +6,6 @@ import cats.syntax.all._
 
 package object arrow {
 
-  type ~~>[-F[_, _], +G[_, _]] = BiFunctionK[F, G]
-
-  type Pure[-F[_, _]] = BiFunctionK[F, Function1]
-
-  /** A [[~~>]] that outputs values of kind "*" */
-  type ~>|[-F[_, _], +M] = F ~~> λ[(α, β) => M]
-
   def liftA2[~>[_, _]: Arrow, A, B, C, D](ab: A ~> B)(ac: A ~> C)(f: (B, C) => D): A ~> D =
     (ab &&& ac) >>> Arrow[~>].lift(f.tupled)
 

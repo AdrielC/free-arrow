@@ -1,5 +1,7 @@
 package com.adrielc.arrow
 
+import com.adrielc.arrow.data.{~>|, ~~>}
+
 package object recursion {
 
   type Alg[A[_[_, _], _, _], F[_, _]]   = A[F, ?, ?] ~~> F
