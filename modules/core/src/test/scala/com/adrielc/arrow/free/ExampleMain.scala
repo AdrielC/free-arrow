@@ -25,14 +25,14 @@ object ExampleMain extends App {
   import FreeA._
 
   // Define smart constructors to lift dsl into FreeA
-  val getLine = lift(GetLine)
-  val putLine = lift(PutLine)
-  def prompt(s: String) = lift(Prompt(s))
+  val getLine = liftK(GetLine)
+  val putLine = liftK(PutLine)
+  def prompt(s: String) = liftK(Prompt(s))
 
 
   // construct program
 
-  val program = prompt("Favorite album?") >>> getLine >>> fn("Blackwater Park is better than " + _) >>> putLine
+  val program = prompt("Favorite album?") >>> getLine >>> lift("Blackwater Park is better than " + _) >>> putLine
 
   val or = getLine >>> putLine >>> ^[Unit].~@~[Unit]
 

@@ -6,7 +6,7 @@ import scala.io.StdIn
 import scala.util.Try
 
 object exampleDsl {
-  import com.adrielc.arrow.free.FreeA.lift
+  import com.adrielc.arrow.free.FreeA.liftK
 
   sealed trait Expr[A, B] extends Product with Serializable
   object Expr {
@@ -16,9 +16,9 @@ object exampleDsl {
     final case class Num(n: Int) extends Expr[Unit, Int]
 
     object free {
-      val add = lift(Add)
-      val sub = lift(Sub)
-      def num(n: Int) = lift(Num(n))
+      val add = liftK(Add)
+      val sub = liftK(Sub)
+      def num(n: Int) = liftK(Num(n))
     }
 
     object ~~> {
@@ -48,14 +48,14 @@ object exampleDsl {
 
     object free {
 
-      val getLine = lift(GetLine)
-      val putLine = lift(PutLine)
-      val getInt  = lift(GetInt)
-      val compute = lift(Compute)
-      val repeatN = lift(RepeatN)
-      def prompt(message: String) = lift(Prompt(message))
-      def const[A](value: A) = lift(Const(value))
-      def dictionary(entries: (String, String)*) = lift(Dictionary(entries.toMap))
+      val getLine = liftK(GetLine)
+      val putLine = liftK(PutLine)
+      val getInt  = liftK(GetInt)
+      val compute = liftK(Compute)
+      val repeatN = liftK(RepeatN)
+      def prompt(message: String) = liftK(Prompt(message))
+      def const[A](value: A) = liftK(Const(value))
+      def dictionary(entries: (String, String)*) = liftK(Dictionary(entries.toMap))
     }
 
     object ~~> {

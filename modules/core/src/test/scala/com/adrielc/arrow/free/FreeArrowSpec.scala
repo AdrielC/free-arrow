@@ -7,7 +7,6 @@ import Cnsl.free._
 import Expr.free._
 import com.adrielc.arrow.data.EnvA
 import com.adrielc.arrow.{ArrowPlus, ArrowZero, BiFunctionK, ~>|}
-import FreeA._
 import cats.arrow.{Arrow, ArrowChoice}
 import cats.data.NonEmptyMap
 
@@ -15,21 +14,19 @@ import scala.concurrent.duration.{Duration, MILLISECONDS}
 import scala.concurrent.{Await, ExecutionContext, Future}
 
 class FreeArrowSpec extends FlatSpec with Matchers {
-  import FreeA.{id, fn, lift, zeroArrow}
+  import FreeA.{id, lift, liftK, zeroArrow}
 
   "ArrowDescr" should "render op Json" in {
 
     import Cnsl.~~>._
 
-    val printInt = getInt >>^ (_.toString) >>>> putLine
+    val printInt = getInt >>^ (_.toString) >>> putLine
 
-    val printLine = getLine >>>> putLine
+    val printLine = getLine >>> putLine
 
-    val program3 = printLine >>>> printInt
+    val program3 = printLine >>> printInt
 
-    val interpreter = stubGets.andThen(function)
-
-    val f = program3.foldMap(interpreter)
+    val f = program3.foldMap(stubGets.andThen(function))
 
     f(())
   }
@@ -71,7 +68,7 @@ class FreeArrowSpec extends FlatSpec with Matchers {
       prompt("Hello") >>>
         prompt("Enter an English word to translate") >>>
         getLine ->| (
-        fn("Translating " + (_: String)) >>>
+        lift("Translating " + (_: String)) >>>
           putLine >>>
           (compute >>> prompt("...")).loopN(4)
         ) >>>
@@ -96,18 +93,18 @@ class FreeArrowSpec extends FlatSpec with Matchers {
 
           case d if d.isInstanceOf[Cnsl.Dictionary]  =>
 
-            val tested = lift(d) >>> fn((_: B) => f._1.getConst.value > 3).test
+            val tested = liftK(d) >>> lift((_: B) => f._1.getConst.value > 3).test
 
-            val finalize = id[B] ||| fn((o: B) => { println("sorry for the wait"); o })
+            val finalize = id[B] ||| lift((o: B) => { println("sorry for the wait"); o })
 
             tested >>> finalize
 
-          case other => lift(other)
+          case other => liftK(other)
         }
       }
     )
 
-    val runnable = optimized.foldMap(stubGets andThen function)
+    val runnable = optimized.foldMap(stubGets.andThen(function))
 
     runnable(())
   }
@@ -123,7 +120,7 @@ class FreeArrowSpec extends FlatSpec with Matchers {
 
     val choice = num(100) ||| add10
 
-    val comp2 = choice ->| fn((n: Int) => println(n))
+    val comp2 = choice ->| lift((n: Int) => println(n))
 
     val toMaybeOp = comp2.foldMap(Expr.~~>.function.kleisli[List])
 
