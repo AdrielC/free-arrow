@@ -42,7 +42,12 @@ lazy val zio = (project in file("modules/zio"))
   .dependsOn(core)
   .settings(
     commonSettings,
-    libraryDependencies += "dev.zio" %% "zio" % "1.0.0-RC21-2"
+    libraryDependencies += "dev.zio" %% "zio" % "1.0.0-RC21-2",
+    libraryDependencies += "dev.zio" %% "zio-interop-cats" % "2.1.4.0-RC17",
+    // https://mvnrepository.com/artifact/org.typelevel/cats-effect
+    libraryDependencies += "org.typelevel" %% "cats-effect" % "2.1.4",
+    // https://mvnrepository.com/artifact/org.typelevel/cats-mtl-core
+    libraryDependencies += "org.typelevel" %% "cats-mtl-core" % "0.7.1"
   )
 
 lazy val akka = (project in file("modules/akka"))
