@@ -50,7 +50,7 @@ Then define smart constructors to lift your algebra into the FreeArrow
 
 
 ```scala
-import FreeA.{liftK, lift} // for lifting `F[A, B]` to `FreeA`
+import FreeA.liftK // for lifting `F[A, B]` to `FreeA`
 
 val getLine = liftK(GetLine)
 val putLine = liftK(PutLine)
