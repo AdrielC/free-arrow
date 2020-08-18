@@ -30,7 +30,7 @@ First define a minmal set of operations (algebra)
 
 ```scala
 
-sealed trait ConsoleOp[A, B]
+sealed trait ConsoleOp[A, B] // Represents some console operation that takes an `A` and outputs `B`
 case object GetLine                 extends ConsoleOp[Unit, String]
 case object PutLine                 extends ConsoleOp[String, Unit]
 case class Prompt(message: String)  extends ConsoleOp[Unit, Unit]
@@ -42,7 +42,7 @@ Then define smart constructors to lift your algebra into the FreeArrow
 
 
 ```scala
-import FreeA.liftK // for lifting `F[A, B]` to `FreeA`
+import FreeA.liftK // for lifting `ConsoleOp` into `FreeA`
 
 val getLine = liftK(GetLine)
 val putLine = liftK(PutLine)
