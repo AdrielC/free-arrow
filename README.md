@@ -31,10 +31,10 @@ First define a minmal set of operations (algebra)
 ```scala
 
 sealed trait ConsoleOp[A, B] // Represents some console operation that takes an `A` and outputs `B`
-case object GetLine                 extends ConsoleOp[Unit, String]
-case object PutLine                 extends ConsoleOp[String, Unit]
-case class Prompt(message: String)  extends ConsoleOp[Unit, Unit]
-case class Dictionary(dict: Map[String, String]) extends ConsoleOp[String, Option[String]]
+case object GetLine                                 extends ConsoleOp[Unit, String]
+case object PutLine                                 extends ConsoleOp[String, Unit]
+case class Prompt(message: String)                  extends ConsoleOp[Unit, Unit]
+case class Dictionary(dict: Map[String, String])    extends ConsoleOp[String, Option[String]]
 
 ``` 
 
