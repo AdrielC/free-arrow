@@ -24,14 +24,6 @@ as a stream processor. With Free Arrow, you would write the flow logic
 once, and have two interpreters; one for a pure function and a second 
 for the stream processor.
 
-### Free Comparison
- 
-As Free constructions go, here's how `FreeA` sits on the spectrum of power and expressiveness:
-
-(Co)Yoneda < Free Applicative < Free Arrow < Free Monad
-
-Free Arrow has both the static introspection of the Free Applicative and the sequencing capability of the Free Monad
-
 ### Example
 
 First define a minmal set of operations (algebra)
@@ -112,11 +104,6 @@ program(())
 // hola
 ```
 
-FreeArrow supports both sequencing like FreeMonad and static analysis
-of the free structure like FreeApplicative. This allows you to write 
-expressive programs that can be introspected and optimized for further
-sequential composition
-
 Here's an example of introspecting the FreeArrow program to count the 
 number of getLines used
 
@@ -137,7 +124,6 @@ It is also possible to generate documentation from your free program.
 Here is the output of an interpreter that draws a computation graph. 
 
 ![translator](docs/translator.png)
- 
  
 ### Other Features:
 
@@ -178,6 +164,20 @@ Different DSLs and their interpreters can be composed together in `FreeA` using
 ### Type Classes Supported by FreeA
 
 ![type-classes](docs/Arrow%20Hierarchy.png)
+
+
+ ### Free Comparison
+ 
+As Free constructions go, here's how `FreeA` sits on the spectrum of power and expressiveness:
+
+(Co)Yoneda < Free Applicative < Free Arrow < Free Monad
+
+Free Arrow has both the static introspection of the Free Applicative and the sequencing capability of the Free Monad
+
+FreeArrow supports both sequencing like FreeMonad and static analysis
+of the free structure like FreeApplicative. This allows you to write 
+expressive programs that can be introspected and optimized for further
+sequential composition
 
 ### Credits
 
