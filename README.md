@@ -7,7 +7,7 @@ Implementation of the Free Arrow in Scala and other helpful tools for working wi
 
 Based on the paper [Generalizing Monads to Arrows](http://www.cse.chalmers.se/~rjmh/Papers/arrows.pdf)
 
-Use Free Arrow to build a computation graph that can be interpreted to different execution contexts and reused to create more complex flows from smaller ones. Typically `FreeA` is used to compose
+Use Free Arrow to build a computation graph that can be interpreted to different execution contexts and reused to create more complex flows from smaller ones. Typically the Free Arrow (`FreeA`) is used to compose
 values of some embedded DSL into a flow-like computation graph.
 
 The primary motivation for using `FreeA` is to decouple the construction of a program
