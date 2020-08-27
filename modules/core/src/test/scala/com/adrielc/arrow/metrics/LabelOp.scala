@@ -1,8 +1,9 @@
 package com.adrielc.arrow.metrics
 
 import cats.Functor
+import cats.data.NonEmptyList
 import cats.implicits._
-import com.adrielc.arrow.data.Pure
+import com.adrielc.arrow.metrics.evaluable.{LabelledIndexes, ResultsWithEngagements}
 
 import scala.math.{abs, log}
 
@@ -36,7 +37,13 @@ object LabelOp {
   case class Weighted(w: Map[EngagementType, Double]) extends LabelOp[EngagementCounts, Map[EngagementType, Double]] {
 
     def apply(v1: EngagementCounts): Map[EngagementType, Label] =
-      v1.map { case (e, n) => e ->  w.getOrElse(e, 0.0) * n }
+      v1.map { case (e, n) => (e, w.getOrElse(e, 0.0) * n) }
+  }
+
+  case object Pow2 extends LabelOp[Double, Double] {
+
+    def apply(v1: Double): Double =
+      math.pow(2, v1) - 1
   }
 
   case class Mapped[M[_]: Functor, A, B](labelOp: FreeLabel[A, B]) extends LabelOp[M[A], M[B]] {
@@ -47,5 +54,36 @@ object LabelOp {
     }
   }
 
-  implicit lazy val pureLabel: Pure[LabelOp] = new Pure[LabelOp] { def apply[A, B](fab: LabelOp[A, B]): A => B = fab }
+
+  sealed trait MissingLabels
+  case object MissingLabels extends MissingLabels
+
+
+  object free {
+    import com.adrielc.arrow.free.FreeA.{liftK, lift}
+
+    val pow2                : FreeLabel[Double, Double] = liftK(Pow2)
+    def binary[A: Numeric]  : FreeLabel[A, A]     = liftK(Binary[A])
+    def countOf(e: EngagementType)  : FreeLabel[EngagementCounts, Count]     = liftK(CountOf(e))
+
+    implicit class LabelOps[A, B](private val freeLabel: FreeLabel[A, B]) {
+      private lazy val f = freeLabel.fold[Function1]
+      def apply(a: A): B = f(a)
+
+      def mapped[M[_]: Functor]: FreeLabel[M[A], M[B]] = liftK[LabelOp, M[A], M[B]](Mapped[M, A, B](freeLabel))
+    }
+
+    implicit class EngLabelOps(private val engToLabel: FreeLabel[EngagementCounts, Double]) {
+
+      def forEngagedResults: FreeLabel[ResultsWithEngagements, Either[MissingLabels, LabelledIndexes]] = {
+        ((lift((_: ResultsWithEngagements).engagements) >>> engToLabel.mapped[Map[ResultId, *]]) &&&
+          lift((_: ResultsWithEngagements).results)) >>^ {
+          case (labels, results) =>
+            NonEmptyList.fromList(labels.map { case (id, label) => (results.toList.indexOf(id) + 1) -> label }.toList)
+              .map(LabelledIndexes(_))
+              .toRight(MissingLabels)
+        }
+      }
+    }
+  }
 }

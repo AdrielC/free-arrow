@@ -192,6 +192,10 @@ sealed trait FreeA[-R[f[_, _]] >: ArrowChoicePlus[f] <: Arrow[f], +Flow[_, _], I
     self.andThen(deadEnd.*-*)
 
   /** feed [[Out]] to a dead end arrow, ignoring its output and returning the [[Out]] */
+  def tap(tap: Out => Unit): FreeA[R, Flow, In, Out] =
+    self >>| lift(tap)
+
+  /** feed [[Out]] to a dead end arrow, ignoring its output and returning the [[Out]] */
   def >>/[RR[f[_, _]] >: AR[f] <: R[f], FF[a, b] >: Flow[a, b], A](
     mergeR: FreeA[RR, FF, Unit, A]
   ): FreeA[RR, FF, In, (Out, A)] =

@@ -8,7 +8,7 @@ class FreeMetricsTest extends FlatSpec with Matchers {
 
   "Metrics" should "accurately compute" in {
 
-    val labelledIndexes = LabelledIndexes(
+    val labelledIndexes = LabelledIndexes.of(
       1 -> 1.0,
       2 -> 2.0,
       3 -> 3.0,

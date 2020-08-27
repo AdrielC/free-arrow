@@ -13,18 +13,19 @@ package object metrics extends ToK.ToToKOps {
 
   type Index = Int
   type Label = Double
+  type Count = Long
   type ResultId = Long
   type EngagementWeights = Map[EngagementType, Double]
   type EngagedResults = Map[ResultId, EngagementCounts]
   type LabelledResults = NonEmptyMap[ResultId, Label]
 
-  type EngagementCounts = Map[EngagementType, Long]
+  type EngagementCounts = Map[EngagementType, Count]
   object EngagementCounts {
     def apply(click: Int = 0, cartAdd: Int = 0, purchase: Int = 0): EngagementCounts = clicks(click) ++ cartAdds(cartAdd) ++ purchases(purchase)
     def clicks[N : Numeric](n: N): EngagementCounts = guard(n)(Click)
     def cartAdds[N : Numeric](n: N): EngagementCounts = guard(n)(CartAdd)
     def purchases[N : Numeric](n: N): EngagementCounts = guard(n)(Purchase)
-    private def guard[N: Numeric](n: N)(e: EngagementType): EngagementCounts = if(n.toLong > 0) Map(e -> n.toLong) else Map.empty
+    private def guard[N](n: N)(e: EngagementType)(implicit N: Numeric[N]): EngagementCounts = if(N.gt(n, N.zero)) Map(e -> n.toLong) else Map.empty
   }
 
   implicit class EngCountOps[N](private val n: N) extends AnyVal {

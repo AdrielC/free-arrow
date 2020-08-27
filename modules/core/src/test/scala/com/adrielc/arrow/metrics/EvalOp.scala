@@ -1,10 +1,14 @@
 package com.adrielc.arrow.metrics
 
-import scala.math.{log, pow}
+import cats.arrow.Arrow
+
+import scala.math.log
 import cats.implicits._
+import com.adrielc.arrow.free.FreeA
+import com.adrielc.arrow.metrics.ToK.{InsufficientSize, KFiltered}
 import com.adrielc.arrow.metrics.evaluable.{LabelledIndexes, ResultsWithRelevant}
 
-sealed trait EvalOp[-A, +B]
+sealed trait EvalOp[-A, +B] extends (A => B)
 object EvalOp {
 
   sealed trait Metric[-I] extends EvalOp[I, Double] with (I => Double)
@@ -14,7 +18,7 @@ object EvalOp {
     case object Ndcg extends Metric[LabelledIndexes] {
 
       def apply(results: LabelledIndexes): Double = {
-        val dcg = Dcg(results)
+        val dcg = results.filterK.fold(0.0)(Dcg(_))
         val idcg = Idcg(results)
         if (idcg > 0) dcg / idcg
         else 0.0
@@ -35,22 +39,38 @@ object EvalOp {
 
     case object Dcg extends Metric[LabelledIndexes] {
 
-      def apply(indexes: LabelledIndexes): Double =
-        indexes.indexedLabels.foldMap { case (i, rel) => (pow(2, rel) - 1) / (log(i + 2.0) / log(2)) }
+      def apply(indexes: LabelledIndexes): Double = indexes.indexedLabels.toList.foldMap { case (i, rel) => rel / log2(i + 1.0) }
+      private val log2 = (i: Double) => log(i) / log(2)
     }
 
     case object Idcg extends Metric[LabelledIndexes] {
 
       def apply(indexes: LabelledIndexes): Double =
-        Dcg(LabelledIndexes(indexes.indexedLabels.sortBy(-_._2).zipWithIndex.map { case ((_, l), i) => i -> l }))
+        Dcg(LabelledIndexes(indexes.indexedLabels.sortBy(-_._2).mapWithIndex { case ((_, l), i) => (i + 1) -> l }))
     }
   }
 
-  case class AtK[A: ToK](k: Int) extends EvalOp[A, Option[A]] {
-    def apply(a: A): Option[A] = a.toK(k)
+  case class K(k: Int) {
+    override def toString: String = s"@$k"
   }
-  object AtK {
-    type KFiltered[A] = Either[InsufficientSize, A]
-    case class InsufficientSize(minRequired: Int, maxPossible: Int)
+
+  case class AtK[A: ToK](k: Int) extends EvalOp[A, KFiltered[A]] {
+
+    def apply(a: A): KFiltered[A] = a.filterToK(k)
+  }
+
+  object free {
+    import com.adrielc.arrow.free.FreeA.liftK
+    import Metric._
+
+    val ndcg                : FreeEval[LabelledIndexes, Double]     = liftK(Ndcg)
+    val recall              : FreeEval[ResultsWithRelevant, Double] = liftK(Recall)
+    val precision           : FreeEval[ResultsWithRelevant, Double] = liftK(Precision)
+    def atK[A: ToK](k: Int) : FreeEval[A, Either[InsufficientSize, (K, A)]] = liftK(AtK(k))
+
+    implicit class EvalOps[A, B](private val freeEval: FreeA[Arrow, EvalOp, A, B]) {
+      private lazy val f = freeEval.fold[Function1]
+      def apply(a: A): B = f(a)
+    }
   }
 }

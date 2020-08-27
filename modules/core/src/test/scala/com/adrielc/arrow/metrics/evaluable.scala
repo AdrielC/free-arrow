@@ -5,49 +5,60 @@ import cats.implicits._
 
 object evaluable {
 
-  case class LabelledIndexes private (indexedLabels: NonEmptyList[(Index, Label)]) {
-    lazy val indexes: NonEmptySet[Index] = indexedLabels.map(_._1).toNes
-    lazy val maxK: Index = indexes.maximum
+  case class LabelledIndexes private (indexedLabels: NonEmptyList[(Index, Label)], k: Int) {
+    val indexes: NonEmptySet[Index] = indexedLabels.map(_._1).toNes
+    val maxK: Index = indexes.maximum
+
+    def setK(_k: Int): LabelledIndexes = {
+      assert(_k > 0)
+      copy(k = _k)
+    }
+
+    def filterK: Option[LabelledIndexes] = {
+      println(this)
+      val filtered = indexedLabels.filter(_._1 <= k).toNel.map(LabelledIndexes(_, k))
+      filtered.foreach(println)
+      filtered
+    }
   }
   object LabelledIndexes {
 
-    def apply(h: (Index, Label), t: (Index, Label)*): LabelledIndexes = new LabelledIndexes(NonEmptyList.of(h, t:_*))
+    def apply(indexedLabels: NonEmptyList[(Index, Label)]): LabelledIndexes = new LabelledIndexes(indexedLabels, indexedLabels.toList.maxBy(_._1)._1)
+
+    def of(h: (Index, Label), t: (Index, Label)*): LabelledIndexes = LabelledIndexes(NonEmptyList.of(h, t:_*).sortBy(_._1), h._1 max t.maxBy(_._1)._1)
+
+    def labels(h: Label, t: Label*): LabelledIndexes = LabelledIndexes(NonEmptyList.of(h, t:_*).mapWithIndex((l, i) => (i + 1) -> l))
 
     implicit val toKLabelledResult: ToK[LabelledIndexes] = new ToK[LabelledIndexes] {
-      def toK(a: LabelledIndexes, k: Index): Option[LabelledIndexes] = a.indexedLabels.filter(_._1 <= k).toNel.map(LabelledIndexes(_))
+      def toK(a: LabelledIndexes, k: Index): Option[LabelledIndexes] = Some(a.setK(k))
       def maxK(a: LabelledIndexes): Index = a.maxK
     }
   }
 
-  sealed trait Results {
-    def results: NonEmptyList[ResultId]
-    lazy val size: Index = results.size
-  }
-
-  case class ResultsWithLabels(results: NonEmptyList[ResultId], labels: NonEmptyMap[ResultId, Label]) extends Results
+  case class ResultsWithLabels(results: NonEmptyList[ResultId], labels: NonEmptyMap[ResultId, Label])
   object ResultsWithLabels {
 
     implicit val toKResultsWithLabels: ToK[ResultsWithLabels] = new ToK[ResultsWithLabels] {
       def toK(a: ResultsWithLabels, k: Index): Option[ResultsWithLabels] = a.results.toList.take(k).toNel.map(atK => a.copy(results = atK))
-      def maxK(a: ResultsWithLabels): Index = a.size
+      def maxK(a: ResultsWithLabels): Index = a.results.size
     }
   }
 
-  case class ResultsWithRelevant(results: NonEmptyList[ResultId], relevant: NonEmptySet[ResultId]) extends Results
+  case class ResultsWithRelevant(results: NonEmptyList[ResultId], relevant: NonEmptySet[ResultId])
   object ResultsWithRelevant {
 
     implicit val toKRankingWithRelevants: ToK[ResultsWithRelevant] = new ToK[ResultsWithRelevant] {
       def toK(a: ResultsWithRelevant, k: Index): Option[ResultsWithRelevant] = a.results.toList.take(k).toNel.map(atK => a.copy(results = atK))
-      def maxK(a: ResultsWithRelevant): Index = a.size
+      def maxK(a: ResultsWithRelevant): Index = a.results.size
     }
   }
 
-  case class ResultsWithEngagements(results: NonEmptyList[ResultId], engagements: EngagedResults) extends Results
+  case class ResultsWithEngagements(results: NonEmptyList[ResultId], engagements: Map[ResultId, EngagementCounts])
   object ResultsWithEngagements {
 
     implicit val toKResultsWithEngagements: ToK[ResultsWithEngagements] = new ToK[ResultsWithEngagements] {
       def toK(a: ResultsWithEngagements, k: Index): Option[ResultsWithEngagements] = a.results.toList.take(k).toNel.map(atK => a.copy(results = atK))
-      def maxK(a: ResultsWithEngagements): Index = a.size
+      def maxK(a: ResultsWithEngagements): Index = a.results.size
     }
   }
 }
