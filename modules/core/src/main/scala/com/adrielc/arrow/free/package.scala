@@ -42,9 +42,9 @@ package object free {
    *
    * Isomorphic to `(M, F[A, B]) => FreeA[Arrow, F, A, B]`
    * */
-  type |~>[M, -R[f[_, _]] >: ACP[f] <: AR[f], F[_, _]] = EnvA[M, F, ?, ?] ~~> FreeA[R, F, ?, ?]
+  type |~>[M, -R[f[_, _]] >: ACP[f] <: AR[f], F[_, _]] = EnvA[M, F, *, *] ~~> FreeA[R, F, *, *]
 
-  type EitherFreeA[-R[f[_, _]] >: ACP[f] <: AR[f], +F[_, _], +G[_, _], A, B] = FreeA[R, BiEitherK[F, G, ?, ?], A, B]
+  type EitherFreeA[-R[f[_, _]] >: ACP[f] <: AR[f], +F[_, _], +G[_, _], A, B] = FreeA[R, BiEitherK[F, G, *, *], A, B]
 
   type || = Either[Unit, Unit]
   type ||| = Either[Either[Unit, Unit], Unit]

@@ -1,8 +1,8 @@
 package com.adrielc.arrow.free
 
-import com.adrielc.arrow.metrics.LabelledIndexes
 import org.scalatest.{FlatSpec, Matchers}
 import com.adrielc.arrow.metrics.EvalOp.Metric.Ndcg
+import com.adrielc.arrow.metrics.evaluable.LabelledIndexes
 
 class FreeMetricsTest extends FlatSpec with Matchers {
 

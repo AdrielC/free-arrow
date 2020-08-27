@@ -11,7 +11,7 @@ package object data {
   /** A [[~~>]] that outputs values of kind "*" */
   type ~>|[-F[_, _], +M] = F ~~> λ[(α, β) => M]
 
-  type EnvA[E, +F[_, _], A, B] = BiTuple2K[BiConst[Eval[E], ?, ?], F, A, B]
+  type EnvA[E, +F[_, _], A, B] = BiTuple2K[BiConst[Eval[E], *, *], F, A, B]
   object EnvA {
 
     def apply[E, F[_, _], A, B](env: => E, fab: F[A, B]): EnvA[E, F, A, B] = EnvA[F](env)(fab)
@@ -19,7 +19,7 @@ package object data {
     def apply[F[_, _]]: MkEnvA[F] = new MkEnvA[F]
 
     final class MkEnvA[F[_, _]] private[EnvA] {
-      def apply[E](e: => E): F ~~> EnvA[E, F, ?, ?] = new (F ~~> EnvA[E, F, ?, ?]) {
+      def apply[E](e: => E): F ~~> EnvA[E, F, *, *] = new (F ~~> EnvA[E, F, *, *]) {
         val env = Eval.later(e)
         def apply[A, B](f: F[A, B]): EnvA[E, F, A, B] = BiTuple2K(BiConst(env), f)
       }

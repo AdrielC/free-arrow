@@ -4,9 +4,7 @@ import cats.{Eval, Monoid}
 import cats.arrow.{Arrow, ArrowChoice}
 import cats.kernel.Semigroup
 import com.adrielc.arrow.{ArrowChoicePlus, ArrowChoiceZero, ArrowPlus, ArrowZero}
-import cats.syntax.{either, flatMap}
-import either._
-import flatMap._
+import cats.syntax.{either, flatMap}, either._, flatMap._
 import com.adrielc.arrow.data.{BiConst, BiEitherK, BiFunctionK, EnvA, ~>|, ~~>}
 
 /** Free Arrow
@@ -35,6 +33,8 @@ sealed trait FreeA[-R[f[_, _]] >: ArrowChoicePlus[f] <: Arrow[f], +Flow[_, _], I
    */
   def foldMap[G[_, _]](fg: Flow ~~> G)(implicit A: R[G]): G[In, Out]
 
+  def fold[FF[a, b] >: Flow[a, b]](implicit A: R[FF]): FF[In, Out] = foldMap(BiFunctionK.id[FF])
+
   /**
    * Modify the arrow context `Flow` using transformation `fg`.
    *
@@ -49,7 +49,7 @@ sealed trait FreeA[-R[f[_, _]] >: ArrowChoicePlus[f] <: Arrow[f], +Flow[_, _], I
 
   /** Fold this [[FreeA]] into a summary value using [[M]]s Monoidal behavior */
   final def analyze[M: Monoid](m: Flow ~>| M): M =
-    foldMap(new (Flow ~~> BiConst[M, ?, ?]) {
+    foldMap(new (Flow ~~> BiConst[M, *, *]) {
       def apply[C, D](f: Flow[C, D]): BiConst[M, C, D] = BiConst(m(f))
     }).getConst
 
@@ -149,6 +149,13 @@ sealed trait FreeA[-R[f[_, _]] >: ArrowChoicePlus[f] <: Arrow[f], +Flow[_, _], I
     fab: FreeA[RR, FF, A, Out]
   )(implicit S: Semigroup[Out]): FreeA[ACP, FF, (In, A), Out] =
     self.split(fab).rmap((S.combine _).tupled)
+
+  /** [[merge]] wwith `fab` and then [[cats.Semigroup.combine]] the tupled [[Out]] */
+  def &&&|+|[RR[f[_, _]] >: ACP[f] <: R[f], FF[a, b] >: Flow[a, b], A](
+    fab: FreeA[RR, FF, In, Out]
+  )(implicit S: Semigroup[Out]): FreeA[ACP, FF, In, Out] =
+    self.merge(fab).rmap((S.combine _).tupled)
+
 
   /** Select first if output is a tuple */
   def _1[C](implicit ev: Out <:< (C, Any)): FreeA[R, Flow, In, C] =
@@ -317,8 +324,8 @@ object FreeA {
 
 
   implicit def arrowInstance[Arr[f[_, _]] >: ACP[f] <: AR[f], F[_, _]]
-  : ArrowChoicePlus[FreeA[Arr, F, ?, ?]] with Arr[FreeA[Arr, F, ?, ?]] =
-    new ArrowChoicePlus[FreeA[Arr, F, ?, ?]] {
+  : ArrowChoicePlus[FreeA[Arr, F, *, *]] with Arr[FreeA[Arr, F, *, *]] =
+    new ArrowChoicePlus[FreeA[Arr, F, *, *]] {
 
       def compose[A, B, C](f: FreeA[Arr, F, B, C], g: FreeA[Arr, F, A, B]): FreeA[Arr, F, A, C] =
         g.andThen(f)
@@ -389,7 +396,7 @@ object FreeA {
   ) extends FreeA[Arr, F, A, C] {
     def foldMap[G[_, _]](fk: F ~~> G)(implicit A: Arr[G]): G[A, C] = {
       type EvalG[X, Y] = Eval[G[X, Y]]
-      lazy val lazyAnd = new (FreeA[Arr, F, ?, ?] ~~> EvalG) {
+      lazy val lazyAnd = new (FreeA[Arr, F, *, *] ~~> EvalG) {
         def apply[D, E](f: FreeA[Arr, F, D, E]): EvalG[D, E] = f match {
           case a: AndThen[Arr, F, d, b, e] =>
 

@@ -24,13 +24,13 @@ trait BiFunctionK[-F[_, _], +G[_, _]] extends Serializable {
   def andThen[H[_, _]](g: G ~~> H): F ~~> H = g.compose(self)
 
 
-  def and[H[_, _], FF[a, b] <: F[a, b], GG[a, b] >: G[a, b]](other: FF ~~> H): FF ~~> BiTuple2K[GG, H, ?, ?] =
-    new (FF ~~> BiTuple2K[GG, H, ?, ?]) {
+  def and[H[_, _], FF[a, b] <: F[a, b], GG[a, b] >: G[a, b]](other: FF ~~> H): FF ~~> BiTuple2K[GG, H, *, *] =
+    new (FF ~~> BiTuple2K[GG, H, *, *]) {
       def apply[A, B](f: FF[A, B]): BiTuple2K[GG, H, A, B] = BiTuple2K(self(f), other(f))
     }
 
-  def or[H[_, _], FF[a, b] <: F[a, b], GG[a, b] >: G[a, b]](h: H ~~> GG): BiEitherK[FF, H, ?, ?] ~~> GG =
-    new (BiEitherK[FF, H, ?, ?] ~~> GG) {
+  def or[H[_, _], FF[a, b] <: F[a, b], GG[a, b] >: G[a, b]](h: H ~~> GG): BiEitherK[FF, H, *, *] ~~> GG =
+    new (BiEitherK[FF, H, *, *] ~~> GG) {
       override def apply[A, B](f: BiEitherK[FF, H, A, B]): GG[A, B] = f.run.fold(self(_), h(_))
     }
 }
@@ -44,11 +44,11 @@ object BiFunctionK {
 
   implicit class PureOps[F[_, _]](private val fk: Pure[F]) extends AnyVal {
 
-    def kleisli[M[_]: Applicative]: F ~~> Kleisli[M, ?, ?] = fk.andThen(BiFunctionK.kleisli)
+    def kleisli[M[_]: Applicative]: F ~~> Kleisli[M, *, *] = fk.andThen(BiFunctionK.kleisli)
   }
 
-  def kleisli[F[_]](implicit A: Applicative[F]): Function1 ~~> Kleisli[F, ?, ?] =
-    new (Function1 ~~> Kleisli[F, ?, ?]) { def apply[A, B](fab: A => B): Kleisli[F, A, B] = Kleisli(a => A.pure(fab(a))) }
+  def kleisli[F[_]](implicit A: Applicative[F]): Function1 ~~> Kleisli[F, *, *] =
+    new (Function1 ~~> Kleisli[F, *, *]) { def apply[A, B](fab: A => B): Kleisli[F, A, B] = Kleisli(a => A.pure(fab(a))) }
 
   /**
    * Lifts function `f` of `F[A, B] => G[A, B]` into a `BiFunctionK[F, G]`.
