@@ -14,12 +14,7 @@ object evaluable {
       copy(k = _k)
     }
 
-    def filterK: Option[LabelledIndexes] = {
-      println(this)
-      val filtered = indexedLabels.filter(_._1 <= k).toNel.map(LabelledIndexes(_, k))
-      filtered.foreach(println)
-      filtered
-    }
+    def filterK: Option[LabelledIndexes] = indexedLabels.filter(_._1 <= k).toNel.map(LabelledIndexes(_, k))
   }
   object LabelledIndexes {
 

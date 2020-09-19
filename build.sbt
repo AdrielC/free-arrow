@@ -1,6 +1,6 @@
 import Dependencies.Libraries
 
-name := """free-arrow"""
+name := """quiver"""
 
 organization in ThisBuild := "com.adrielc"
 
@@ -59,6 +59,6 @@ lazy val akka = (project in file("modules/akka"))
   )
 
 
-lazy val `free-arrow` = (project in file("."))
+lazy val quiver = (project in file("."))
   .settings(commonSettings: _*)
   .aggregate(macros, core, zio, akka)

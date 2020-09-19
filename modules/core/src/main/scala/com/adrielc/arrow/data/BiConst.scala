@@ -17,7 +17,7 @@ object BiConst {
   implicit def constArrMonoid[V: Monoid, A, B]: Monoid[BiConst[V, A, B]] =
     Monoid.instance(BiConst(Monoid.empty[V]), (a, b) => BiConst(a.getConst |+| b.getConst))
 
-  implicit def constArrow[V: Monoid]: ArrowChoicePlus[BiConst[V, ?, ?]] = new ArrowChoicePlus[BiConst[V, ?, ?]] {
+  implicit def constArrow[V: Monoid]: ArrowChoicePlus[BiConst[V, *, *]] = new ArrowChoicePlus[BiConst[V, *, *]] {
 
     def zeroArrow[B, C]: BiConst[V, B, C] = constArrMonoid[V, B, C].empty
 
@@ -32,8 +32,8 @@ object BiConst {
     def first[A, B, C](fa: BiConst[V, A, B]): BiConst[V, (A, C), (B, C)] = fa.tag
   }
 
-  implicit def constDistributes[S: Semigroup]: BiDistributes[BiConst[S, ?, ?], BiConst[S, ?, ?]] =
-    new BiDistributes[BiConst[S, ?, ?], BiConst[S, ?, ?]] {
+  implicit def constDistributes[S: Semigroup]: BiDistributes[BiConst[S, *, *], BiConst[S, *, *]] =
+    new BiDistributes[BiConst[S, *, *], BiConst[S, *, *]] {
       def dist[A0, A1, B0, B1](pa: BiConst[S, A0, A1], pb: BiConst[S, B0, B1]): BiConst[S, BiConst[S, A0, B0], BiConst[S, A1, B1]] =
         BiConst(pa.getConst |+| pb.getConst)
     }

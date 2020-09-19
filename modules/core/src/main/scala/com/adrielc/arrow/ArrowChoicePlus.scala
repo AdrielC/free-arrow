@@ -16,10 +16,10 @@ import cats.syntax.all._
 
 object ArrowChoicePlus {
 
-  implicit def arrowChoicePlusForKleisli[M[_] : Monad : MonoidK]: ArrowChoicePlus[Kleisli[M, ?, ?]] =
-    new ArrowChoicePlusInstance[Kleisli[M, ?, ?]] {
+  implicit def arrowChoicePlusForKleisli[M[_] : Monad : MonoidK]: ArrowChoicePlus[Kleisli[M, *, *]] =
+    new ArrowChoicePlusInstance[Kleisli[M, *, *]] {
 
-      val A: ArrowChoice[Kleisli[M, ?, ?]] = Kleisli.catsDataArrowChoiceForKleisli
+      val A: ArrowChoice[Kleisli[M, *, *]] = Kleisli.catsDataArrowChoiceForKleisli
 
       def plus[A, B](f: Kleisli[M, A, B], g: Kleisli[M, A, B]): Kleisli[M, A, B] =
         Kleisli(a => f.run(a) <+> g.run(a))

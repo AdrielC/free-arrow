@@ -36,8 +36,8 @@ object BiKleisli {
   def empty[W[_], M[_], A, B](implicit M: MonoidK[M]): BiKleisli[W, M, A, B] =
     BiKleisli(_ => M.empty)
 
-  implicit def arrowBiKleisli[W[_], M[_]](implicit C: Comonad[W], M: Monad[M], D: Distributive[M]): Arrow[BiKleisli[W, M, ?, ?]] =
-    new Arrow[BiKleisli[W, M, ?, ?]] {
+  implicit def arrowBiKleisli[W[_], M[_]](implicit C: Comonad[W], M: Monad[M], D: Distributive[M]): Arrow[BiKleisli[W, M, *, *]] =
+    new Arrow[BiKleisli[W, M, *, *]] {
 
       def lift[A, B](f: A => B): BiKleisli[W, M, A, B] =
         BiKleisli.lift(f)
@@ -50,8 +50,8 @@ object BiKleisli {
     }
 
 
-  implicit def arrowChoicePlusBiKleisli[W[_], M[_]](implicit A: MonoidK[M], C: Comonad[W], M: Monad[M], D: Distributive[M]): ArrowChoicePlus[BiKleisli[W, M, ?, ?]] =
-    new ArrowChoicePlus[BiKleisli[W, M, ?, ?]] {
+  implicit def arrowChoicePlusBiKleisli[W[_], M[_]](implicit A: MonoidK[M], C: Comonad[W], M: Monad[M], D: Distributive[M]): ArrowChoicePlus[BiKleisli[W, M, *, *]] =
+    new ArrowChoicePlus[BiKleisli[W, M, *, *]] {
 
       def zeroArrow[B, C]: BiKleisli[W, M, B, C] =
         BiKleisli.empty

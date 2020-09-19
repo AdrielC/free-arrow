@@ -36,7 +36,7 @@ object Interpreter {
   private final class CataInterpreter[S[_[_, _], _, _], F[_, _]](
     algebra: Alg[S, F]
   )(implicit ev: ArFunctor[S])
-    extends Interpreter[Fix[S, ?, ?], F] {
+    extends Interpreter[Fix[S, *, *], F] {
     final override val interpret = cataNT(algebra)
   }
 
@@ -50,12 +50,12 @@ object Interpreter {
 
   def cata[S[_[_, _], _, _], F[_, _]](
     alg: Alg[S, F]
-  )(implicit ev: ArFunctor[S]): Interpreter[Fix[S, ?, ?], F] =
+  )(implicit ev: ArFunctor[S]): Interpreter[Fix[S, *, *], F] =
     new CataInterpreter[S, F](alg)
 
   def hylo[S[_[_, _], _, _], F[_, _], G[_, _]](
-                                                coAlg: Coalg[S, G],
-                                                alg: Alg[S, F]
+    coAlg: Coalg[S, G],
+    alg: Alg[S, F]
   )(implicit ev: ArFunctor[S]): Interpreter[G, F] =
     new HyloInterpreter(coAlg, alg)
 }

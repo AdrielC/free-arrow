@@ -191,20 +191,22 @@ sealed trait FreeA[-R[f[_, _]] >: ArrowChoicePlus[f] <: Arrow[f], +Flow[_, _], I
   ): FreeA[RR, FF, In, Out] =
     self.andThen(deadEnd.*-*)
 
+  /** feed [[Monoid.empty]] to the input of [[mergeR]], and thread it's output tupled right of [[Out]] */
+  def >>/[RR[f[_, _]] >: AR[f] <: R[f], FF[a, b] >: Flow[a, b], I: Monoid, A](
+    mergeR: FreeA[RR, FF, I, A]
+  ): FreeA[RR, FF, In, (Out, A)] =
+    lift((a: In) => (a, Monoid.empty)).andThen(self.split(mergeR))
+
+  /** feed [[Monoid.empty]] to the input of [[mergeL]], and thread it's output tupled left of [[Out]] */
+  def >>\[RR[f[_, _]] >: AR[f] <: R[f], FF[a, b] >: Flow[a, b], I: Monoid, A](
+    mergeL: FreeA[RR, FF, I, A]
+  ): FreeA[RR, FF, In, (A, Out)] =
+    lift((a: In) => (Monoid.empty, a)).andThen(mergeL.split(self))
+
+
   /** feed [[Out]] to a dead end arrow, ignoring its output and returning the [[Out]] */
   def tap(tap: Out => Unit): FreeA[R, Flow, In, Out] =
     self >>| lift(tap)
-
-  /** feed [[Out]] to a dead end arrow, ignoring its output and returning the [[Out]] */
-  def >>/[RR[f[_, _]] >: AR[f] <: R[f], FF[a, b] >: Flow[a, b], A](
-    mergeR: FreeA[RR, FF, Unit, A]
-  ): FreeA[RR, FF, In, (Out, A)] =
-    lift((a: In) => (a, ())).andThen(self.split(mergeR))
-
-  def >>\[RR[f[_, _]] >: AR[f] <: R[f], FF[a, b] >: Flow[a, b], A](
-    mergeL: FreeA[RR, FF, Unit, A]
-  ): FreeA[RR, FF, In, (A, Out)] =
-    lift((a: In) => ((), a)).andThen(mergeL.split(self))
 
 
   /** test condition [[Out]], Right == true */
@@ -294,6 +296,12 @@ sealed trait FreeA[-R[f[_, _]] >: ArrowChoicePlus[f] <: Arrow[f], +Flow[_, _], I
     fcb: FreeA[RR, FF, In, Out]
   )(implicit L: <+>@[RR]): FreeA[L.Lub, FF, In, Out] =
     Plus[RR, FF, In, Out](self, fcb)
+
+  /** [[Plus]] */
+  final def or[RR[f[_, _]] >: ACP[f] <: R[f], FF[a, b] >: Flow[a, b]](
+    fcb: FreeA[RR, FF, In, Out]
+  )(implicit L: <+>@[RR]): FreeA[L.Lub, FF, In, Out] =
+    self <+> fcb
 
   def and[RR[f[_, _]] >: ACP[f] <: R[f], FF[a, b] >: Flow[a, b], C](
     fab: FreeA[RR, FF, In, C]

@@ -53,8 +53,8 @@ object BiEitherK {
   def right[F[_, _]]: EitherBiKRight[F] = new EitherBiKRight[F]
 
   /** [[BiFunctionK]] variant of [[leftc]] */
-  def leftK[F[_, _], G[_, _]]:  F ~~> BiEitherK[F, G, ?, ?] = BiFunctionK.lift(leftc)
+  def leftK[F[_, _], G[_, _]]:  F ~~> BiEitherK[F, G, *, *] = BiFunctionK.lift(leftc)
 
   /** [[BiFunctionK]] variant of [[rightc]] */
-  def rightK[F[_, _], G[_, _]]:  G ~~> BiEitherK[F, G, ?, ?] = BiFunctionK.lift(rightc)
+  def rightK[F[_, _], G[_, _]]:  G ~~> BiEitherK[F, G, *, *] = BiFunctionK.lift(rightc)
 }

@@ -12,8 +12,6 @@ import org.scalatest.{FlatSpec, Matchers}
 
 class FreeEvalTest extends FlatSpec with Matchers {
 
-  // {\displaystyle 3,3,3,2,2,2,1,0}
-
   val labelledIndexes = LabelledIndexes.of(
     1 -> 3,
     2 -> 2,

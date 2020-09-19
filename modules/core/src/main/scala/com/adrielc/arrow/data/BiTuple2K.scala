@@ -12,8 +12,8 @@ case class BiTuple2K[+F[_, _], +G[_, _], A, B](_1: F[A, B], _2: G[A, B])
 object BiTuple2K {
 
   implicit def tuple2HKArrow[F[_, _], G[_, _]]
-  (implicit F: ArrowChoice[F], G: ArrowChoice[G]): ArrowChoice[BiTuple2K[F, G, ?, ?]] =
-    new ArrowChoice[BiTuple2K[F, G, ?, ?]] {
+  (implicit F: ArrowChoice[F], G: ArrowChoice[G]): ArrowChoice[BiTuple2K[F, G, *, *]] =
+    new ArrowChoice[BiTuple2K[F, G, *, *]] {
 
       def choose[A, B, C, D](f: BiTuple2K[F, G, A, C])(g: BiTuple2K[F, G, B, D]): BiTuple2K[F, G, Either[A, B], Either[C, D]] =
         BiTuple2K(f._1 +++ g._1, f._2 +++ g._2)
