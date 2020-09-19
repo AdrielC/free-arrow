@@ -186,7 +186,9 @@ class FreeArrowSpec extends FlatSpec with Matchers {
   "FreeA" should "combine algrabras" in {
     import Cnsl.~~>.stubGets
 
-    val addN = num(10).second >>> add <<^ ((_: Int, ()))
+    val a = num(10).second >>> add
+
+    val addN = a <<^ ((_: Int, ()))
 
     val getUserInt = prompt("Provide a number to add 10 to") >>> getInt
 

@@ -43,10 +43,7 @@ lazy val finagle = (project in file("modules/finagle"))
   .dependsOn(core)
   .settings(
     commonSettings,
-    libraryDependencies ++= Seq (
-      Libraries.finagle,
-      compilerPlugin(Libraries.kindProjector)
-    )
+    libraryDependencies += Libraries.finagle
   )
 
 

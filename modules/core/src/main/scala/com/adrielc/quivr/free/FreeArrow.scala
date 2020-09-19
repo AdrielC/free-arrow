@@ -348,13 +348,13 @@ object FreeArrow {
         fa.first
 
       def plus[A, B](f: FreeArrow[Arr, F, A, B], g: FreeArrow[Arr, F, A, B]): FreeArrow[Arr, F, A, B] =
-        f.plus(g).asInstanceOf[FreeArrow[Arr, F, A, B]]
+        Plus(f, g).asInstanceOf[FreeArrow[Arr, F, A, B]]
 
       def zeroArrow[B, C]: FreeArrow[Arr, F, B, C] =
         FreeArrow.zeroArrow[B, C].asInstanceOf[FreeArrow[Arr, F, B, C]]
 
       def choose[A, B, C, D](f: FreeArrow[Arr, F, A, C])(g: FreeArrow[Arr, F, B, D]): FreeArrow[Arr, F, Either[A, B], Either[C, D]] =
-        f.choose(g).asInstanceOf[FreeArrow[Arr, F, Either[A, B], Either[C, D]]]
+        Choose(f, g).asInstanceOf[FreeArrow[Arr, F, Either[A, B], Either[C, D]]]
 
       override def second[A, B, C](fa: FreeArrow[Arr, F, A, B]): FreeArrow[Arr, F, (C, A), (C, B)] =
         fa.second
@@ -375,7 +375,7 @@ object FreeArrow {
         f.merge(g)
 
       override def choice[A, B, C](f: FreeArrow[Arr, F, A, C], g: FreeArrow[Arr, F, B, C]): FreeArrow[Arr, F, Either[A, B], C] =
-        f.choice(g).asInstanceOf[FreeArrow[Arr, F, Either[A, B], C]]
+        Choice(f, g).asInstanceOf[FreeArrow[Arr, F, Either[A, B], C]]
 
       override def and[A, B, C](f: FreeArrow[Arr, F, A, B], g: FreeArrow[Arr, F, A, C]): FreeArrow[Arr, F, A, Either[B, C]] =
         f.and(g).asInstanceOf[FreeArrow[Arr, F, A, Either[B, C]]]

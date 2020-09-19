@@ -1,8 +1,8 @@
 package com.adrielc.quivr.util
 
+import cats.Bifunctor
 import cats.arrow.{Arrow, Compose}
-import cats.instances.function._
-import cats.syntax.{compose, either}, either._, compose._
+import cats.implicits._
 
 trait Iso[F[_, _], A, B] { self =>
 
@@ -45,16 +45,16 @@ object Iso {
       Iso.id[Function1, A]
   }
 
-  implicit val nisoDistributesOverProduct: BiDistributes[NIso, Tuple2] =
-    new BiDistributes[NIso, Tuple2] {
+  implicit def nisoDistributesOberBifunctor[F[_, _]: Bifunctor]: BiDistributes[NIso, F] =
+    new BiDistributes[NIso, F] {
 
-      def dist[A0, A1, B0, B1](pa: NIso[A0, A1], pb: NIso[B0, B1]): NIso[(A0, B0), (A1, B1)] =
-        NIso(p0 => (pa.to(p0._1), pb.to(p0._2)), p1 => (pa.from(p1._1), pb.from(p1._2)))
+      def dist[A0, A1, B0, B1](pa: NIso[A0, A1], pb: NIso[B0, B1]): NIso[F[A0, B0], F[A1, B1]] =
+        NIso(p0 => p0.bimap(pa.to, pb.to), p1 => p1.bimap(pa.from, pb.from))
     }
 
-  implicit val nisoDistributesOverSum: BiDistributes[NIso, Either] = new BiDistributes[NIso, Either] {
+  implicit val nisoDistributesOverMap: BiDistributes[NIso, Map] = new BiDistributes[NIso, Map] {
 
-    def dist[A0, A1, B0, B1](pa: NIso[A0, A1], pb: NIso[B0, B1]): NIso[Either[A0, B0], Either[A1, B1]] =
-      NIso(e0 => e0.bimap(pa.to, pb.to), e1 => e1.bimap(pa.from, pb.from))
+    override def dist[A0, A1, B0, B1](pa: NIso[A0, A1], pb: NIso[B0, B1]): NIso[Map[A0, B0], Map[A1, B1]] =
+      NIso(e0 => e0.map { case (k, v) => pa.to(k) -> pb.to(v) }, e1 => e1.map { case (k, v) => pa.from(k) -> pb.from(v) })
   }
 }
