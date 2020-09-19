@@ -2,6 +2,7 @@ package com.adrielc.quivr.finagle
 
 import com.adrielc.quivr.ArrowChoicePlus
 import com.twitter.finagle.Service
+import com.twitter.finagle.service.NilService
 import com.twitter.util.Future
 
 trait ServiceInstances {
@@ -12,7 +13,7 @@ trait ServiceInstances {
       Service.mk(a => f(a) or g(a))
 
     final def zeroArrow[B, C]: Service[B, C] =
-      Service.const(Future.???)
+      NilService
 
     final def choose[A, B, C, D](f: Service[A, C])(g: Service[B, D]): Service[Either[A, B], Either[C, D]] =
       Service.mk(_.fold(f(_).map(Left(_)), g(_).map(Right(_))))

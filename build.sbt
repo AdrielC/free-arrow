@@ -1,4 +1,5 @@
 import Dependencies.Libraries
+import sbt.compilerPlugin
 
 name := """quivr"""
 
@@ -42,7 +43,10 @@ lazy val finagle = (project in file("modules/finagle"))
   .dependsOn(core)
   .settings(
     commonSettings,
-    libraryDependencies += Libraries.finagle
+    libraryDependencies ++= Seq (
+      Libraries.finagle,
+      compilerPlugin(Libraries.kindProjector)
+    )
   )
 
 
