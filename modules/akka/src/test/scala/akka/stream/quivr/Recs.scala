@@ -4,7 +4,7 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import akka.NotUsed
 import akka.stream.scaladsl.{Flow, Source}
-import com.adrielc.quivr.free.FreeA.liftK
+import com.adrielc.quivr.free.FreeArrow.liftK
 import com.adrielc.quivr.data.{Pure, ~~>}
 
 import scala.util.Random

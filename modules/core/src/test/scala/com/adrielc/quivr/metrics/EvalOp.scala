@@ -4,7 +4,7 @@ import cats.arrow.Arrow
 
 import scala.math.log
 import cats.implicits._
-import com.adrielc.quivr.free.FreeA
+import com.adrielc.quivr.free.FreeArrow
 import com.adrielc.quivr.metrics.ToK.{InsufficientSize, KFiltered}
 import com.adrielc.quivr.metrics.evaluable.{LabelledIndexes, ResultsWithRelevant}
 
@@ -60,7 +60,7 @@ object EvalOp {
   }
 
   object free {
-    import com.adrielc.quivr.free.FreeA.liftK
+    import com.adrielc.quivr.free.FreeArrow.liftK
     import Metric._
 
     val ndcg                : FreeEval[LabelledIndexes, Double]     = liftK(Ndcg)
@@ -68,7 +68,7 @@ object EvalOp {
     val precision           : FreeEval[ResultsWithRelevant, Double] = liftK(Precision)
     def atK[A: ToK](k: Int) : FreeEval[A, Either[InsufficientSize, (K, A)]] = liftK(AtK(k))
 
-    implicit class EvalOps[A, B](private val freeEval: FreeA[Arrow, EvalOp, A, B]) {
+    implicit class EvalOps[A, B](private val freeEval: FreeArrow[Arrow, EvalOp, A, B]) {
       private lazy val f = freeEval.fold[Function1]
       def apply(a: A): B = f(a)
     }

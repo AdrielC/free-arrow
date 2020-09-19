@@ -1,8 +1,8 @@
 package com.adrielc.quivr.zio
 
 import com.adrielc.quivr.data.~~>
-import com.adrielc.quivr.free.FreeA
-import com.adrielc.quivr.free.FreeA._
+import com.adrielc.quivr.free.FreeArrow
+import com.adrielc.quivr.free.FreeArrow._
 import com.adrielc.quivr.zio.ZArrow.ZA
 import org.scalatest.{FlatSpec, Matchers}
 import zio.URIO
@@ -27,11 +27,11 @@ class ZArrowSpec extends FlatSpec with Matchers {
   sealed trait Expr[A, B]
   case object Add10 extends Expr[Int, Int]
 
-  val add5 = FreeA.lift((_: Int) + 5)
+  val add5 = FreeArrow.lift((_: Int) + 5)
 
-  val add10 = FreeA.liftK(Add10)
+  val add10 = FreeArrow.liftK(Add10)
 
-  val add15 = FreeA.lift((_: Int) + 15)
+  val add15 = FreeArrow.lift((_: Int) + 15)
 
 
   val adder = (add5 >>> add10 >>> add15).loopN(1000)

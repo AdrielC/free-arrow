@@ -6,7 +6,7 @@ import scala.io.StdIn
 import scala.util.Try
 
 object exampleDsl {
-  import com.adrielc.quivr.free.FreeA.liftK
+  import com.adrielc.quivr.free.FreeArrow.liftK
 
   sealed trait Expr[A, B] extends Product with Serializable
   object Expr {

@@ -4,7 +4,7 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import akka.actor.ActorSystem
 import akka.stream.scaladsl.Sink
-import com.adrielc.quivr.free.FreeA._
+import com.adrielc.quivr.free.FreeArrow._
 import Recs._
 import org.scalatest.{FlatSpec, Matchers}
 import cats.implicits._

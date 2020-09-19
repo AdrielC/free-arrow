@@ -2,8 +2,8 @@ package com.adrielc.quivr
 
 import cats.arrow.{Arrow, ArrowChoice}
 import com.adrielc.quivr.data.~~>
-import com.adrielc.quivr.free.FreeA
-import com.adrielc.quivr.free.FreeA.liftK
+import com.adrielc.quivr.free.FreeArrow
+import com.adrielc.quivr.free.FreeArrow.liftK
 import cats.implicits._
 
 sealed trait FieldExpr[A, B]
@@ -20,7 +20,7 @@ object FieldExpr {
   case object NewOCode                  extends OCode
 
 
-  type FieldOp[O] = FreeA[Arrow, FieldExpr, Json, O]
+  type FieldOp[O] = FreeArrow[Arrow, FieldExpr, Json, O]
 
   def isNotNull(field: String): FieldOp[Either[Json, Json]] = liftK(IsNotNull(field))
   def isTrue(field: String)   : FieldOp[Either[Json, Json]] = liftK(IsTrue(field))
@@ -35,7 +35,7 @@ object FieldExprApp extends App {
 
   val newOrExisting = newOcode ||| existingOcode
 
-  val flow: FreeA[ArrowChoice, FieldExpr, Json, OCode] =
+  val flow: FreeArrow[ArrowChoice, FieldExpr, Json, OCode] =
     isNotNull("customerId") >>>
       ((isTrue("customerid_is_ocode") >>> newOrExisting) |||
         (isNotNull("ehid") >>> (newOcode ||| (isTrue("ehid_is_ocode") >>> newOrExisting))))

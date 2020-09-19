@@ -22,7 +22,7 @@ object ExampleMain extends App {
     }
   }
 
-  import FreeA._
+  import FreeArrow._
 
   // Define smart constructors to lift dsl into FreeA
   val getLine = liftK(GetLine)

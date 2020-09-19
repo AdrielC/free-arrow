@@ -1,7 +1,7 @@
 package com.adrielc.quivr.recursion
 
 import cats.arrow.Arrow
-import com.adrielc.quivr.free.FreeA
+import com.adrielc.quivr.free.FreeArrow
 import com.adrielc.quivr.ArrowChoicePlus
 import com.adrielc.quivr.data.~~>
 
@@ -16,13 +16,13 @@ object ArFunctor {
     def armap[G[_, _]](nt: F ~~> G)(implicit F: ArFunctor[Ar]): Ar[G, A, B] = F.armap(nt)(ar)
   }
 
-  implicit def freeAArFunctor[Ar[f[_, _]] >: ArrowChoicePlus[f] <: Arrow[f]]: ArFunctor[FreeA[Ar, *[_, _], *, *]] =
-    new ArFunctor[FreeA[Ar, *[_, _], *, *]] {
+  implicit def freeAArFunctor[Ar[f[_, _]] >: ArrowChoicePlus[f] <: Arrow[f]]: ArFunctor[FreeArrow[Ar, *[_, _], *, *]] =
+    new ArFunctor[FreeArrow[Ar, *[_, _], *, *]] {
 
-      def armap[F[_, _], G[_, _]](nt: F ~~> G): FreeA[Ar, F, *, *] ~~> FreeA[Ar, G, *, *] =
-        new (FreeA[Ar, F, *, *] ~~> FreeA[Ar, G, *, *]) {
+      def armap[F[_, _], G[_, _]](nt: F ~~> G): FreeArrow[Ar, F, *, *] ~~> FreeArrow[Ar, G, *, *] =
+        new (FreeArrow[Ar, F, *, *] ~~> FreeArrow[Ar, G, *, *]) {
 
-          def apply[A, B](f: FreeA[Ar, F, A, B]): FreeA[Ar, G, A, B] = f.compile(nt)
+          def apply[A, B](f: FreeArrow[Ar, F, A, B]): FreeArrow[Ar, G, A, B] = f.compile(nt)
         }
     }
 }

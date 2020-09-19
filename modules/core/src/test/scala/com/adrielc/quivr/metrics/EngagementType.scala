@@ -1,7 +1,7 @@
 package com.adrielc.quivr.metrics
 
-import com.adrielc.quivr.free.FreeA
-import FreeA.liftK
+import com.adrielc.quivr.free.FreeArrow
+import FreeArrow.liftK
 import cats.Order
 import cats.instances.int._
 import com.adrielc.quivr.metrics.LabelOp.{Binary, CountOf, PercentOf}

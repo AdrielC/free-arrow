@@ -60,7 +60,7 @@ object LabelOp {
 
 
   object free {
-    import com.adrielc.quivr.free.FreeA.{liftK, lift}
+    import com.adrielc.quivr.free.FreeArrow.{liftK, lift}
 
     val pow2                : FreeLabel[Double, Double] = liftK(Pow2)
     def binary[A: Numeric]  : FreeLabel[A, A]     = liftK(Binary[A])

@@ -1,10 +1,8 @@
 package akka.stream
 
 import akka.NotUsed
-import akka.stream.FlowShape
 import akka.stream.scaladsl.{Broadcast, Flow, GraphDSL, Keep, Merge, OrElse, Partition, Sink, Source, Unzip, WireTap, Zip}
 import com.adrielc.quivr.ArrowChoicePlus
-
 import cats.implicits._
 
 package object quivr {

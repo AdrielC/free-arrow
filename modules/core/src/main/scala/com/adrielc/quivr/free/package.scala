@@ -15,24 +15,24 @@ package object free {
 
 
   /** All levels of FreeArrow capability */
-  type FA[+F[_, _], A, B]   = FreeA[Arrow,           F, A, B]
-  type FC[+F[_, _], A, B]   = FreeA[ArrowChoice,     F, A, B]
-  type FP[+F[_, _], A, B]   = FreeA[ArrowPlus,       F, A, B]
-  type FZ[+F[_, _], A, B]   = FreeA[ArrowZero,       F, A, B]
-  type FCZ[+F[_, _], A, B]  = FreeA[ArrowChoiceZero, F, A, B]
-  type FCP[+F[_, _], A, B]  = FreeA[ArrowChoicePlus, F, A, B]
+  type FA[+F[_, _], A, B]   = FreeArrow[Arrow,           F, A, B]
+  type FC[+F[_, _], A, B]   = FreeArrow[ArrowChoice,     F, A, B]
+  type FP[+F[_, _], A, B]   = FreeArrow[ArrowPlus,       F, A, B]
+  type FZ[+F[_, _], A, B]   = FreeArrow[ArrowZero,       F, A, B]
+  type FCZ[+F[_, _], A, B]  = FreeArrow[ArrowChoiceZero, F, A, B]
+  type FCP[+F[_, _], A, B]  = FreeArrow[ArrowChoicePlus, F, A, B]
 
 
-  /** Specialized types of [[FreeA]] that correspond to method symbols */
+  /** Specialized types of [[FreeArrow]] that correspond to method symbols */
   type >>>[A, B] = FA[Nothing, A, B]
 
-  /** [[FreeA.justLeft]] */
+  /** [[FreeArrow.justLeft]] */
   type ^|-[L, R] = FCZ[Nothing, Either[L, R], L]
 
-  /** [[FreeA.justRight]] */
+  /** [[FreeArrow.justRight]] */
   type -|^[L, R] = FCZ[Nothing, Either[L, R], R]
 
-  /** [[FreeA.zeroArrow]] */
+  /** [[FreeArrow.zeroArrow]] */
   type ~@~[A, B] = FZ[Nothing, A, B]
 
 
@@ -42,9 +42,9 @@ package object free {
    *
    * Isomorphic to `(M, F[A, B]) => FreeA[Arrow, F, A, B]`
    * */
-  type |~>[M, -R[f[_, _]] >: ACP[f] <: AR[f], F[_, _]] = EnvA[M, F, *, *] ~~> FreeA[R, F, *, *]
+  type |~>[M, -R[f[_, _]] >: ACP[f] <: AR[f], F[_, _]] = EnvA[M, F, *, *] ~~> FreeArrow[R, F, *, *]
 
-  type EitherFreeA[-R[f[_, _]] >: ACP[f] <: AR[f], +F[_, _], +G[_, _], A, B] = FreeA[R, BiEitherK[F, G, *, *], A, B]
+  type EitherFreeA[-R[f[_, _]] >: ACP[f] <: AR[f], +F[_, _], +G[_, _], A, B] = FreeArrow[R, BiEitherK[F, G, *, *], A, B]
 
   type || = Either[Unit, Unit]
   type ||| = Either[Either[Unit, Unit], Unit]

@@ -14,7 +14,7 @@ import scala.concurrent.duration.{Duration, MILLISECONDS}
 import scala.concurrent.{Await, ExecutionContext, Future}
 
 class FreeArrowSpec extends FlatSpec with Matchers {
-  import FreeA.{id, lift, liftK, zeroArrow}
+  import FreeArrow.{id, lift, liftK, zeroArrow}
 
   "ArrowDescr" should "render op Json" in {
 
@@ -201,15 +201,15 @@ class FreeArrowSpec extends FlatSpec with Matchers {
 
   "FreeA" should "infer capabilities" in {
 
-    val unit: FreeA[Arrow,      Nothing, Unit, Unit]                = FreeA.id[Unit]
+    val unit: FreeArrow[Arrow,      Nothing, Unit, Unit]                = FreeArrow.id[Unit]
 
-    val ar: FreeA[Arrow,        Nothing, Unit, Unit]                = unit >>> unit
+    val ar: FreeArrow[Arrow,        Nothing, Unit, Unit]                = unit >>> unit
 
-    val _: FreeA[ArrowChoice,   Nothing, Either[Unit, Unit], Unit]  = ar ||| ar
+    val _: FreeArrow[ArrowChoice,   Nothing, Either[Unit, Unit], Unit]  = ar ||| ar
 
-    val az: FreeA[ArrowZero,    Nothing, Unit, Unit]                = ar >>> zeroArrow[Unit, Unit]
+    val az: FreeArrow[ArrowZero,    Nothing, Unit, Unit]                = ar >>> zeroArrow[Unit, Unit]
 
-    val ap: FreeA[ArrowPlus,    Nothing, Unit, Unit]                = az <+> ar <+> ar
+    val ap: FreeArrow[ArrowPlus,    Nothing, Unit, Unit]                = az <+> ar <+> ar
 
     val run = ap.foldMap(BiFunctionK.id[Function1].kleisli[List])
 
