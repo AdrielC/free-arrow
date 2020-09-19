@@ -3,11 +3,10 @@ import sbt._
 object Dependencies {
 
   object Versions {
-    val cats       = "2.0.0"
-
-    val circe = "0.12.3"
-
-    val simulacrum = "1.0.0"
+    val cats        = "2.0.0"
+    val circe       = "0.12.3"
+    val simulacrum  = "1.0.0"
+    val finagle     = "20.8.1"
 
     // Test
     val scalaTest  = "3.0.8"
@@ -20,11 +19,10 @@ object Dependencies {
   }
 
   object Libraries {
-    lazy val cats       = "org.typelevel" %% "cats-core"   % Versions.cats
-
-    lazy val simulacrum = "org.typelevel" %% "simulacrum" % Versions.simulacrum
-
-    lazy val circe      = "io.circe" %% "circe-core" % Versions.circe
+    lazy val cats       = "org.typelevel" %% "cats-core"    % Versions.cats
+    lazy val simulacrum = "org.typelevel" %% "simulacrum"   % Versions.simulacrum
+    lazy val circe      = "io.circe"      %% "circe-core"   % Versions.circe
+    lazy val finagle    = "com.twitter"   %% "finagle-core" % Versions.finagle
 
     // Test
     lazy val scalaTest  = "org.scalatest"  %% "scalatest"  % Versions.scalaTest

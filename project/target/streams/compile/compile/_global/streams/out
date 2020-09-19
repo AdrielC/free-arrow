@@ -1,4 +1,4 @@
-[error] /Users/acasellas/src/free-arrow/project/Dependencies.scala:44:51: value %& is not a member of String
-[error]     lazy val silencer         = "com.github.ghik" %& "silencer-lib"         % Versions.silencer % Provided cross CrossVersion.full
-[error]                                                   ^
+[error] /Users/acasellas/src/quiver/project/Dependencies.scala:30:5: illegal start of simple expression
+[error]     lazy val scalaTest  = "org.scalatest"  %% "scalatest"  % Versions.scalaTest
+[error]     ^
 [error] one error found
