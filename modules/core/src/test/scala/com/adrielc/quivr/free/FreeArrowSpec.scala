@@ -16,6 +16,15 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 class FreeArrowSpec extends FlatSpec with Matchers {
   import FreeArrow.{id, lift, liftK, zeroArrow}
 
+  "FreeArrow" should "not stack overflow" in {
+
+    val add1 = FreeArrow.lift((i: Int) => i + 1)
+
+    val run = List.fill(100000)(add1).reduce(_ andThen _).fold[Function1].apply(0)
+
+    assert(run == 100000)
+  }
+
   "ArrowDescr" should "render op Json" in {
 
     import com.adrielc.quivr.data.exampleDsl.Cnsl.~~>._

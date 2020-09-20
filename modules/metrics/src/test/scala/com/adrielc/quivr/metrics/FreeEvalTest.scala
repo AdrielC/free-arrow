@@ -1,14 +1,14 @@
 package com.adrielc.quivr.metrics
 
 import cats.data.NonEmptyList
-import cats.implicits._
 import com.adrielc.quivr.data.Pure
 import com.adrielc.quivr.metrics.EngagementType.Purchase
 import com.adrielc.quivr.metrics.EvalOp.free._
-import com.adrielc.quivr.metrics.LabelOp.MissingLabels
 import com.adrielc.quivr.metrics.LabelOp.free._
 import com.adrielc.quivr.metrics.evaluable.{LabelledIndexes, ResultsWithEngagements}
 import org.scalatest.{FlatSpec, Matchers}
+
+import cats.implicits._
 
 class FreeEvalTest extends FlatSpec with Matchers {
 
@@ -46,7 +46,7 @@ class FreeEvalTest extends FlatSpec with Matchers {
 
     val metric = ndcg.tap(println)
 
-    val eval = engToLabel.inl[EvalOp] >>> metric.right[MissingLabels].inr[LabelOp]
+    val eval = engToLabel.inl >>> metric.right.inr
 
     assert(eval.foldMap(Pure[LabelOp] or Pure[EvalOp]).apply(results) == Right(0.9488107485678984))
   }

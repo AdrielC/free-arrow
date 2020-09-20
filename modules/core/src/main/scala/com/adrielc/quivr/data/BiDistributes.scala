@@ -1,4 +1,4 @@
-package com.adrielc.quivr.util
+package com.adrielc.quivr.data
 
 trait BiDistributes[F[_, _], G[_, _]] {
 

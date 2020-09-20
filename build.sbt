@@ -39,6 +39,11 @@ lazy val core = (project in file("modules/core"))
     )
   )
 
+lazy val metrics = (project in file("modules/metrics"))
+  .dependsOn(core)
+  .settings(commonSettings)
+
+
 lazy val finagle = (project in file("modules/finagle"))
   .dependsOn(core)
   .settings(

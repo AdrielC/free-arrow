@@ -4,7 +4,7 @@ import cats.{Eval, Monoid}
 import cats.arrow.{Arrow, ArrowChoice}
 import cats.kernel.Semigroup
 import com.adrielc.quivr.{ArrowChoicePlus, ArrowChoiceZero, ArrowPlus, ArrowZero}
-import cats.syntax.{either, flatMap}, either._, flatMap._
+import cats.syntax.all._
 import com.adrielc.quivr.data.{BiConst, BiEitherK, BiFunctionK, EnvA, ~>|, ~~>}
 
 /** Free Arrow
@@ -168,8 +168,11 @@ sealed abstract class FreeArrow[-R[f[_, _]] >: ArrowChoicePlus[f] <: Arrow[f], +
   def `*->*`: FreeArrow[R, Flow, In, (Out, In)] =
     self.merge(id)
 
+  def *>^[C](f: (Out, In) => C): FreeArrow[R, Flow, In, C] =
+    self.*->*.rmap(f.tupled)
+
   /** Return a tuple with input [[In]] first and output [[Out]] second  */
-  def `*-*>`: FreeArrow[R, Flow, In, (In, Out)] =
+  def `*-*>`(): FreeArrow[R, Flow, In, (In, Out)] =
     id.merge(self)
 
   /** Dead end. Discard the output [[Out]] and Return the input [[In]] */
@@ -210,7 +213,7 @@ sealed abstract class FreeArrow[-R[f[_, _]] >: ArrowChoicePlus[f] <: Arrow[f], +
 
   /** test condition [[Out]], Right == true */
   def test(implicit ev: Out =:= Boolean): FreeArrow[R, Flow, In, Either[In, In]] =
-    self.*->*.rmap(ba => if(ba._1) ba._2.asRight else ba._2.asLeft)
+    self *>^ ((a, b) => if(a) b.asRight else b.asLeft)
 
   /**
    * If this arrows output is type equivalent to the input, then feed the output to this arrows input n times
@@ -233,8 +236,12 @@ sealed abstract class FreeArrow[-R[f[_, _]] >: ArrowChoicePlus[f] <: Arrow[f], +
   def andThen[RR[f[_, _]] >: ACP[f] <: R[f], FF[a, b] >: Flow[a, b], C](
     fbc: FreeArrow[RR, FF, Out, C]
   ): FreeArrow[RR, FF, In, C] =
-    (self, fbc) match {
-      case (Lift(f), Lift(g)) => Lift(f andThen g)
+    self match {
+      case AndThen(begin, end) => AndThen(begin, AndThen(end, fbc))
+      case Lift(f) => fbc match {
+        case Lift(g) => Lift(f andThen g)
+        case _ => AndThen(self, fbc)
+      }
       case _ => AndThen(self, fbc)
     }
 
@@ -389,7 +396,7 @@ object FreeArrow {
   final private case class Id[A]() extends FreeArrow[Arrow, Nothing, A, A] {
     def foldMap[G[_, _]](fg: Nothing ~~> G)(implicit A: Arrow[G]): G[A, A] = A.id
   }
-  final private case class Lift[A, B](f: A => B) extends FreeArrow[Arrow, Nothing, A, B] {
+  final private case class Lift[A, B](f: cats.data.AndThen[A, B]) extends FreeArrow[Arrow, Nothing, A, B] {
     def foldMap[G[_, _]](fg: Nothing ~~> G)(implicit A: Arrow[G]): G[A, B] = A.lift(f)
   }
   final private case class Const[A, B](value: B) extends FreeArrow[Arrow, Nothing, A, B] {

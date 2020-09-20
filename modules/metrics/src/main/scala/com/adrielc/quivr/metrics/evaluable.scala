@@ -6,27 +6,20 @@ import cats.implicits._
 object evaluable {
 
   case class LabelledIndexes private (indexedLabels: NonEmptyList[(Index, Label)], k: Int) {
-    val indexes: NonEmptySet[Index] = indexedLabels.map(_._1).toNes
-    val maxK: Index = indexes.maximum
 
-    def setK(_k: Int): LabelledIndexes = {
-      assert(_k > 0)
-      copy(k = _k)
-    }
-
-    def filterK: Option[LabelledIndexes] = indexedLabels.filter(_._1 <= k).toNel.map(LabelledIndexes(_, k))
+    def toK(newK: Int): Option[LabelledIndexes] = indexedLabels.filter(_._1 <= newK).toNel.map(LabelledIndexes(_, newK))
   }
   object LabelledIndexes {
 
     def apply(indexedLabels: NonEmptyList[(Index, Label)]): LabelledIndexes = new LabelledIndexes(indexedLabels, indexedLabels.toList.maxBy(_._1)._1)
 
-    def of(h: (Index, Label), t: (Index, Label)*): LabelledIndexes = LabelledIndexes(NonEmptyList.of(h, t:_*).sortBy(_._1), h._1 max t.maxBy(_._1)._1)
+    def of(h: (Index, Label), t: (Index, Label)*): LabelledIndexes = LabelledIndexes(NonEmptyList.of(h, t:_*).sortBy(_._1))
 
-    def labels(h: Label, t: Label*): LabelledIndexes = LabelledIndexes(NonEmptyList.of(h, t:_*).mapWithIndex((l, i) => (i + 1) -> l))
+    def labels(h: Label, t: Label*): LabelledIndexes = of(1 -> h, t.toList.mapWithIndex((l, i) => (i + 1) -> l):_*)
 
     implicit val toKLabelledResult: ToK[LabelledIndexes] = new ToK[LabelledIndexes] {
-      def toK(a: LabelledIndexes, k: Index): Option[LabelledIndexes] = Some(a.setK(k))
-      def maxK(a: LabelledIndexes): Index = a.maxK
+      def toK(a: LabelledIndexes, k: Index): Option[LabelledIndexes] = a.toK(k)
+      def maxK(a: LabelledIndexes): Index = a.k
     }
   }
 
@@ -39,7 +32,9 @@ object evaluable {
     }
   }
 
-  case class ResultsWithRelevant(results: NonEmptyList[ResultId], relevant: NonEmptySet[ResultId])
+  case class ResultsWithRelevant(results: NonEmptyList[ResultId], relevant: NonEmptySet[ResultId]) {
+    lazy val nRelevantResults: Int = results.toNes.intersect(relevant).size
+  }
   object ResultsWithRelevant {
 
     implicit val toKRankingWithRelevants: ToK[ResultsWithRelevant] = new ToK[ResultsWithRelevant] {

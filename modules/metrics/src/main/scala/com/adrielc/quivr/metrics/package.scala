@@ -4,12 +4,10 @@ import cats.data.NonEmptyMap
 import com.adrielc.quivr.free.FA
 import com.adrielc.quivr.metrics.EngagementType.{CartAdd, Click, Purchase}
 
-import scala.math.Numeric.Implicits._
-
 package object metrics extends ToK.ToToKOps {
 
-  type FreeEval[A, B] = FA[EvalOp, A, B]
-  type FreeLabel[A, B] = FA[LabelOp, A, B]
+  type Evaluator[A, B] = FA[EvalOp, A, B]
+  type Labeler[A, B] = FA[LabelOp, A, B]
 
   type Index = Int
   type Label = Double
@@ -25,7 +23,7 @@ package object metrics extends ToK.ToToKOps {
     def clicks[N : Numeric](n: N): EngagementCounts = guard(n)(Click)
     def cartAdds[N : Numeric](n: N): EngagementCounts = guard(n)(CartAdd)
     def purchases[N : Numeric](n: N): EngagementCounts = guard(n)(Purchase)
-    private def guard[N](n: N)(e: EngagementType)(implicit N: Numeric[N]): EngagementCounts = if(N.gt(n, N.zero)) Map(e -> n.toLong) else Map.empty
+    private def guard[N](n: N)(e: EngagementType)(implicit N: Numeric[N]): EngagementCounts = if(N.gt(n, N.zero)) Map(e -> N.toLong(n)) else Map.empty
   }
 
   implicit class EngCountOps[N](private val n: N) extends AnyVal {

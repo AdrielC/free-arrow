@@ -3,6 +3,7 @@ package com.adrielc.quivr.metrics
 import cats.Functor
 import cats.data.NonEmptyList
 import cats.implicits._
+import com.adrielc.quivr.free.{FA, FreeArrow}
 import com.adrielc.quivr.metrics.evaluable.{LabelledIndexes, ResultsWithEngagements}
 
 import scala.math.{abs, log}
@@ -41,42 +42,27 @@ object LabelOp {
   }
 
   case object Pow2 extends LabelOp[Double, Double] {
-
-    def apply(v1: Double): Double =
-      math.pow(2, v1) - 1
+    def apply(v1: Double): Double = math.pow(2, v1) - 1
   }
-
-  case class Mapped[M[_]: Functor, A, B](labelOp: FreeLabel[A, B]) extends LabelOp[M[A], M[B]] {
-
-    def apply(v1: M[A]): M[B] = {
-      val f = labelOp.fold[Function1]
-      v1.map(f)
-    }
-  }
-
-
-  sealed trait MissingLabels
-  case object MissingLabels extends MissingLabels
-
 
   object free {
-    import com.adrielc.quivr.free.FreeArrow.{liftK, lift}
+    import com.adrielc.quivr.free.FreeArrow.{lift, liftK}
 
-    val pow2                : FreeLabel[Double, Double] = liftK(Pow2)
-    def binary[A: Numeric]  : FreeLabel[A, A]     = liftK(Binary[A])
-    def countOf(e: EngagementType)  : FreeLabel[EngagementCounts, Count]     = liftK(CountOf(e))
+    val pow2  = liftK(Pow2)
+    def binary[A: Numeric] = liftK(Binary[A])
+    def countOf(e: EngagementType) = liftK(CountOf(e))
 
-    implicit class LabelOps[A, B](private val freeLabel: FreeLabel[A, B]) {
+    implicit class LabelOps[A, B](private val freeLabel: Labeler[A, B]) {
       private lazy val f = freeLabel.fold[Function1]
       def apply(a: A): B = f(a)
 
-      def mapped[M[_]: Functor]: FreeLabel[M[A], M[B]] = liftK[LabelOp, M[A], M[B]](Mapped[M, A, B](freeLabel))
+      def mapped[M[_]: Functor]: Labeler[M[A], M[B]] = FreeArrow.lift(_.map(freeLabel(_)))
     }
 
-    implicit class EngLabelOps(private val engToLabel: FreeLabel[EngagementCounts, Double]) {
-
-      def forEngagedResults: FreeLabel[ResultsWithEngagements, Either[MissingLabels, LabelledIndexes]] = {
-        ((lift((_: ResultsWithEngagements).engagements) >>> engToLabel.mapped[Map[ResultId, *]]) &&&
+    implicit class EngLabelOps(private val engToLabel: FA[LabelOp, EngagementCounts, Double]) {
+      type ResultData[A] = Map[ResultId, A]
+      def forEngagedResults: Labeler[ResultsWithEngagements, Either[MissingLabels, LabelledIndexes]] = {
+        ((lift((_: ResultsWithEngagements).engagements) >>> engToLabel.mapped[ResultData]) &&&
           lift((_: ResultsWithEngagements).results)) >>^ {
           case (labels, results) =>
             NonEmptyList.fromList(labels.map { case (id, label) => (results.toList.indexOf(id) + 1) -> label }.toList)
@@ -85,5 +71,8 @@ object LabelOp {
         }
       }
     }
+
+    sealed trait MissingLabels
+    case object MissingLabels extends MissingLabels
   }
 }

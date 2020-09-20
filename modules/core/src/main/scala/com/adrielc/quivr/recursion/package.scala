@@ -26,11 +26,9 @@ package object recursion {
   def hyloNT[S[_[_, _], _, _], F[_, _], G[_, _]](
     coAlg: Coalg[S, F],
     alg: Alg[S, G]
-  )(
-    implicit S: ArFunctor[S]
-  ): F ~~> G = new (F ~~> G) { self =>
-
-    def apply[A, B](fa: F[A, B]): G[A, B] =
-      alg(S.armap(self)(coAlg(fa)))
-  }
+  )(implicit S: ArFunctor[S]): F ~~> G =
+    new (F ~~> G) { self =>
+      def apply[A, B](fa: F[A, B]): G[A, B] =
+        alg(S.armap(self)(coAlg(fa)))
+    }
 }

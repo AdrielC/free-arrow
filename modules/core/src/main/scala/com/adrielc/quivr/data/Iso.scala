@@ -1,37 +1,21 @@
-package com.adrielc.quivr.util
+package com.adrielc.quivr.data
 
 import cats.Bifunctor
-import cats.arrow.{Arrow, Compose}
+import cats.arrow.{Category, Compose}
 import cats.implicits._
 
-trait Iso[F[_, _], A, B] { self =>
+case class Iso[F[_, _], A, B](to: F[A, B], from: F[B, A]) { self =>
 
-  implicit def C: Compose[F]
-
-  def to: F[A, B]
-
-  def from: F[B, A]
-
-  def andThen[C](other: Iso[F, B, C]): Iso[F, A, C] =
+  def andThen[C](other: Iso[F, B, C])(implicit C: Compose[F]): Iso[F, A, C] =
     Iso(to >>> other.to, from <<< other.from)
 
-  def compose[C](other: Iso[F, C, A]): Iso[F, C, B] =
+  def compose[C](other: Iso[F, C, A])(implicit C: Compose[F]): Iso[F, C, B] =
     other.andThen(self)
 }
 
 object Iso {
 
-
-  def apply[F[_, _]: Compose, A, B](
-    _to   : F[A, B],
-    _from : F[B, A]
-  ): Iso[F, A, B] = new Iso[F, A, B] {
-    val C: Compose[F] = Compose[F]
-    val to: F[A, B] = _to
-    val from: F[B, A] = _from
-  }
-
-  def id[F[_, _], A](implicit A: Arrow[F]): Iso[F, A, A] = Iso(A.id[A], A.id[A])
+  def id[F[_, _], A](implicit C: Category[F]): Iso[F, A, A] = Iso(C.id[A], C.id[A])
 
   type NIso[A, B] = Iso[Function1, A, B]
   type <=>[A, B] = NIso[A, B]

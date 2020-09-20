@@ -50,6 +50,8 @@ object BiFunctionK {
   def kleisli[F[_]](implicit A: Applicative[F]): Function1 ~~> Kleisli[F, *, *] =
     new (Function1 ~~> Kleisli[F, *, *]) { def apply[A, B](fab: A => B): Kleisli[F, A, B] = Kleisli(a => A.pure(fab(a))) }
 
+  val nothing: Nothing ~~> Nothing = id[Nothing]
+
   /**
    * Lifts function `f` of `F[A, B] => G[A, B]` into a `BiFunctionK[F, G]`.
    *

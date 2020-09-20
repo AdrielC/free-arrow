@@ -7,7 +7,10 @@ import cats.syntax.compose._
 import cats.syntax.strong._
 
 
-case class BiTuple2K[+F[_, _], +G[_, _], A, B](_1: F[A, B], _2: G[A, B])
+case class BiTuple2K[+F[_, _], +G[_, _], A, B](_1: F[A, B], _2: G[A, B]) {
+
+  def swap: BiTuple2K[G, F, A, B] = BiTuple2K(_2, _1)
+}
 
 object BiTuple2K {
 
