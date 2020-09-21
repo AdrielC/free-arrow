@@ -1,30 +1,34 @@
 package com.adrielc.quivr.metrics
 
 import cats.Functor
-import cats.data.NonEmptyList
 import cats.implicits._
-import com.adrielc.quivr.free.{FA, FreeArrow}
-import com.adrielc.quivr.metrics.evaluable.{LabelledIndexes, ResultsWithEngagements}
+import com.adrielc.quivr.data.{Pure, ~>|}
+import com.adrielc.quivr.metrics.evaluable.{Results, ResultsWithEngagements, ResultsWithLabels}
 
-import scala.math.{abs, log}
+import scala.math.{log}
 
-sealed trait LabelOp[-A, +B] extends (A => B)
+sealed trait LabelOp[-A, +B] extends Product with Serializable {
+  def apply(a: A): B
+}
 object LabelOp {
 
-  case class LogDiscount(l: Int) extends LabelOp[Double, Double] {
+  case class LogDiscount(l: Int) extends LabelOp[Label, Option[Label]] {
+    assert(l > 0)
 
-    def apply(label: Label): Label =
-      log(abs(label) + 1) / log(l.toDouble)
+    def apply(label: Label): Option[Label] =
+      if(label < 0) None
+      else if(label == 0) Some(0.0)
+      else Some(log(label + 1) / log(l.toDouble))
   }
 
-  case class Binary[A: Numeric]() extends LabelOp[A, A] {
-    def apply(v1: A): A =
-      v1.binarize
+  case object Binary extends LabelOp[EngagementCounts, EngagementCounts] {
+    def apply(a: EngagementCounts): EngagementCounts =
+      a.mapValues(_.binarize)
   }
 
-  case class CountOf(e: EngagementType) extends LabelOp[EngagementCounts, Long] {
-    def apply(v1: EngagementCounts): ResultId =
-      v1.countOf(e)
+  case class CountOf(e: EngagementType) extends LabelOp[EngagementCounts, Double] {
+    def apply(v1: EngagementCounts): Double =
+      v1.countOf(e).toDouble
   }
 
   case class PercentOf(e: EngagementType, by: EngagementType) extends LabelOp[EngagementCounts, Double] {
@@ -35,42 +39,30 @@ object LabelOp {
     }
   }
 
-  case class Weighted(w: Map[EngagementType, Double]) extends LabelOp[EngagementCounts, Map[EngagementType, Double]] {
+  case class Weighted(weights: Map[EngagementType, Double]) extends LabelOp[EngagementCounts, Option[Double]] {
 
-    def apply(v1: EngagementCounts): Map[EngagementType, Label] =
-      v1.map { case (e, n) => (e, w.getOrElse(e, 0.0) * n) }
+    def apply(v1: EngagementCounts): Option[Double] =
+      weights.toList.foldMap { case (e, w) => v1.get(e).map(_ * w) }
   }
 
-  case object Pow2 extends LabelOp[Double, Double] {
-    def apply(v1: Double): Double = math.pow(2, v1) - 1
+  case class Mapped[M[_]: Functor, A, B](labelOp: Labeler[A, B]) extends LabelOp[M[A], M[B]] {
+
+    def apply(a: M[A]): M[B] = {
+      val f = labelOp.foldMap(new Pure[LabelOp] {
+        override def apply[C, D](fab: LabelOp[C, D]): C => D = fab(_)
+      })
+      a.map(f)
+    }
+
+    override def toString(): String = labelOp.analyze(new (LabelOp ~>| String) {
+      def apply[C, D](fab: LabelOp[C, D]): String = fab.toString
+    })
   }
 
   object free {
-    import com.adrielc.quivr.free.FreeArrow.{lift, liftK}
+    import com.adrielc.quivr.free.FreeArrow.liftK
 
-    val pow2  = liftK(Pow2)
-    def binary[A: Numeric] = liftK(Binary[A])
-    def countOf(e: EngagementType) = liftK(CountOf(e))
-
-    implicit class LabelOps[A, B](private val freeLabel: Labeler[A, B]) {
-      private lazy val f = freeLabel.fold[Function1]
-      def apply(a: A): B = f(a)
-
-      def mapped[M[_]: Functor]: Labeler[M[A], M[B]] = FreeArrow.lift(_.map(freeLabel(_)))
-    }
-
-    implicit class EngLabelOps(private val engToLabel: FA[LabelOp, EngagementCounts, Double]) {
-      type ResultData[A] = Map[ResultId, A]
-      def forEngagedResults: Labeler[ResultsWithEngagements, Either[MissingLabels, LabelledIndexes]] = {
-        ((lift((_: ResultsWithEngagements).engagements) >>> engToLabel.mapped[ResultData]) &&&
-          lift((_: ResultsWithEngagements).results)) >>^ {
-          case (labels, results) =>
-            NonEmptyList.fromList(labels.map { case (id, label) => (results.toList.indexOf(id) + 1) -> label }.toList)
-              .map(LabelledIndexes(_))
-              .toRight(MissingLabels)
-        }
-      }
-    }
+    def countOf(e: EngagementType) = liftK[LabelOp, ResultsWithEngagements, ResultsWithLabels](Mapped[Results, EngagementCounts, Double](liftK(CountOf(e))))
 
     sealed trait MissingLabels
     case object MissingLabels extends MissingLabels

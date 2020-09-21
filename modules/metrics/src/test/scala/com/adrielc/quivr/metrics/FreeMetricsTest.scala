@@ -17,6 +17,6 @@ class FreeMetricsTest extends FlatSpec with Matchers {
 
     val ndcg = Ndcg(labelledIndexes)
 
-    println(ndcg)
+    assert(ndcg == 0.6020905207089401)
   }
 }

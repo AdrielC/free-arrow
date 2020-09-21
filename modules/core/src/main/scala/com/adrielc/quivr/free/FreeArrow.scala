@@ -47,6 +47,9 @@ sealed abstract class FreeArrow[-R[f[_, _]] >: ArrowChoicePlus[f] <: Arrow[f], +
   final def compile[G[_, _]](fg: Flow ~~> G): FreeArrow[R, G, In, Out] =
     foldMap(fg.andThen(BiFunctionK.lift(liftK)))
 
+  final def flatCompile[RR[f[_, _]] >: ACP[f] <: R[f], G[_, _]](fg: Flow ~~> FreeArrow[RR, G, *, *]): FreeArrow[RR, G, In, Out] =
+    foldMap(fg)
+
   /** Fold this [[FreeArrow]] into a summary value using [[M]]s Monoidal behavior */
   final def analyze[M: Monoid](m: Flow ~>| M): M =
     foldMap(new (Flow ~~> BiConst[M, *, *]) {
@@ -57,7 +60,7 @@ sealed abstract class FreeArrow[-R[f[_, _]] >: ArrowChoicePlus[f] <: Arrow[f], +
    *
    * Optimize/rewrite this FreeA by using a summary value [[M]].
    *
-   * @param inspect  A binatural function from [[Flow]] to some monoid [[M]]
+   * @param summarize  A binatural function from [[Flow]] to some monoid [[M]]
    *                 that will be folded over this structure to create a summary value.
    *                 This is lazily executed, and will only fold over the structure if
    *                 the [[M]] value is used in `optimize`
@@ -66,10 +69,15 @@ sealed abstract class FreeArrow[-R[f[_, _]] >: ArrowChoicePlus[f] <: Arrow[f], +
    *
    */
   final def optimize[RR[f[_, _]] >: ACP[f] <: R[f], FF[a, b] >: Flow[a, b], M: Monoid](
-    inspect: FF ~>| M,
+    summarize: FF ~>| M,
     optimize: |~>[M, RR, FF]
   ): FreeArrow[RR, FF, In, Out] =
-    foldMap(EnvA(analyze(inspect)).andThen(optimize))
+    flatCompile(EnvA(analyze[M](summarize)).andThen(optimize))
+
+  final def summarizeWith[M: Monoid](
+    summarize: Flow ~>| M
+  ): FreeArrow[R, Flow, In, (M, Out)] =
+    rmap(analyze[M](summarize) -> _)
 
   /**
    * Embed context in arrow coproduct of [[Flow]] and [[G]]
@@ -92,6 +100,8 @@ sealed abstract class FreeArrow[-R[f[_, _]] >: ArrowChoicePlus[f] <: Arrow[f], +
     fbc: FreeArrow[RR, FF, Out, C]
   ): FreeArrow[RR, FF, In, C] =
     self.andThen(fbc)
+
+
 
   /** Alias for [[compose]] */
   def <<<[RR[f[_, _]] >: ACP[f] <: R[f], FF[a, b] >: Flow[a, b], C](
@@ -168,11 +178,11 @@ sealed abstract class FreeArrow[-R[f[_, _]] >: ArrowChoicePlus[f] <: Arrow[f], +
   def `*->*`: FreeArrow[R, Flow, In, (Out, In)] =
     self.merge(id)
 
-  def *>^[C](f: (Out, In) => C): FreeArrow[R, Flow, In, C] =
+  def >*^[C](f: (Out, In) => C): FreeArrow[R, Flow, In, C] =
     self.*->*.rmap(f.tupled)
 
   /** Return a tuple with input [[In]] first and output [[Out]] second  */
-  def `*-*>`(): FreeArrow[R, Flow, In, (In, Out)] =
+  def `*-*>`: FreeArrow[R, Flow, In, (In, Out)] =
     id.merge(self)
 
   /** Dead end. Discard the output [[Out]] and Return the input [[In]] */
@@ -213,7 +223,7 @@ sealed abstract class FreeArrow[-R[f[_, _]] >: ArrowChoicePlus[f] <: Arrow[f], +
 
   /** test condition [[Out]], Right == true */
   def test(implicit ev: Out =:= Boolean): FreeArrow[R, Flow, In, Either[In, In]] =
-    self *>^ ((a, b) => if(a) b.asRight else b.asLeft)
+    self >*^ ((a, b) => if(a) b.asRight else b.asLeft)
 
   /**
    * If this arrows output is type equivalent to the input, then feed the output to this arrows input n times
@@ -275,9 +285,19 @@ sealed abstract class FreeArrow[-R[f[_, _]] >: ArrowChoicePlus[f] <: Arrow[f], +
   final def left[C](implicit L: |||@[R]): FreeArrow[L.Lub, Flow, Either[In, C], Either[Out, C]] =
     Left(self)
 
+  def left[RR[f[_, _]] >: ACP[f] <: R[f], FF[a, b] >: Flow[a, b], C, E, S](
+    fbc: FreeArrow[RR, FF, E, C]
+  )(implicit ev: Out <:< Either[E, S], L: |||@[RR]): FreeArrow[L.Lub, FF, In, Either[C, S]] =
+    self.rmap(ev(_)).andThen(fbc.left[S])
+
   /** [[Right]] */
   final def right[C](implicit L: |||@[R]): FreeArrow[L.Lub, Flow, Either[C, In], Either[C, Out]] =
     Right(self)
+
+  def right[RR[f[_, _]] >: ACP[f] <: R[f], FF[a, b] >: Flow[a, b], C, E, S](
+    fbc: FreeArrow[RR, FF, S, C]
+  )(implicit ev: Out <:< Either[E, S], L: |||@[RR]): FreeArrow[L.Lub, FF, In, Either[E, C]] =
+    self.rmap(ev(_)).andThen(fbc.right[E])
 
   /** [[Choice]] */
   final def choice[RR[f[_, _]] >: ACP[f] <: R[f], FF[a, b] >: Flow[a, b], C](
@@ -302,12 +322,6 @@ sealed abstract class FreeArrow[-R[f[_, _]] >: ArrowChoicePlus[f] <: Arrow[f], +
     fcb: FreeArrow[RR, FF, In, Out]
   )(implicit L: <+>@[RR]): FreeArrow[L.Lub, FF, In, Out] =
     Plus[RR, FF, In, Out](self, fcb)
-
-  /** [[Plus]] */
-  final def or[RR[f[_, _]] >: ACP[f] <: R[f], FF[a, b] >: Flow[a, b]](
-    fcb: FreeArrow[RR, FF, In, Out]
-  )(implicit L: <+>@[RR]): FreeArrow[L.Lub, FF, In, Out] =
-    self <+> fcb
 
   def and[RR[f[_, _]] >: ACP[f] <: R[f], FF[a, b] >: Flow[a, b], C](
     fab: FreeArrow[RR, FF, In, C]

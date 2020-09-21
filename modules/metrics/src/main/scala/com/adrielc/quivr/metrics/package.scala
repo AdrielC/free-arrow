@@ -1,8 +1,11 @@
 package com.adrielc.quivr
 
 import cats.data.NonEmptyMap
+import com.adrielc.quivr.data.~>|
 import com.adrielc.quivr.free.FA
 import com.adrielc.quivr.metrics.EngagementType.{CartAdd, Click, Purchase}
+
+import scala.math.{log, pow}
 
 package object metrics extends ToK.ToToKOps {
 
@@ -41,5 +44,12 @@ package object metrics extends ToK.ToToKOps {
     def clicks   : Long = countOf(Click)
     def cartAdds : Long = countOf(CartAdd)
     def purchases: Long = countOf(Purchase)
+  }
+
+  private[metrics] val log2 = (i: Double) => log(i) / log(2)
+  private[metrics] val pow2 = (i: Double) => pow(2, i) - 1.0
+
+  private[metrics] def collectOps[F[_,_]]: F ~>| List[F[_, _]] = new (F ~>| List[F[_, _]]) {
+    def apply[A, B](fab: F[A, B]): List[F[_, _]] = List(fab)
   }
 }

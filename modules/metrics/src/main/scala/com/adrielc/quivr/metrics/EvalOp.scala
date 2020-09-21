@@ -1,19 +1,14 @@
 package com.adrielc.quivr.metrics
 
-import cats.arrow.Arrow
 import cats.implicits._
-import com.adrielc.quivr.free.FreeArrow
-import com.adrielc.quivr.metrics.evaluable.{LabelledIndexes, ResultsWithLabels, ResultsWithRelevant}
+import com.adrielc.quivr.data.Pure
+import com.adrielc.quivr.free.{ACP, AR, FreeArrow}
+import com.adrielc.quivr.metrics.evaluable.{LabelledIndexes, Results, ResultsWithRelevant, WithRelevant}
 
-import scala.math.log
-
-sealed trait EvalOp[-A, +B] extends (A => B)
+sealed trait EvalOp[-A, +B] {
+  def apply(a: A): B
+}
 object EvalOp {
-
-  case object IdealRanking extends EvalOp[LabelledIndexes, LabelledIndexes] {
-    def apply(v1: LabelledIndexes): LabelledIndexes =
-      LabelledIndexes(v1.indexedLabels.sortBy(-_._2).mapWithIndex { case ((_, l), i) => (i + 1) -> l })
-  }
 
   trait RelevanceJudgement extends EvalOp[Label, Boolean]
 
@@ -24,15 +19,14 @@ object EvalOp {
     def apply(v1: Label): Boolean = v1 > threshold
   }
 
-  case class LabelToRelevance(f: RelevanceJudgement) extends EvalOp[ResultsWithLabels, Option[ResultsWithRelevant]] {
-    def apply(v1: ResultsWithLabels): Option[ResultsWithRelevant] =
-      v1.labels.toSortedMap.toList
-        .mapFilter { case (r, l: Label) => f(l).guard[Option].as(r) }
-        .toNel
-        .map(l => ResultsWithRelevant(v1.results, l.toNes))
+  case class LabelToRelevance(f: RelevanceJudgement) extends EvalOp[Results[Label], Option[ResultsWithRelevant]] {
+    def apply(v1: Results[Label]): Option[ResultsWithRelevant] =
+      v1.results.toList
+        .mapFilter { case (r, l) => l.filter(f(_)).as(r) }.toNel
+        .map(l => WithRelevant(v1.results.map(_._1), l.toNes))
   }
 
-  sealed trait Metric[-I] extends EvalOp[I, Double] with (I => Double)
+  sealed trait Metric[-I] extends EvalOp[I, Double]
 
   object Metric {
 
@@ -40,7 +34,7 @@ object EvalOp {
 
       def apply(results: LabelledIndexes): Double = {
         val dcg = Dcg(results)
-        val idcg = IdealRanking.andThen(Dcg)(results)
+        val idcg = Dcg(results.idealRanking)
         if (idcg > 0) dcg / idcg
         else 0.0
       }
@@ -60,8 +54,8 @@ object EvalOp {
 
     case object Dcg extends Metric[LabelledIndexes] {
 
-      def apply(indexes: LabelledIndexes): Double = indexes.indexedLabels.toList.foldMap { case (i, rel) => rel / log2(i + 1.0) }
-      private val log2 = (i: Double) => log(i) / log(2)
+      def apply(indexes: LabelledIndexes): Double =
+        indexes.indexedLabels.toNel.foldMap { case (i, rel) => if(i <= indexes.k)  pow2(rel) / log2(i + 1.0) else 0.0 }
     }
   }
 
@@ -74,7 +68,14 @@ object EvalOp {
     def apply(a: A): Option[A] = a.filterToK(k)
   }
 
-  case class InsufficientSize(minRequired: Int, maxPossible: Int)
+
+
+  case class WithLabeler[A, B](l: Labeler[A, B]) extends EvalOp[A, B] {
+    def apply(v1: A): B = l.foldMap(new Pure[LabelOp]{
+      def apply[C, D](fab: LabelOp[C, D]): C => D = fab(_)
+    }).apply(v1)
+  }
+
 
   object free {
     import Metric._
@@ -83,11 +84,14 @@ object EvalOp {
     val ndcg                : Evaluator[LabelledIndexes, Double]        = liftK(Ndcg)
     val recall              : Evaluator[ResultsWithRelevant, Double]    = liftK(Recall)
     val precision           : Evaluator[ResultsWithRelevant, Double]    = liftK(Precision)
-    def atK[A: ToK](k: Int) : Evaluator[A, Either[InsufficientSize, A]] = liftK(AtK(k)) *>^ ((a, i) => a.toRight(InsufficientSize(k, i.maxK)))
+    def atK[A: ToK](k: Int) : Evaluator[A, Either[InsufficientSize, A]] = liftK(AtK(k)) >*^ ((a, i) => a.toRight(InsufficientSize(k, i.maxK)))
+    def withLabeler[A, B](l: Labeler[A, B]): Evaluator[A, B]            = liftK(WithLabeler(l))
 
-    implicit class EvalOps[A, B](private val freeEval: FreeArrow[Arrow, EvalOp, A, B]) {
-      private lazy val f = freeEval.fold[Function1]
-      def apply(a: A): B = f(a)
+    implicit class EvalOps[R[f[_, _]] >: ACP[f] <: AR[f], A, B](private val freeEval: FreeArrow[R, EvalOp, A, B]) {
+      def apply(a: A)(implicit R: R[Function1]): B = freeEval.foldMap(new Pure[EvalOp] {
+        def apply[C, D](fab: EvalOp[C, D]): C => D = fab(_)
+      }).apply(a)
     }
+    case class InsufficientSize(minRequired: Int, maxPossible: Int)
   }
 }
