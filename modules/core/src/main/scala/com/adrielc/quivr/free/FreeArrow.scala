@@ -1,12 +1,10 @@
 package com.adrielc.quivr
 package free
 
-import cats.{Alternative, Applicative, ContravariantMonoidal, Eval, Foldable, Monad, Monoid, MonoidK, SemigroupK, Traverse}
+import cats.{Applicative, ContravariantMonoidal, Eval, Monoid, MonoidK, SemigroupK}
 import cats.arrow.{Arrow, ArrowChoice}
-import cats.data.NonEmptyList
 import cats.kernel.Semigroup
 import cats.syntax.all._
-import cats.instances.list._
 import com.adrielc.quivr.data.{BiConst, BiEitherK, EnvA}
 
 /** Free Arrow
@@ -399,31 +397,6 @@ object FreeArrow extends FreeArrowInstances {
       fbc: FreeArrow[RR, G, Out, C]
     )(implicit in: BiInjectK[G, Flow]): FreeArrow[RR, Flow, In, C] =
       self >>> fbc.compile(in.inj)
-  }
-
-  def collect[M[_]]: CollectOps[M] = new CollectOps[M]
-
-  final class CollectOps[M[_]] private[free] {
-
-    def fold[Arr[f[_, _]] >: ACP[f] <: AR[f], F[_, _], A, B](
-      a: TraversableOnce[FreeArrow[Arr, F, A, B]]
-    )(implicit A: Alternative[M]): FreeArrow[Arr, F, A, M[B]] = {
-      implicit val s = MonoidK[M].algebra[B]
-      a.toList.foldMap(_.pureOut[M])
-    }
-
-    def reduce[Arr[f[_, _]] >: ACP[f] <: AR[f], F[_, _], A, B](
-      a: NonEmptyList[FreeArrow[Arr, F, A, B]]
-    )(implicit A: Applicative[M], S: SemigroupK[M]): FreeArrow[Arr, F, A, M[B]] = {
-      implicit val s = SemigroupK[M].algebra[B]
-      a.reduceMap(_.pureOut[M])
-    }
-
-    def traverse[Arr[f[_, _]] >: ACP[f] <: AR[f], F[_, _], I, A, B, G[_] : Monad : Foldable]
-    (a: M[I])
-    (f: I => FreeArrow[Arr, F, A, G[B]])
-    (implicit A: Alternative[M], M : Monad[M], T: Traverse[M]): FreeArrow[Arr, F, A, M[B]] =
-      a.traverse(f).rmap(A.unite[G, B])
   }
 
   /**
