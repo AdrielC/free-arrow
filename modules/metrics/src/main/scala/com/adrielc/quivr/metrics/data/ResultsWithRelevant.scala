@@ -3,7 +3,6 @@ package data
 
 import cats.data.{NonEmptyList, NonEmptySet}
 import cats.implicits._
-import com.adrielc.quivr.metrics.{RelevantResultSet, ToK}
 
 import scala.collection.immutable.SortedSet
 

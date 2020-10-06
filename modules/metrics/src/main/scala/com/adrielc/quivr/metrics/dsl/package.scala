@@ -20,23 +20,28 @@ package object dsl
   type Labeler      = FA[EngagementToLabel, EngagedResults, LabelledIndexes]
   type GetLabel = EngagementCounts => Option[Double]
 
-  val click     = Engagement.Click
-  val cartAdd   = Engagement.CartAdd
-  val purchase  = Engagement.Purchase
+  val Click   : Engagement = Engagement.Click
+  val CartAdd : Engagement = Engagement.CartAdd
+  val Purchase: Engagement = Engagement.Purchase
 
   val binary    = (a: Labeler) => FreeArrow(Binary(a))
   val count     = (e: Engagement) => FreeArrow(Count(e))
   val plus      = (a: Labeler, b: Labeler) => FreeArrow(Plus(a, b))
   val percentOf = (a: Engagement, b: Engagement) => FreeArrow(PercentOf(a, b))
+
   def !|(w: (Engagement, Double), ws: (Engagement, Double)*)  = binary(+|(w, ws:_*))
   def +|(w: (Engagement, Double), ws: (Engagement, Double)*)  = FreeArrow(WeightedCount((w +: ws).toMap))
 
-  val pow2      = FreeArrow(Pow.Two)
-  val pow1p1    = FreeArrow(Pow.OnePointOne)
-  val pow1p01   = FreeArrow(Pow.OnePointZOne)
+  val pow2: Eval[LabelledIndexes, LabelledIndexes]      = FreeArrow(Pow.Two)
+  val pow1p1: Eval[LabelledIndexes, LabelledIndexes]    = FreeArrow(Pow.OnePointOne)
+  val pow1p01: Eval[LabelledIndexes, LabelledIndexes]   = FreeArrow(Pow.OnePointZOne)
 
-  object ir   extends EvalRank[ResultsWithRelevant]
-  object rank extends EvalRank[LabelledIndexes]
+  object ir   extends EvalRank[ResultsWithRelevant] {
+    val ndcg2  = (pow2 <<^ ((_: ResultsWithRelevant).labels)) >>> rank.ndcg
+  }
+  object rank extends EvalRank[LabelledIndexes] {
+    val ndcg2  = pow2 >>> ndcg
+  }
 
   implicit class EngagementOps(private val e: Engagement) extends AnyVal {
     def +(other: Engagement): Labeler = count(e) + count(other)
@@ -44,15 +49,17 @@ package object dsl
     def unary_+ : Labeler             = count(e)
     def unary_! : Labeler             = binary(count(e))
   }
+
   implicit class LabelerOps(private val l: Labeler) extends AnyVal {
     def +(other: Labeler): Labeler = plus(l, other)
     def +(other: Engagement): Labeler = l + count(other)
     def unary_! : Labeler = binary(l)
 
-    def getLabeler: EngagementCounts => Option[Double] = l.analyze[GetLabel](new (EngagementToLabel ~>| GetLabel) {
+    private[metrics] def getLabeler: EngagementCounts => Option[Double] = l.analyze[GetLabel](new (EngagementToLabel ~>| GetLabel) {
       def apply[A, B](fab: EngagementToLabel[A, B]): GetLabel = fab.label
     })
   }
+
   implicit class EvalOps[R[f[_, _]] >: ACP[f] <: AR[f], A, B](private val e: FreeArrow[R, EvalOp, A, B]) extends AnyVal {
     def at(k: Int)(implicit T: ToK[B]): FreeArrow[R, EvalOp, A, B] = e >>> FreeArrow(EvalOp.AtK[B](k))
   }
@@ -73,12 +80,12 @@ package object dsl
   def compileMetrics[R[f[_, _]] >: ACP[f] <: AR[f], F[_, _], G[_, _], A, B](
     metrics     : TraversableOnce[FreeArrow[R, F, A, B]],
     compiler    : F ~~> G,
-    sep         : String = ".",
     prefix      : String = "",
+    delim       : String = ".",
     suffix      : String = ""
   )(implicit O: Order[F[_, _]], S: Show[F[_, _]], R: R[G], M: MonoidK[G[A, *]]): G[A, (String, B)] = {
 
-    def buildMetricKey(l: List[F[_, _]]): String = l.sorted(O.toOrdering).map(S.show).foldSmash(prefix, sep, suffix)
+    def buildMetricKey(l: List[F[_, _]]): String = l.sorted(O.toOrdering).map(S.show).foldSmash(prefix, delim, suffix)
 
     metrics.toList.foldMapK(_
       .summarize[List[F[_, _]]](analyze[F].list)
@@ -105,9 +112,9 @@ package object dsl
 package dsl {
 
   abstract class EvalRank[A: IndexedLabels : ToK] extends Serializable {
-    val atK       = (k: Int) => FreeArrow(EvalOp.AtK[A](k))
-    val ndcg      = FreeArrow.liftK(EvalOp.RankingMetric.Ndcg[A])
-    val recall    = FreeArrow.liftK(EvalOp.RankingMetric.Recall[A])
-    val precision = FreeArrow.liftK(EvalOp.RankingMetric.Precision[A])
+    val atK         = (k: Int) => FreeArrow(EvalOp.AtK[A](k))
+    val ndcg        = FreeArrow(EvalOp.RankingMetric.Ndcg[A])
+    val recall      = FreeArrow(EvalOp.RankingMetric.Recall[A])
+    val precision   = FreeArrow(EvalOp.RankingMetric.Precision[A])
   }
 }

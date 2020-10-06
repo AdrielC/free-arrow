@@ -116,7 +116,7 @@ object EvalOp {
     case EvalOp.AtK(_)                => 4
   }
 
-  implicit val showEval: Show[EvalOp[Nothing, Any]] = Show.show[EvalOp[Nothing, Any]] {
+  implicit val showEval: Show[EvalOp[Nothing, Any]] = Show.show {
     case Ndcg()                 => "ndcg"
     case Precision()            => "precision"
     case Recall()               => "recall"
@@ -126,9 +126,9 @@ object EvalOp {
     case PercentOf(num, den)    => s"${num}Per$den"
     case WeightedCount(weights) => "wtCount" + formatWeights(weights)
     case AtK(k)                 => s"@$k"
-    case Two                    => "pow2"
-    case OnePointOne            => "pow1p1"
-    case OnePointZOne           => "pow1p01"
+    case Two                    => "pw2"
+    case OnePointOne            => "pw1p1"
+    case OnePointZOne           => "pw1p01"
 
     case Binary(l) =>
       val binShort = new (EngagementToLabel ~>| String) {
@@ -143,7 +143,7 @@ object EvalOp {
     case Plus(a, b) =>
       val plusShort = new (EngagementToLabel ~>| String) {
         def apply[A, B](fab: EngagementToLabel[A, B]): String = fab match {
-          case Count(e) => e.toString.toLowerCase
+          case Count(e)                 => s"${e.toString.toLowerCase}s"
           case WeightedCount(weights)   => "wt" + formatWeights(weights)
           case other                    => showEval.show(other)
         }

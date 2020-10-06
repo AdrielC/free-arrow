@@ -20,7 +20,7 @@ class MetricsTest extends FlatSpec with Matchers {
 
   "Ndcg" should "accurately compute" in {
 
-    assert(Ndcg(labelledIndexes).contains(0.6020905207089401))
+    assert(Ndcg(labelledIndexes).contains(0.7489030296784172))
   }
 
   "Recall" should "accurately compute" in {

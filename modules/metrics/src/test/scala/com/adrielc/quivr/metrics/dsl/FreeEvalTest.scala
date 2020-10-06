@@ -49,8 +49,8 @@ class FreeEvalTest extends FlatSpec with Matchers {
       import rank._
       for {
         k <- 1 to 100
-        e <- List(click, cartAdd, purchase)
-        m <- List(ndcg, precision, recall)
+        e <- List(Click, CartAdd, Purchase)
+        m <- List(ndcg2, precision, recall)
       } yield +e >>> atK(k) >>> m
     }
 
@@ -60,11 +60,10 @@ class FreeEvalTest extends FlatSpec with Matchers {
 
     assert(result.size == 90)
 
-    assert(result.get("ndcg.countOfCartAdd.@10").contains(0.6020905207089401))
+    assert(result.get("ndcg.pw2.countCartAdd.@10").contains(0.6020905207089401))
   }
 
   "Free Eval" should "combine" in {
-    import rank._
 
     val results = NonEmptyList.fromListUnsafe((1L to 60L).toList)
 
@@ -77,18 +76,21 @@ class FreeEvalTest extends FlatSpec with Matchers {
       70L -> (1.purchase + 1.cartAdd + 1.click)
     )
 
-    val metrics = for {
-      k <- 10 to 60 by 10
-      e <- List(click, purchase, cartAdd)
-      p <- List(pow2, pow1p1, pow1p01)
-    } yield +e >>> p >>> atK(k) >>> ndcg
+    val metrics = {
+      import rank._
+      for {
+        k <- 10 to 60 by 10
+        e <- List(Click, Purchase, CartAdd)
+        p <- List(pow2, pow1p1, pow1p01)
+      } yield +e >>> p >>> atK(k) >>> ndcg
+    }
 
     val f = compileMetrics(metrics, compileToList)
 
     val result = f((results, engagements)).toMap
 
     assert(result.size == 54)
-    assert(result.get("ndcg.pow2.countClick.@50").contains(0.31792843661581627))
+    assert(result.get("ndcg.pw2.countClick.@50").contains(0.31792843661581627))
   }
 }
 
