@@ -5,7 +5,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import akka.NotUsed
 import akka.stream.scaladsl.{Flow, Source}
 import com.adrielc.quivr.free.FreeArrow.liftK
-import com.adrielc.quivr.data.{Pure, ~~>}
+import com.adrielc.quivr.{ToFunction, ~~>}
 
 import scala.util.Random
 
@@ -33,7 +33,7 @@ object Recs {
       case None =>        scala.Left(NoRecs)
     }
 
-  def logError(error: RecsError): Unit = error match {
+  val logError: RecsError => Unit = {
     case InvalidUser(u) => println(s"invalid user: ${u.id}")
     case NoRecs => println("noRecs")
   }
@@ -85,7 +85,7 @@ object Recs {
       }
     }
 
-    val pure = new Pure[Recs] {
+    val pure = new ToFunction[Recs] {
       def apply[A, B](fab: Recs[A, B]): A => B = fab match {
         case GetUserInfo => (u: User) => userInfo(u.id)
         case GetRecommendations => (u: User) => {

@@ -4,18 +4,6 @@ import cats.Eval
 
 package object data {
 
-  type ~~>[-F[_, _], +G[_, _]] = BiFunctionK[F, G]
-
-  type Pure[-F[_, _]] = BiFunctionK[F, Function1]
-  object Pure {
-    implicit def apply[F[a, b] <: a => b]: Pure[F] = new Pure[F] {
-      def apply[A, B](fab: F[A, B]): A => B = fab
-    }
-  }
-
-  /** A [[~~>]] that outputs values of kind "*" */
-  type ~>|[-F[_, _], +M] = F ~~> λ[(α, β) => M]
-
   type EnvA[E, +F[_, _], A, B] = BiTuple2K[BiConst[Eval[E], *, *], F, A, B]
   object EnvA {
 

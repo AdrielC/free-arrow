@@ -1,9 +1,9 @@
 package com.adrielc.quivr.zio
 
-import com.adrielc.quivr.data.~~>
 import com.adrielc.quivr.free.FreeArrow
 import com.adrielc.quivr.free.FreeArrow._
 import com.adrielc.quivr.zio.ZArrow.ZA
+import com.adrielc.quivr.~~>
 import org.scalatest.{FlatSpec, Matchers}
 import zio.URIO
 import zio.interop.catz._

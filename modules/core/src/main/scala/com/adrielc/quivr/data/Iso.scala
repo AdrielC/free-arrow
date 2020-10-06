@@ -3,6 +3,7 @@ package com.adrielc.quivr.data
 import cats.Bifunctor
 import cats.arrow.{Category, Compose}
 import cats.implicits._
+import com.adrielc.quivr.BiDistributes
 
 case class Iso[F[_, _], A, B](to: F[A, B], from: F[B, A]) { self =>
 

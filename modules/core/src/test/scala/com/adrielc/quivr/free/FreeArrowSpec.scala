@@ -1,11 +1,11 @@
-package com.adrielc.quivr.free
+package com.adrielc.quivr
+package free
 
 import org.scalatest.{FlatSpec, Matchers}
 import cats.instances.all._
 import com.adrielc.quivr.data.exampleDsl.Cnsl.free._
 import com.adrielc.quivr.data.exampleDsl.Expr.free._
-import com.adrielc.quivr.data.{BiFunctionK, EnvA, ~>|}
-import com.adrielc.quivr.{ArrowPlus, ArrowZero}
+import com.adrielc.quivr.data.EnvA
 import cats.arrow.{Arrow, ArrowChoice}
 import cats.data.NonEmptyMap
 import com.adrielc.quivr.data.exampleDsl.{Cnsl, Expr}
@@ -29,7 +29,7 @@ class FreeArrowSpec extends FlatSpec with Matchers {
 
     import com.adrielc.quivr.data.exampleDsl.Cnsl.~~>._
 
-    val printInt = getInt >>^ (_.toString) >>> putLine
+    val printInt = getInt >^ (_.toString) >>> putLine
 
     val printLine = getLine >>> putLine
 
@@ -100,7 +100,7 @@ class FreeArrowSpec extends FlatSpec with Matchers {
 
           case d if d.isInstanceOf[Cnsl.Dictionary]  =>
 
-            liftK(d) >>> lift((_: B) => f._1.getConst.value > 3).test >>^ (_.fold(
+            liftK(d) >>> lift((_: B) => f._1.getConst.value > 3).test >^ (_.fold(
               identity,
               (o: B) => { println("sorry for the wait"); o }
             ))
@@ -133,7 +133,7 @@ class FreeArrowSpec extends FlatSpec with Matchers {
         }
       },
       new (|~>[Int, AC, Cnsl]) {
-        def apply[A, B](f: EnvA[Int, Cnsl, A, B]): FC[Cnsl, A, B] = liftK(f._2)
+        def apply[A, B](f: EnvA[Int, Cnsl, A, B]): FC[Cnsl, A, B] = arrow.liftK(f._2)
       }
     )
 
@@ -197,11 +197,11 @@ class FreeArrowSpec extends FlatSpec with Matchers {
 
     val a = num(10).second >>> add
 
-    val addN = a <<^ ((_: Int, ()))
+    val addN = a <^ ((_: Int, ()))
 
     val getUserInt = prompt("Provide a number to add 10 to") >>> getInt
 
-    val both = getUserInt.inl >>> addN.inr >>^ (_.toString) >>> putLine.inl
+    val both = getUserInt.inl[Expr] >>>^ addN >^ (_.toString) >>>^ putLine
 
     stubGets.andThen(Cnsl.~~>.function).or(Expr.~~>.function)
 

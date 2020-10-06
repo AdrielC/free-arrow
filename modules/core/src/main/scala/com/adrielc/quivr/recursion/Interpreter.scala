@@ -1,6 +1,5 @@
-package com.adrielc.quivr.recursion
-
-import com.adrielc.quivr.data.~~>
+package com.adrielc.quivr
+package recursion
 
 /**
  * An interpreter able to derive a `F[A]` from a schema for `A` (for any `A`).

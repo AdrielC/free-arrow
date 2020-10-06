@@ -41,7 +41,13 @@ lazy val core = (project in file("modules/core"))
 
 lazy val metrics = (project in file("modules/metrics"))
   .dependsOn(core)
-  .settings(commonSettings)
+  .settings(
+    commonSettings,
+    libraryDependencies ++= Seq(
+      "com.chuusai" %% "shapeless" % "2.3.3",
+      compilerPlugin(Libraries.kindProjector)
+    )
+  )
 
 
 lazy val finagle = (project in file("modules/finagle"))

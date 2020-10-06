@@ -33,7 +33,7 @@ private[quivr] object BiFunctionKMacros {
         val G = punchHole(evG.tpe)
 
         q"""
-        new _root_.com.adrielc.quivr.data.BiFunctionK[$F, $G] {
+        new _root_.com.adrielc.quivr.BiFunctionK[$F, $G] {
           def apply[A, B](fab: $F[A, B]): $G[A, B] = $trans(fab)
         }
        """

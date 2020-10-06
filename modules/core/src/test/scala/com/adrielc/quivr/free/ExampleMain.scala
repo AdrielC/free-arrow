@@ -1,7 +1,7 @@
-package com.adrielc.quivr.free
+package com.adrielc.quivr
+package free
 
 import cats.implicits._
-import com.adrielc.quivr.data.{Pure, ~>|}
 
 import scala.io.StdIn
 
@@ -14,7 +14,7 @@ object ExampleMain extends App {
   case object PutLine          extends ConsoleDSL[String, Unit]
   case class Prompt(s: String) extends ConsoleDSL[Unit, Unit]
 
-  val pureConsole = new Pure[ConsoleDSL] {
+  val pureConsole = new ToFunction[ConsoleDSL] {
     def apply[A, B](fab: ConsoleDSL[A, B]): A => B = fab match {
       case GetLine => _ => StdIn.readLine()
       case PutLine => println

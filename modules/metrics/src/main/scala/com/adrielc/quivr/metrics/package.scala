@@ -1,38 +1,46 @@
 package com.adrielc.quivr
 
-import cats.data.NonEmptyMap
-import com.adrielc.quivr.data.~>|
-import com.adrielc.quivr.free.FA
-import com.adrielc.quivr.metrics.EngagementType.{CartAdd, Click, Purchase}
+import cats.data.{NonEmptyList, NonEmptyMap, NonEmptySet}
+import com.adrielc.quivr.metrics.data.{Engagement, IndexedResults, WithRelevant}
+import cats.implicits._
 
 import scala.math.{log, pow}
+import scala.util.Try
 
-package object metrics extends ToK.ToToKOps {
+package object metrics
+  extends ToK.ToToKOps
+  with ResultsCount.ToResultsCountOps
+  with PartialResultSet.ToPartialResultSetOps
+  with RelevantCount.ToRelevantCountOps
+  with ResultSet.ToResultSetOps
+  with RelevantResultSet.ToRelevantResultSetOps
+  with IndexedLabels.ToIndexedLabelsOps {
 
-  type Evaluator[A, B] = FA[EvalOp, A, B]
-  type Labeler[A, B] = FA[LabelOp, A, B]
+  type ResultsWithEngagements = IndexedResults[Option[EngagementCounts]]
 
-  type Index = Int
-  type Label = Double
-  type Count = Long
-  type ResultId = Long
-  type EngagementWeights = Map[EngagementType, Double]
-  type EngagedResults = Map[ResultId, EngagementCounts]
-  type LabelledResults = NonEmptyMap[ResultId, Label]
+  type ResultsWithRelevancy[+A] = WithRelevant[IndexedResults[A]]
 
-  type EngagementCounts = Map[EngagementType, Count]
+  type Index        = Int
+  type Count        = Long
+  type Label        = Double
+  type ResultId     = Long
+  type Query        = String
+  type Labels       = NonEmptyMap[Index, Label]
+  type Results      = NonEmptyMap[Index, ResultId]
+  type Relevant     = NonEmptySet[ResultId]
+
+  type EngagementWeights  = Map[Engagement, Double]
+  type Engagements        = NonEmptyMap[ResultId, EngagementCounts]
+  type EngagedResults     = (NonEmptyList[ResultId], NonEmptyMap[ResultId, EngagementCounts])
+  type LabelledResults    = NonEmptyMap[ResultId, Label]
+
+  type EngagementCounts = Map[Engagement, Count]
   object EngagementCounts {
     def apply(click: Int = 0, cartAdd: Int = 0, purchase: Int = 0): EngagementCounts = clicks(click) ++ cartAdds(cartAdd) ++ purchases(purchase)
-    def clicks[N : Numeric](n: N): EngagementCounts = guard(n)(Click)
-    def cartAdds[N : Numeric](n: N): EngagementCounts = guard(n)(CartAdd)
-    def purchases[N : Numeric](n: N): EngagementCounts = guard(n)(Purchase)
-    private def guard[N](n: N)(e: EngagementType)(implicit N: Numeric[N]): EngagementCounts = if(N.gt(n, N.zero)) Map(e -> N.toLong(n)) else Map.empty
-  }
-
-  implicit class EngCountOps[N](private val n: N) extends AnyVal {
-    def clicks(implicit N: Numeric[N]): EngagementCounts = EngagementCounts.clicks(n)
-    def cartAdds(implicit N: Numeric[N]): EngagementCounts = EngagementCounts.cartAdds(n)
-    def purchases(implicit N: Numeric[N]): EngagementCounts = EngagementCounts.purchases(n)
+    def clicks[N : Numeric](n: N): EngagementCounts = guard(n)(Engagement.Click)
+    def cartAdds[N : Numeric](n: N): EngagementCounts = guard(n)(Engagement.CartAdd)
+    def purchases[N : Numeric](n: N): EngagementCounts = guard(n)(Engagement.Purchase)
+    private def guard[N](n: N)(e: Engagement)(implicit N: Numeric[N]): EngagementCounts = if(N.gt(n, N.zero)) Map(e -> N.toLong(n)) else Map.empty
   }
 
   implicit class RichNumeric[N](n: N)(implicit N: Numeric[N]) {
@@ -40,16 +48,24 @@ package object metrics extends ToK.ToToKOps {
   }
 
   implicit class EngOps(private val engs: EngagementCounts) extends AnyVal {
-    def countOf(e: EngagementType): Long = engs.getOrElse(e, 0)
-    def clicks   : Long = countOf(Click)
-    def cartAdds : Long = countOf(CartAdd)
-    def purchases: Long = countOf(Purchase)
+    def +(e: EngagementCounts): EngagementCounts = engs |+| e
+    def countOf(e: Engagement): Long = engs.getOrElse(e, 0)
+    def clicks   : Long = countOf(Engagement.Click)
+    def cartAdds : Long = countOf(Engagement.CartAdd)
+    def purchases: Long = countOf(Engagement.Purchase)
   }
 
-  private[metrics] val log2 = (i: Double) => log(i) / log(2)
-  private[metrics] val pow2 = (i: Double) => pow(2, i) - 1.0
+  private[metrics] val log2p1 = (i: Int) => log(i + 1.0) / log(2.0)
+  private[metrics] val powOf: Double => Double => Double = e => i => pow(e, i) - 1.0
+  private[metrics] val pow2 = powOf(2.0)
+  private[metrics] val safeDivide: (Double, Double) => Try[Double] =
+    (a, b) => Try(a / b)
+      .filter(p =>
+        p != Double.NaN ||
+          p != Double.PositiveInfinity ||
+          p != Double.NegativeInfinity
+      )
+  private[metrics] val calc = (a: Int, b: Int) => safeDivide(a.toDouble, b.toDouble).toOption
 
-  private[metrics] def collectOps[F[_,_]]: F ~>| List[F[_, _]] = new (F ~>| List[F[_, _]]) {
-    def apply[A, B](fab: F[A, B]): List[F[_, _]] = List(fab)
-  }
+  implicit val nelResultSet: ResultSet[NonEmptyList[Long]] = identity
 }

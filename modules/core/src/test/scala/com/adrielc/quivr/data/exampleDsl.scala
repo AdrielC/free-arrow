@@ -1,4 +1,5 @@
-package com.adrielc.quivr.data
+package com.adrielc.quivr
+package data
 
 import cats.data.AndThen
 

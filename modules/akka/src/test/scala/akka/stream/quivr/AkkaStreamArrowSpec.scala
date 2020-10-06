@@ -14,11 +14,11 @@ class AkkaStreamArrowSpec extends FlatSpec with Matchers {
 
   private def createFlow(counter: AtomicInteger): FCP[Recs, User, Either[Unit, Either[Unit, Product]]] = {
 
-    val handleError = lift(logError) >>> always(counter.getAndIncrement()) >>^ (i => println((i + 1) + " errors"))
+    val handleError = lift(logError) >>> always(counter.getAndIncrement()) >^ (i => println((i + 1) + " errors"))
 
     val getRecsAndSend = getRecommendations >>> lift(getTopRecommend) >>> (handleError +++ sendRecommend)
 
-    (getUserInfo >>> needsRecommendation).test >>> ((handleError <<^ InvalidUser) +++ getRecsAndSend)
+    (getUserInfo >>> needsRecommendation).test >>> ((handleError <^ InvalidUser) +++ getRecsAndSend)
   }
 
 

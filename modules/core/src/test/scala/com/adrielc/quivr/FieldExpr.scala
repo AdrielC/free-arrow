@@ -1,7 +1,6 @@
 package com.adrielc.quivr
 
 import cats.arrow.Arrow
-import com.adrielc.quivr.data.~~>
 import com.adrielc.quivr.free.FreeArrow
 import com.adrielc.quivr.free.FreeArrow.liftK
 import cats.instances.all._

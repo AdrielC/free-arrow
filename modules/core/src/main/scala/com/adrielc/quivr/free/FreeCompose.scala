@@ -1,8 +1,8 @@
-package com.adrielc.quivr.free
+package com.adrielc.quivr
+package free
 
 import cats.Eval
 import cats.arrow.Compose
-import com.adrielc.quivr.data.{BiFunctionK, ~~>}
 import cats.implicits._
 
 /**

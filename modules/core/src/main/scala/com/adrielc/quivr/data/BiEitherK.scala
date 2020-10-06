@@ -1,8 +1,10 @@
-package com.adrielc.quivr.data
+package com.adrielc.quivr
+package data
 
 import cats.arrow.Profunctor
 import cats.data.Validated
 import cats.syntax.either._
+import com.adrielc.quivr.BiFunctionK
 
 final case class BiEitherK[+F[_, _], +G[_, _], A, B](run: Either[F[A, B], G[A, B]]) {
 
@@ -53,8 +55,8 @@ object BiEitherK {
   def right[F[_, _]]: EitherBiKRight[F] = new EitherBiKRight[F]
 
   /** [[BiFunctionK]] variant of [[leftc]] */
-  def leftK[F[_, _], G[_, _]]:  F ~~> BiEitherK[F, G, *, *] = BiFunctionK.lift(leftc)
+  def leftK[F[_, _], G[_, _]] = BiFunctionK.lift[F, BiEitherK[F, G, *, *]](leftc)
 
   /** [[BiFunctionK]] variant of [[rightc]] */
-  def rightK[F[_, _], G[_, _]]:  G ~~> BiEitherK[F, G, *, *] = BiFunctionK.lift(rightc)
+  def rightK[F[_, _], G[_, _]] = BiFunctionK.lift[G, BiEitherK[F, G, *, *]](rightc)
 }

@@ -1,9 +1,8 @@
-package com.adrielc.quivr.recursion
+package com.adrielc.quivr
+package recursion
 
 import cats.arrow.Arrow
 import com.adrielc.quivr.free.FreeArrow
-import com.adrielc.quivr.ArrowChoicePlus
-import com.adrielc.quivr.data.~~>
 
 trait ArFunctor[Ar[_[_, _], _, _]] {
 

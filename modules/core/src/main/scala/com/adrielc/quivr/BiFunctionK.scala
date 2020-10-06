@@ -1,7 +1,10 @@
-package com.adrielc.quivr.data
+package com.adrielc.quivr
 
 import cats.Applicative
-import cats.data.Kleisli
+import cats.arrow.Profunctor
+import cats.data.{Kleisli, Reader}
+import com.adrielc.quivr.data._
+import cats.instances.list._
 
 /**
  *
@@ -33,6 +36,16 @@ trait BiFunctionK[-F[_, _], +G[_, _]] extends Serializable {
     new (BiEitherK[FF, H, *, *] ~~> GG) {
       override def apply[A, B](f: BiEitherK[FF, H, A, B]): GG[A, B] = f.run.fold(self(_), h(_))
     }
+
+  def pure[M[_], GG[a, b] >: G[a, b]](implicit P: Profunctor[GG], A: Applicative[M]): F ~~> λ[(α, β) => GG[α, M[β]]] =
+    new (F ~~> λ[(α, β) => GG[α, M[β]]]) {
+      def apply[A, B](fab: F[A, B]): GG[A, M[B]] = P.rmap(self(fab))(A.pure)
+    }
+
+  def pureK[M[_], GG[a, b] >: G[a, b]](implicit A: Applicative[M]): F ~~> λ[(α, β) => M[GG[α, β]]] =
+    new (F ~~> λ[(α, β) => M[GG[α, β]]]) {
+      def apply[A, B](fab: F[A, B]): M[GG[A, B]] = A.pure(self(fab))
+    }
 }
 
 object BiFunctionK {
@@ -42,15 +55,26 @@ object BiFunctionK {
   def apply[F[_, _], G[_, _]](implicit B: F ~~> G): F ~~> G = B
 
 
-  implicit class PureOps[F[_, _]](private val fk: Pure[F]) extends AnyVal {
+  implicit class ToFunctionOps[F[_, _]](private val fk: ToFunction[F]) extends AnyVal {
 
-    def kleisli[M[_]: Applicative]: F ~~> Kleisli[M, *, *] = fk.andThen(BiFunctionK.kleisli)
+    def kleisli[M[_]: Applicative]: F ~~> Kleisli[M, *, *] = fk.andThen(BiFunctionK.kleisli[M])
   }
 
   def kleisli[F[_]](implicit A: Applicative[F]): Function1 ~~> Kleisli[F, *, *] =
-    new (Function1 ~~> Kleisli[F, *, *]) { def apply[A, B](fab: A => B): Kleisli[F, A, B] = Kleisli(a => A.pure(fab(a))) }
+    new (Function1 ~~> Kleisli[F, *, *]) { def apply[A, B](fab: A => B): Kleisli[F, A, B] = Reader(fab).lift[F] }
 
-  val nothing: Nothing ~~> Nothing = id[Nothing]
+  def collect[F[_, _]]: F ~>| List[F[_, _]] = BiFunctionK.id[F].pureK[List, F]
+
+  def pure[M[_]: Applicative] = new Pure[M]
+
+  final class Pure[M[_]] private[BiFunctionK] (implicit A: Applicative[M]) {
+    def self[F[_, _]]: F ~~> λ[(α, β) => M[F[α, β]]] = new (F ~~> λ[(α, β) => M[F[α, β]]]) {
+      def apply[A, B](fab: F[A, B]): M[F[A, B]] = A.pure(fab)
+    }
+    def out[F[_, _]](implicit P: Profunctor[F]): F ~~> λ[(α, β) => F[α, M[β]]] = new (F ~~> λ[(α, β) => F[α, M[β]]]) {
+      def apply[A, B](fab: F[A, B]): F[A, M[B]] = P.rmap(fab)(A.pure)
+    }
+  }
 
   /**
    * Lifts function `f` of `F[A, B] => G[A, B]` into a `BiFunctionK[F, G]`.

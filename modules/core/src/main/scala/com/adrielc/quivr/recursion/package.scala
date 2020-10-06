@@ -1,7 +1,5 @@
 package com.adrielc.quivr
 
-import com.adrielc.quivr.data.{~>|, ~~>}
-
 package object recursion {
 
   type Alg[A[_[_, _], _, _], F[_, _]]   = A[F, *, *] ~~> F

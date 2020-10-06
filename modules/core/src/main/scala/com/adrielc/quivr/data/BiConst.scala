@@ -3,7 +3,7 @@ package com.adrielc.quivr.data
 import cats.Monoid
 import cats.kernel.Semigroup
 import cats.syntax.monoid._
-import com.adrielc.quivr.ArrowChoicePlus
+import com.adrielc.quivr.{ArrowChoicePlus, BiDistributes}
 
 /** Like [[cats.data.Const]] */
 case class BiConst[M, -A, +B](getConst: M) {
