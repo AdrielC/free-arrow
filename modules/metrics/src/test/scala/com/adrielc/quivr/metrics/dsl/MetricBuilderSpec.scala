@@ -1,18 +1,12 @@
 package com.adrielc.quivr.metrics.dsl
 
-import cats.arrow.Arrow
-import cats.data.{Kleisli, NonEmptyList, NonEmptyMap}
-import com.adrielc.quivr.free.{>>>, FreeArrow}
+import cats.data.{NonEmptyList, NonEmptyMap}
+import com.adrielc.quivr.free.{FreeArrow}
 import org.scalatest.{FlatSpec, Matchers}
 import cats.implicits._
 import com.adrielc.quivr.metrics.{EngagedResults, EngagementCounts}
 
 class MetricBuilderSpec extends FlatSpec with Matchers {
-
-  type FAList[A, B] = A >>> List[B]
-  type KList[A, B] = Kleisli[List, A, B]
-  type ToList[A, B] = A => List[B]
-  type FAKleiz[A, B] = FreeArrow[Arrow, KList, A, (String, B)]
 
   val results = NonEmptyList.fromListUnsafe((1L to 60L).toList)
 
@@ -33,10 +27,8 @@ class MetricBuilderSpec extends FlatSpec with Matchers {
         +|(Purchase -> 10.0),
         +|(CartAdd -> 5.0, Purchase -> 10.0),
         +|(Click -> 1.0, CartAdd -> 5.0, Purchase -> 25.0),
-        <+>(NonEmptyList.of(Click, CartAdd, Purchase).map(e => count(e) <+> binary(count(e))))
-      ) >>>
-        <+>(atK(5), atK(10), atK(50), atK(60)
-      ) >>>
+        <+>(NonEmptyList.of(Click, CartAdd, Purchase).map(e => count(e) <+> binary(count(e))))) >>>
+        <+>(atK(5), atK(10), atK(50), atK(60)) >>>
         ((<+>(p2, p11, p101) >>> ndcg) <+> (recall <+> precision))
 
     val f = compileToEvaluator(eval)
