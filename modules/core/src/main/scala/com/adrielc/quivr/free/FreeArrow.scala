@@ -1,8 +1,9 @@
 package com.adrielc.quivr
 package free
 
-import cats.{Applicative, ContravariantMonoidal, Eval, Monoid, MonoidK, SemigroupK}
+import cats.{Applicative, ContravariantMonoidal, Eval, Monad, Monoid, MonoidK, SemigroupK}
 import cats.arrow.{Arrow, ArrowChoice}
+import cats.data.NonEmptyList
 import cats.kernel.Semigroup
 import cats.syntax.all._
 import com.adrielc.quivr.data.{BiConst, BiEitherK, EnvA}
@@ -122,13 +123,12 @@ sealed abstract class FreeArrow[-R[f[_, _]] >: ArrowChoicePlus[f] <: Arrow[f], +
   def <^[C](f: C => In): FreeArrow[R, Flow, C, Out] =
     self.lmap(f)
 
+  /** [[liftK]] the argument into [[FreeArrow]] and [[andThen]]  */
   def >>^[FF[a, b] >: Flow[a, b], C](f: FF[Out, C]): FreeArrow[R, FF, In, C] =
     self >>> liftK(f)
 
   def <<^[FF[a, b] >: Flow[a, b], C](f: FF[C, In]): FreeArrow[R, FF, C, Out] =
     liftK(f) >>> self
-
-  def widen[O >: Out]: FreeArrow[R, Flow, In, O] = self >^ (a => a: O)
 
   /** Alias for [[split]] */
   def ***[RR[f[_, _]] >: ACP[f] <: R[f], FF[a, b] >: Flow[a, b], C, D](
@@ -229,8 +229,11 @@ sealed abstract class FreeArrow[-R[f[_, _]] >: ArrowChoicePlus[f] <: Arrow[f], +
 
 
   /** feed [[Out]] to a dead end arrow, ignoring its output and returning the [[Out]] */
-  def tap(tap: Out => Unit): FreeArrow[R, Flow, In, Out] =
+  def tapOut(tap: Out => Unit): FreeArrow[R, Flow, In, Out] =
     self >>| lift(tap)
+
+  def tapIn(tap: In => Unit): FreeArrow[R, Flow, In, Out] =
+    (lift(tap) &&& self)._2
 
 
   /** test condition [[Out]], Right == true */
@@ -340,6 +343,17 @@ sealed abstract class FreeArrow[-R[f[_, _]] >: ArrowChoicePlus[f] <: Arrow[f], +
   )(implicit L: <+>@[RR]): FreeArrow[L.Lub, FF, In, Out] =
     Plus[RR, FF, In, Out](self, fcb)
 
+  final def plusAll[RR[f[_, _]] >: ACP[f] <: R[f], FF[a, b] >: Flow[a, b]](
+    fcb: FreeArrow[RR, FF, In, Out],
+    fcbs: FreeArrow[RR, FF, In, Out]*
+  )(implicit L: <+>@[RR]): FreeArrow[L.Lub, FF, In, Out] =
+    PlusAll[RR, FF, In, Out](NonEmptyList(self, (fcb +: fcbs).toList))
+
+  final def plusAll[RR[f[_, _]] >: ACP[f] <: R[f], FF[a, b] >: Flow[a, b]](
+    fcbs: Seq[FreeArrow[RR, FF, In, Out]]
+  )(implicit L: <+>@[RR]): FreeArrow[L.Lub, FF, In, Out] =
+    plusAll(self, fcbs:_*)
+
   def and[RR[f[_, _]] >: ACP[f] <: R[f], FF[a, b] >: Flow[a, b], C](
     fab: FreeArrow[RR, FF, In, C]
   ): FreeArrow[ACP, FF, In, Either[Out, C]] =
@@ -387,6 +401,16 @@ object FreeArrow extends FreeArrowInstances {
   /** Always evaluate [[B]] */
   @inline def always[A, B](eval: => B): A >>> B = Always(Eval.always(eval))
 
+  @inline def <+>[R[f[_, _]] >: ACP[f] <: AR[f], F[_, _], A, B](
+    f: FreeArrow[R, F, A, B],
+    fs: FreeArrow[R, F, A, B]*
+  )(implicit P: <+>@[R]): FreeArrow[P.Lub, F, A, B] =
+    <+>(NonEmptyList(f, fs.toList))
+
+  @inline def <+>[R[f[_, _]] >: ACP[f] <: AR[f], F[_, _], A, B](
+    nel: NonEmptyList[FreeArrow[R, F, A, B]]
+  )(implicit P: <+>@[R]): FreeArrow[P.Lub, F, A, B] =
+    PlusAll(nel)
 
   implicit class ArrOps[R[f[_, _]] >: ACP[f] <: AR[f], Flow[_, _], In, Out](private val self: FreeArrow[R, Flow, In, Out]) extends AnyVal {
     /**
@@ -516,6 +540,12 @@ object FreeArrow extends FreeArrowInstances {
     def foldMap[G[_, _]](fk: F ~~> G)(implicit A: ACP[G]): G[A, Either[B, C]] =
       A.and(f.foldMap(fk), g.foldMap(fk))
   }
+  final private case class PlusAll[R[f[_, _]] >: ACP[f] <: AR[f], F[_, _], A, B](
+    nel: NonEmptyList[FreeArrow[R, F, A, B]]
+  ) extends FreeArrow[λ[α[_, _] => R[α] with ArrowPlus[α]], F, A, B] {
+    def foldMap[G[_, _]](fg: F ~~> G)(implicit A: R[G] with AP[G]): G[A, B] =
+      nel.reduceLeftTo(_.foldMap(fg))((g, fab) => A.plus(g, fab.foldMap(fg)))
+  }
 
   private val Z = arrowInstance[ArrowChoiceZero, Nothing]
 }
@@ -625,6 +655,23 @@ private[free] trait FreeArrowInstances0 {
       override def product[A, B](fa: FreeArrow[Arr, F, A, O], fb: FreeArrow[Arr, F, B, O]): FreeArrow[Arr, F, (A, B), O] =
         fa *|+| fb
     }
+
+
+  implicit def composedArrow[M[_]: Monad]: Arrow[λ[(α, β) => α >>> M[β]]] = new AR[λ[(α, β) => α >>> M[β]]] {
+
+    import cats.implicits._
+
+    def lift[A, B](f: A => B): A >>> M[B] = FreeArrow.lift(a => f(a).pure[M])
+
+    def compose[A, B, C](f: B >>> M[C], g: A >>> M[B]): A >>> M[C] = {
+      val ff = f.fold[Function1]
+      val gg = g.fold[Function1]
+      FreeArrow.lift(a => gg(a).flatMap(b => ff(b)))
+    }
+
+    def first[A, B, C](fa: A >>> M[B]): (A, C) >>> M[(B, C)] =
+      fa.first[C] >^ ((m: M[B], c: C) => m.map(_ -> c))
+  }
 
 
   type |||@[+F[f[_, _]] >: ACP[f]] = Lub[F, AC, ACP]

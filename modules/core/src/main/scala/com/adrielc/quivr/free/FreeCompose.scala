@@ -50,11 +50,11 @@ sealed abstract class FreeCompose[F[_, _], A, B] {
   def andThen[C](that: FreeCompose[F, B, C]): FreeCompose[F, A, C] =
     AndThen(this, that)
 
+  def >>>[C](that: FreeCompose[F, B, C]): FreeCompose[F, A, C] =
+    andThen(that)
+
   def <<<[Z](that: FreeCompose[F, Z, A]): FreeCompose[F, Z, B] =
     this compose that
-
-  def >>>[C](that: FreeCompose[F, B, C]): FreeCompose[F, A, C] =
-    that compose this
 
   def >>^[C](f: F[B, C]): FreeCompose[F, A, C] =
     AndThen(this, LiftK(f))

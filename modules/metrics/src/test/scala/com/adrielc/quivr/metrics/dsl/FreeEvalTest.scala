@@ -4,7 +4,7 @@ package dsl
 
 import cats.data.{NonEmptyList, NonEmptyMap}
 import cats.implicits._
-import com.adrielc.quivr.metrics.data.LabelledIndexes
+import com.adrielc.quivr.metrics.data.{LabelledIndexes}
 import com.adrielc.quivr.metrics.dsl.EvalOp.AtK
 import org.scalatest.{FlatSpec, Matchers}
 
@@ -56,11 +56,11 @@ class FreeEvalTest extends FlatSpec with Matchers {
 
     val f = compileMetrics(metrics, compileToList)
 
-    val result = f((results, engagements)).toMap
+    val result = f(EngagedResults(results, engagements)).toMap
 
     assert(result.size == 90)
 
-    assert(result.get("ndcg.pw2.countCartAdd.@10").contains(0.6020905207089401))
+    assert(result.get("countCartAdd.ndcg.@10.p2").contains(0.6020905207089401))
   }
 
   "Free Eval" should "combine" in {
@@ -81,16 +81,16 @@ class FreeEvalTest extends FlatSpec with Matchers {
       for {
         k <- 10 to 60 by 10
         e <- List(Click, Purchase, CartAdd)
-        p <- List(pow2, pow1p1, pow1p01)
+        p <- List(p2, p11, p101)
       } yield +e >>> p >>> atK(k) >>> ndcg
     }
 
     val f = compileMetrics(metrics, compileToList)
 
-    val result = f((results, engagements)).toMap
+    val result = f(EngagedResults(results, engagements)).toMap
 
     assert(result.size == 54)
-    assert(result.get("ndcg.pw2.countClick.@50").contains(0.31792843661581627))
+    assert(result.get("countClick.ndcg.@50.p2").contains(0.31792842410318195))
   }
 }
 

@@ -2,10 +2,10 @@ package com.adrielc.quivr.metrics
 
 import cats.data.Kleisli
 import cats.{Monoid, MonoidK, Order, Show}
-import com.adrielc.quivr.free.{ACP, AR, FA, FreeArrow}
-import com.adrielc.quivr.{analyze, ~>|, ~~>}
+import com.adrielc.quivr.free.{ACP, AP, AR, FA, FreeArrow}
+import com.adrielc.quivr.{ArrowPlus, analyze, ~>|, ~~>}
 import cats.implicits._
-import com.adrielc.quivr.metrics.data.{Engagement, LabelledIndexes, ResultsWithRelevant}
+import com.adrielc.quivr.metrics.data.{LabelledIndexes, ResultsWithRelevant}
 import com.adrielc.quivr.metrics.dsl.EvalOp.EngagementOp.EngagementToLabel
 import com.adrielc.quivr.metrics.dsl.EvalOp.EngagementOp.EngagementToLabel._
 import com.adrielc.quivr.metrics.dsl.EvalOp.LabelOp.Pow
@@ -15,14 +15,42 @@ package object dsl
     with IndexedLabels.ToIndexedLabelsOps
     with ToK.ToToKOps {
 
-  type Op           = EvalOp[_, _]
-  type Eval[A, B]   = FA[EvalOp, A, B]
-  type Labeler      = FA[EngagementToLabel, EngagedResults, LabelledIndexes]
-  type GetLabel = EngagementCounts => Option[Double]
+  type Op                 = EvalOp[_, _]
+  type Eval[A, B]         = FA[EvalOp, A, B]
+  type Labeler            = FA[EngagementToLabel, EngagedResults, LabelledIndexes]
+  type GetLabel           = EngagementCounts => Option[Double]
+  type EvalOpLedger[A, B] = OpLedger[EvalOp, A, B]
+  type RunMap[A, B]       = A => Map[String, B]
 
-  val Click   : Engagement = Engagement.Click
-  val CartAdd : Engagement = Engagement.CartAdd
-  val Purchase: Engagement = Engagement.Purchase
+  type EngagementWt = Map[Engagement, Double]
+  object EngagementWt {
+    def apply(e: (Engagement, Double), es: (Engagement, Double)*): EngagementWt =
+      (e +: es).toMap
+
+    val oneFiveTwentyFive : EngagementWt = Map(Click -> 1.0, CartAdd -> 5.0, Purchase -> 25.0)
+    val onlyPurchTwenty   : EngagementWt = Map(Purchase -> 20)
+    val onlyPurchOne      : EngagementWt = Map(Purchase -> 1)
+    val cartOnePurchTen   : EngagementWt = Map(CartAdd -> 1, Purchase -> 10)
+  }
+
+  val Click     : Engagement = Engagement.Click
+  val CartAdd   : Engagement = Engagement.CartAdd
+  val Purchase  : Engagement = Engagement.Purchase
+  val QuickView : Engagement = Engagement.QuickView
+  val Favorite  : Engagement = Engagement.Favorite
+  val Review    : Engagement = Engagement.Review
+
+  val Ndcg              = Metric.Ndcg
+  val Recall            = Metric.Recall
+  val Precision         = Metric.Precision
+  val RPrecision        = Metric.RPrecision
+  val AveragePrecision  = Metric.AveragePrecision
+  val ReciprocalRank    = Metric.ReciprocalRank
+  val FScore            = Metric.FScore
+
+  val p2                = FreeArrow(Pow.P2)
+  val p11               = FreeArrow(Pow.P11)
+  val p101              = FreeArrow(Pow.P101)
 
   val binary    = (a: Labeler) => FreeArrow(Binary(a))
   val count     = (e: Engagement) => FreeArrow(Count(e))
@@ -32,15 +60,13 @@ package object dsl
   def !|(w: (Engagement, Double), ws: (Engagement, Double)*)  = binary(+|(w, ws:_*))
   def +|(w: (Engagement, Double), ws: (Engagement, Double)*)  = FreeArrow(WeightedCount((w +: ws).toMap))
 
-  val pow2: Eval[LabelledIndexes, LabelledIndexes]      = FreeArrow(Pow.Two)
-  val pow1p1: Eval[LabelledIndexes, LabelledIndexes]    = FreeArrow(Pow.OnePointOne)
-  val pow1p01: Eval[LabelledIndexes, LabelledIndexes]   = FreeArrow(Pow.OnePointZOne)
+  val oneFiveTwentyFive: EngagementWt = Map(Click -> 1.0, CartAdd -> 5.0, Purchase -> 25.0)
 
   object ir   extends EvalRank[ResultsWithRelevant] {
-    val ndcg2  = (pow2 <<^ ((_: ResultsWithRelevant).labels)) >>> rank.ndcg
+    val ndcg2  = (p2 <<^ ((_: ResultsWithRelevant).labels)) >>> rank.ndcg
   }
   object rank extends EvalRank[LabelledIndexes] {
-    val ndcg2  = pow2 >>> ndcg
+    val ndcg2  = p2 >>> ndcg
   }
 
   implicit class EngagementOps(private val e: Engagement) extends AnyVal {
@@ -83,15 +109,26 @@ package object dsl
     prefix      : String = "",
     delim       : String = ".",
     suffix      : String = ""
-  )(implicit O: Order[F[_, _]], S: Show[F[_, _]], R: R[G], M: MonoidK[G[A, *]]): G[A, (String, B)] = {
+  )(implicit O: Order[F[_, _]], S: Show[F[_, _]], R: R[G], M: MonoidK[G[A, *]]): G[A, (String, B)] =
+    combineMetrics[R, F, G, A, B](metrics, compiler)
+      .rmap { case (k, v) => buildMetricKey(k, prefix, delim, suffix) -> v }
 
-    def buildMetricKey(l: List[F[_, _]]): String = l.sorted(O.toOrdering).map(S.show).foldSmash(prefix, delim, suffix)
-
+  def combineMetrics[R[f[_, _]] >: ACP[f] <: AR[f], F[_, _], G[_, _], A, B](
+    metrics     : TraversableOnce[FreeArrow[R, F, A, B]],
+    compiler    : F ~~> G
+  )(implicit R: R[G], M: MonoidK[G[A, *]]): G[A, (List[F[_, _]], B)] =
     metrics.toList.foldMapK(_
       .summarize[List[F[_, _]]](analyze[F].list)
       .foldMap(compiler)
-    ).rmap { case (k, v) => buildMetricKey(k) -> v }
-  }
+    )
+
+  def buildMetricKey[F[_, _]](
+    l: List[F[_, _]],
+    prefix      : String = "",
+    delim       : String = ".",
+    suffix      : String = ""
+  )(implicit O: Order[F[_, _]], S: Show[F[_, _]]): String =
+    l.sorted(O.toOrdering).map(S.show).foldSmash(prefix, delim, suffix)
 
   val compileToList: EvalOp ~~> Kleisli[List, *, *] = new (EvalOp ~~> Kleisli[List, *, *]) {
     def apply[A, B](fab: EvalOp[A, B]): Kleisli[List, A, B] = Kleisli(fab(_).foldMapK(List(_)))
@@ -106,6 +143,51 @@ package object dsl
         case Plus(a, b) => a.analyze[GetLabel](getLabeler) |+| b.analyze[GetLabel](getLabeler)
         case other      => other.label
       }
+  }
+
+  def metricKeyBuilder[F[_, _]]
+  (prefix: String = "", delim: String = ".", suffix: String = "")
+  (implicit S: Show[F[_, _]], O: Order[F[_, _]])
+  : OpLedger[F, *, *] ~~> RunMap =
+    new (OpLedger[F, *, *] ~~> RunMap) {
+      def apply[A, B](fab: OpLedger[F, A, B]): A => Map[String, B] =
+        fab.run.rmap(_.map { case (k, v) => buildMetricKey(k, prefix, delim, suffix) -> v }.toMap)
+    }
+
+
+  type OpLedger[F[_, _], -A, B] = Kleisli[List, A, (List[F[_, _]], B)]
+
+  implicit def arrowToKList[F[_, _]]: ArrowPlus[OpLedger[F, *, *]] = new ArrowPlus[OpLedger[F, -*, *]] {
+
+    def zeroArrow[B, C]: OpLedger[F, B, C] = Kleisli(_ => Nil)
+
+    def plus[A, B](f: OpLedger[F, A, B], g: OpLedger[F, A, B]): OpLedger[F, A, B] =
+      Kleisli(a => f(a) ++ g(a))
+
+    def lift[A, B](f: A => B): OpLedger[F, A, B] = Kleisli(a => List((Nil, f(a))))
+
+    def compose[A, B, C](f: OpLedger[F, B, C], g: OpLedger[F, A, B]): OpLedger[F, A, C] =
+      Kleisli { a => g(a).flatMap { case (k1, b) => f(b).map { case (k2, c) => (k1 ++ k2, c) } } }
+
+    def first[A, B, C](fa: OpLedger[F, A, B]): OpLedger[F, (A, C), (B, C)] = fa.first[C].rmap { case ((k, b), c) => (k, b -> c) }
+  }
+
+  lazy implicit val eAR: AP[EvalOpLedger] = arrowToKList[EvalOp]
+
+  val toEvalOpLedger: EvalOp ~~> EvalOpLedger = new (EvalOp ~~> EvalOpLedger) {
+    def apply[A, B](fab: EvalOp[A, B]): EvalOpLedger[A, B] =
+      Kleisli(fab(_).foldMapK(b => List((List(fab), b))))
+  }
+
+  def compileToEvaluator[R[f[_, _]] >: ACP[f] <: AR[f], A, B](
+    fab: FreeArrow[R, EvalOp, A, B],
+    prefix: String = "",
+    delim: String = ".",
+    suffix: String = ""
+  )(implicit R: R[EvalOpLedger]): A => Map[String, B] = {
+    val metricFormatter = metricKeyBuilder[EvalOp](prefix, delim, suffix)
+    val evalFunction = fab.foldMap[EvalOpLedger](toEvalOpLedger)
+    metricFormatter(evalFunction)
   }
 }
 

@@ -3,8 +3,8 @@ package dsl
 
 import cats.implicits._
 import cats.{Order, Show}
-import com.adrielc.quivr.metrics.data.{Engagement, LabelledIndexes, ResultsWithRelevant}
-import com.adrielc.quivr.metrics.dsl.EvalOp.LabelOp.Pow.{OnePointOne, OnePointZOne, Two}
+import com.adrielc.quivr.metrics.data.{LabelledIndexes, ResultsWithRelevant}
+import com.adrielc.quivr.metrics.dsl.EvalOp.LabelOp.Pow.{P101, P11, P2}
 import com.adrielc.quivr.~>|
 
 sealed trait EvalOp[-A, +B] {
@@ -37,8 +37,11 @@ object EvalOp {
 
       def isRelevant(f: EngagementCounts): Boolean
 
-      final def apply(e: EngagedResults): Option[ResultsWithRelevant] =
-        ResultsWithRelevant(e._1, e._1.toList.mapFilter(r => e._2.lookup(r).filter(isRelevant).as(r)))
+      final def apply(e: EngagedResults): Option[ResultsWithRelevant] = {
+        e.results.toNel.toList.mapFilter { case (_, (id, eng)) => isRelevant(eng).guard[Option].as(id) }.toNel.map { nel =>
+          ResultsWithRelevant(e.resultIds, nel.toNes)
+        }
+      }
     }
 
     object EngagementToRelevancy {
@@ -59,9 +62,9 @@ object EvalOp {
       def label(f: EngagementCounts): Option[Double]
 
       def apply(e: EngagedResults): Option[LabelledIndexes] =
-        e._1.toList.zipWithIndex
-          .mapFilter { case (r, i) => e._2.lookup(r).flatMap(label).map((i + 1) -> _) }.toNel
-          .map(a => LabelledIndexes(a.toNem, e._1.length))
+        e.results.toNel.toList
+          .mapFilter { case (idx, (_, eng)) => label(eng).map(idx -> _) }.toNel
+          .map(nel => LabelledIndexes(nel.toNem, e.results.length))
     }
 
     object EngagementToLabel {
@@ -74,7 +77,7 @@ object EvalOp {
         def label(f: EngagementCounts): Option[Label] = l.getLabeler(f)
 
         override def apply(v1: EngagedResults): Option[LabelledIndexes] =
-          super.apply((v1._1, v1._2.map(_.mapValues(_.binarize))))
+          super.apply(v1.map(_.mapValues(_.binarize)))
       }
       case class Plus(a: Labeler, b: Labeler) extends EngagementToLabel[EngagedResults, LabelledIndexes] { self =>
         def label(f: EngagementCounts): Option[Label] = a.getLabeler(f)
@@ -92,16 +95,22 @@ object EvalOp {
   sealed trait LabelOp[-A, +B] extends EvalOp[A, B]
   object LabelOp {
 
-    sealed abstract class Pow private (e: Double) extends LabelOp[LabelledIndexes, LabelledIndexes] {
+    sealed trait Pow extends LabelOp[LabelledIndexes, LabelledIndexes] with Product with Serializable {
+
+      def pow(d: Double): Double
 
       def apply(a: LabelledIndexes): Option[LabelledIndexes] = Some(a.copy(labels = a.labels.map(pow)))
-
-      private def pow(d: Double): Double = powOf(e)(d)
     }
     object Pow {
-      case object Two           extends Pow(2.0) // can overflow when applied to counts of engagements
-      case object OnePointOne   extends Pow(1.1) // preferred when label is derived from a count that often exceeds 1000 (e.g. clicks)
-      case object OnePointZOne  extends Pow(1.01)
+      case object P2    extends Pow { // can overflow when applied to counts of engagements
+        def pow(d: Label): Label = powOf(2.0)(d)
+      }
+      case object P11    extends Pow { // preferred when label is derived from a count that often exceeds 1000 (e.g. clicks)
+        def pow(d: Label): Label = powOf(1.1)(d)
+      }
+      case object P101   extends Pow {
+        def pow(d: Label): Label = powOf(1.01)(d)
+      }
     }
   }
 
@@ -109,11 +118,12 @@ object EvalOp {
     def apply(v1: A): Option[A] = v1.toK(k)
   }
 
+
   implicit val orderEval: Order[EvalOp[_, _]] = Order.by {
-    case _: EvalOp.RankingMetric[_]   => 1
-    case _: LabelOp[_, _]             => 2
-    case _: EvalOp.EngagementOp[_, _] => 3
-    case EvalOp.AtK(_)                => 4
+    case _: EvalOp.EngagementOp[_, _] => 1
+    case _: EvalOp.RankingMetric[_]   => 2
+    case EvalOp.AtK(_)                => 3
+    case _: LabelOp[_, _]             => 4
   }
 
   implicit val showEval: Show[EvalOp[Nothing, Any]] = Show.show {
@@ -124,16 +134,16 @@ object EvalOp {
     case HasAny(e)              => s"hasAny$e"
     case Count(e)               => s"count$e"
     case PercentOf(num, den)    => s"${num}Per$den"
-    case WeightedCount(weights) => "wtCount" + formatWeights(weights)
+    case WeightedCount(weights) => "wtCount_" + formatWeights(weights)
     case AtK(k)                 => s"@$k"
-    case Two                    => "pw2"
-    case OnePointOne            => "pw1p1"
-    case OnePointZOne           => "pw1p01"
+    case P2                     => "p2"
+    case P11                    => "p11"
+    case P101                   => "p101"
 
     case Binary(l) =>
       val binShort = new (EngagementToLabel ~>| String) {
         def apply[A, B](fab: EngagementToLabel[A, B]): String = fab match {
-          case Count(e)                 => s"binary$e"
+          case Count(e)                 => s"binary${e.shortName.capitalize}"
           case WeightedCount(weights)   => "wtBinary" + formatWeights(weights)
           case other                    => s"binary${showEval.show(other)}"
         }
@@ -152,5 +162,6 @@ object EvalOp {
   }
 
   private def formatWeights(weights: Map[Engagement, Double]): String =
-    weights.toList.foldMap { case (eng, weight) => "_" + eng.toString.toLowerCase + "-" + weight.toInt.toString }
+    weights.toList.map { case (eng, weight) => eng.shortName + weight.toInt.toString }
+      .foldSmash("", "-", "")
 }
