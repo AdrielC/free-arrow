@@ -1,16 +1,16 @@
 package com.adrielc.quivr.metrics.dsl
 
-import cats.data.{NonEmptyList, NonEmptyMap}
-import com.adrielc.quivr.free.{FreeArrow}
+import cats.data.NonEmptyList
+import com.adrielc.quivr.free.FreeArrow
 import org.scalatest.{FlatSpec, Matchers}
-import cats.implicits._
-import com.adrielc.quivr.metrics.{EngagedResults, EngagementCounts}
+import com.adrielc.quivr.metrics.EngagementCounts
+import com.adrielc.quivr.metrics.data.EngagedResults
 
 class MetricBuilderSpec extends FlatSpec with Matchers {
 
   val results = NonEmptyList.fromListUnsafe((1L to 60L).toList)
 
-  val engagements = NonEmptyMap.of(
+  val engagements = Map(
     1L -> EngagementCounts(1, 1, 1),
     20L -> EngagementCounts(2, 2, 2),
     30L -> EngagementCounts(3, 3, 3),

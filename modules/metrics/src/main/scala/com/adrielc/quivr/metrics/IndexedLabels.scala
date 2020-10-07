@@ -4,7 +4,7 @@ import com.adrielc.quivr.metrics.data.LabelledIndexes
 import simulacrum.{op, typeclass}
 import cats.implicits._
 
-@typeclass trait IndexedLabels[-A] extends RelevantCount[A] {
+@typeclass trait IndexedLabels[A] extends RelevantCount[A] {
 
   @op("labels")
   def labels(a: A): LabelledIndexes

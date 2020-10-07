@@ -3,7 +3,7 @@ package com.adrielc.quivr.metrics
 import cats.data.NonEmptyMap
 import simulacrum.{op, typeclass}
 
-@typeclass trait PartialResultSet[-A] extends ResultsCount[A] {
+@typeclass trait PartialResultSet[A] extends ResultsCount[A] {
 
   @op("indexedIds")
   def indexedIds(s: A): NonEmptyMap[Int, Long]

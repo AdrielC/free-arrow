@@ -22,7 +22,7 @@ object LabelledIndexes {
     LabelledIndexes(results.mapWithIndex((a, i) => ((i + 1), if(relevant.contains(a)) 1.0 else 0.0 )))
 
   def apply(r: ResultsWithRelevant): LabelledIndexes =
-    LabelledIndexes(r.results, r.relevant)
+    LabelledIndexes(r.results.results.map(a => if(a._2) 1.0 else 0.0), r.results.k)
 
   def of(h: (Index, Label), t: (Index, Label)*): LabelledIndexes =
     LabelledIndexes(NonEmptyList.of(h, t:_*).sortBy(_._1))

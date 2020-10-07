@@ -4,7 +4,7 @@ package dsl
 
 import cats.data.{NonEmptyList, NonEmptyMap}
 import cats.implicits._
-import com.adrielc.quivr.metrics.data.{LabelledIndexes}
+import com.adrielc.quivr.metrics.data.{EngagedResults, LabelledIndexes}
 import com.adrielc.quivr.metrics.dsl.EvalOp.AtK
 import org.scalatest.{FlatSpec, Matchers}
 
@@ -13,7 +13,7 @@ class FreeEvalTest extends FlatSpec with Matchers {
 
   val results = NonEmptyList.fromListUnsafe((1L to 10L).toList)
 
-  val engagements = NonEmptyMap.of(
+  val engagements = Map(
     1L -> EngagementCounts(1, 1, 1),
     2L -> EngagementCounts(2, 2, 2),
     3L -> EngagementCounts(3, 3, 3),
@@ -67,7 +67,7 @@ class FreeEvalTest extends FlatSpec with Matchers {
 
     val results = NonEmptyList.fromListUnsafe((1L to 60L).toList)
 
-    val engagements = NonEmptyMap.of(
+    val engagements = Map(
       1L -> (10.clicks + 5.cartAdds + 1.purchase),
       4L -> (20.clicks + 5.cartAdds),
       10L -> (2.purchases + 6.cartAdds + 23.clicks),

@@ -3,7 +3,7 @@ package dsl
 
 import cats.implicits._
 import cats.{Order, Show}
-import com.adrielc.quivr.metrics.data.{LabelledIndexes, ResultsWithRelevant}
+import com.adrielc.quivr.metrics.data.{EngagedResults, LabelledIndexes, ResultsWithRelevant}
 import com.adrielc.quivr.metrics.dsl.EvalOp.LabelOp.Pow.{P101, P11, P2}
 import com.adrielc.quivr.~>|
 
@@ -19,14 +19,12 @@ object EvalOp {
   sealed trait RankingMetric[-A] extends EvalOp[A, Double]
   object RankingMetric {
 
-    case class Ndcg[A: IndexedLabels]() extends RankingMetric[A] { def apply(v1: A): Option[Double] = v1.ndcg }
-    object Ndcg { def apply[A: IndexedLabels](a: A): Option[Double] = Ndcg[A]().apply(a) }
-
-    case class Precision[A: RelevantCount]() extends RankingMetric[A] { def apply(v1: A): Option[Double] = v1.precision }
-    object Precision { def apply[A: RelevantCount](a: A): Option[Double] = Precision[A]().apply(a) }
-
-    case class Recall[A: RelevantCount]() extends RankingMetric[A] { def apply(v1: A): Option[Double] = v1.recall }
-    object Recall { def apply[A: RelevantCount](a: A): Option[Double] = Recall[A]().apply(a) }
+    case class Dcg[A: IndexedLabels]()        extends RankingMetric[A] { def apply(v1: A): Option[Double] = v1.dcg.some }
+    case class Ndcg[A: IndexedLabels]()       extends RankingMetric[A] { def apply(v1: A): Option[Double] = v1.ndcg }
+    case class Precision[A: RelevantCount]()        extends RankingMetric[A] { def apply(v1: A): Option[Double] = v1.precision }
+    case class Recall[A: RelevantCount]()           extends RankingMetric[A] { def apply(v1: A): Option[Double] = v1.recall }
+    case class FScore[A: RelevantCount]()           extends RankingMetric[A] { def apply(v1: A): Option[Double] = v1.fScore }
+    case class RPrecision[A: RelevantCount : ToK]() extends RankingMetric[A] { def apply(v1: A): Option[Double] = v1.rPrecision }
   }
 
 
@@ -38,7 +36,7 @@ object EvalOp {
       def isRelevant(f: EngagementCounts): Boolean
 
       final def apply(e: EngagedResults): Option[ResultsWithRelevant] = {
-        e.results.toNel.toList.mapFilter { case (_, (id, eng)) => isRelevant(eng).guard[Option].as(id) }.toNel.map { nel =>
+        e.results.toNel.toList.mapFilter { case (_, (id, eng)) => eng.flatMap(isRelevant(_).guard[Option]).as(id) }.toNel.map { nel =>
           ResultsWithRelevant(e.resultIds, nel.toNes)
         }
       }
@@ -63,7 +61,7 @@ object EvalOp {
 
       def apply(e: EngagedResults): Option[LabelledIndexes] =
         e.results.toNel.toList
-          .mapFilter { case (idx, (_, eng)) => label(eng).map(idx -> _) }.toNel
+          .mapFilter { case (idx, (_, eng)) => eng.flatMap(label).map(idx -> _) }.toNel
           .map(nel => LabelledIndexes(nel.toNem, e.results.length))
     }
 
@@ -77,7 +75,7 @@ object EvalOp {
         def label(f: EngagementCounts): Option[Label] = l.getLabeler(f)
 
         override def apply(v1: EngagedResults): Option[LabelledIndexes] =
-          super.apply(v1.map(_.mapValues(_.binarize)))
+          super.apply(v1.map(_.map(_.mapValues(_.binarize))))
       }
       case class Plus(a: Labeler, b: Labeler) extends EngagementToLabel[EngagedResults, LabelledIndexes] { self =>
         def label(f: EngagementCounts): Option[Label] = a.getLabeler(f)
@@ -96,9 +94,7 @@ object EvalOp {
   object LabelOp {
 
     sealed trait Pow extends LabelOp[LabelledIndexes, LabelledIndexes] with Product with Serializable {
-
       def pow(d: Double): Double
-
       def apply(a: LabelledIndexes): Option[LabelledIndexes] = Some(a.copy(labels = a.labels.map(pow)))
     }
     object Pow {
@@ -119,6 +115,7 @@ object EvalOp {
   }
 
 
+  // metric keys are in this order
   implicit val orderEval: Order[EvalOp[_, _]] = Order.by {
     case _: EvalOp.EngagementOp[_, _] => 1
     case _: EvalOp.RankingMetric[_]   => 2
@@ -127,9 +124,12 @@ object EvalOp {
   }
 
   implicit val showEval: Show[EvalOp[Nothing, Any]] = Show.show {
+    case Dcg()                  => "dcg"
     case Ndcg()                 => "ndcg"
     case Precision()            => "precision"
+    case RPrecision()           => "rPrecision"
     case Recall()               => "recall"
+    case FScore()               => "fScore"
     case MoreThan(e, n)         => s"${e}MoreThan$n"
     case HasAny(e)              => s"hasAny$e"
     case Count(e)               => s"count$e"

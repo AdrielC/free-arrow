@@ -5,7 +5,7 @@ import cats.implicits._
 import com.adrielc.quivr.metrics.data.LabelledIndexes
 import simulacrum.{op, typeclass}
 
-@typeclass trait RelevantResultSet[-A] extends IndexedLabels[A] with ResultSet[A] {
+@typeclass trait RelevantResultSet[A] extends IndexedLabels[A] with ResultSet[A] {
 
   @op("relevant")
   def relevant(a: A): NonEmptySet[Long]

@@ -5,7 +5,7 @@ import cats.{Monoid, MonoidK, Order, Show}
 import com.adrielc.quivr.free.{ACP, AP, AR, FA, FreeArrow}
 import com.adrielc.quivr.{ArrowPlus, analyze, ~>|, ~~>}
 import cats.implicits._
-import com.adrielc.quivr.metrics.data.{LabelledIndexes, ResultsWithRelevant}
+import com.adrielc.quivr.metrics.data.{EngagedResults, LabelledIndexes, ResultsWithRelevant}
 import com.adrielc.quivr.metrics.dsl.EvalOp.EngagementOp.EngagementToLabel
 import com.adrielc.quivr.metrics.dsl.EvalOp.EngagementOp.EngagementToLabel._
 import com.adrielc.quivr.metrics.dsl.EvalOp.LabelOp.Pow
@@ -40,14 +40,6 @@ package object dsl
   val Favorite  : Engagement = Engagement.Favorite
   val Review    : Engagement = Engagement.Review
 
-  val Ndcg              = Metric.Ndcg
-  val Recall            = Metric.Recall
-  val Precision         = Metric.Precision
-  val RPrecision        = Metric.RPrecision
-  val AveragePrecision  = Metric.AveragePrecision
-  val ReciprocalRank    = Metric.ReciprocalRank
-  val FScore            = Metric.FScore
-
   val p2                = FreeArrow(Pow.P2)
   val p11               = FreeArrow(Pow.P11)
   val p101              = FreeArrow(Pow.P101)
@@ -68,7 +60,6 @@ package object dsl
   object rank extends EvalRank[LabelledIndexes] {
     val ndcg2  = p2 >>> ndcg
   }
-
   implicit class EngagementOps(private val e: Engagement) extends AnyVal {
     def +(other: Engagement): Labeler = count(e) + count(other)
     def /(other: Engagement): Labeler = percentOf(e, other)
@@ -193,10 +184,43 @@ package object dsl
 
 package dsl {
 
+  import cats.Order
+  import cats.instances.int._
+
+  sealed abstract class Engagement(val shortName: String) extends Product with Serializable
+  object Engagement {
+
+    case object Click     extends Engagement("clk")
+    case object CartAdd   extends Engagement("crt")
+    case object Purchase  extends Engagement("prch")
+    case object QuickView extends Engagement("qck")
+    case object Favorite  extends Engagement("fav")
+    case object Review    extends Engagement("rev")
+
+
+    def engagementsOrder(
+      click     : Int = 1,
+      cartAdd   : Int = 1,
+      purchase  : Int = 1,
+      quickView : Int = 1,
+      favorite  : Int = 1,
+      review    : Int = 1
+    ): Order[Engagement] = Order.by {
+      case Click      => click
+      case CartAdd    => cartAdd
+      case Purchase   => purchase
+      case QuickView  => quickView
+      case Favorite   => favorite
+      case Review     => review
+    }
+  }
+
   abstract class EvalRank[A: IndexedLabels : ToK] extends Serializable {
     val atK         = (k: Int) => FreeArrow(EvalOp.AtK[A](k))
     val ndcg        = FreeArrow(EvalOp.RankingMetric.Ndcg[A])
     val recall      = FreeArrow(EvalOp.RankingMetric.Recall[A])
     val precision   = FreeArrow(EvalOp.RankingMetric.Precision[A])
+    val rPrecision  = FreeArrow(EvalOp.RankingMetric.RPrecision[A])
+    val fScore      = FreeArrow(EvalOp.RankingMetric.FScore[A])
   }
 }

@@ -4,7 +4,7 @@ import cats.data.{NonEmptyList, NonEmptyMap}
 import cats.implicits._
 import simulacrum.{op, typeclass}
 
-@typeclass trait ResultSet[-A] extends PartialResultSet[A] {
+@typeclass trait ResultSet[A] extends PartialResultSet[A] {
 
   @op("resultIds")
   def resultIds(a: A): NonEmptyList[Long]

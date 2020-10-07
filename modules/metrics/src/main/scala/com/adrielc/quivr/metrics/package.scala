@@ -32,21 +32,6 @@ package object metrics
 
   type EngagementWeights  = Map[Engagement, Double]
   type Engagements        = NonEmptyMap[ResultId, EngagementCounts]
-  type EngagedResults     = IndexedResults[EngagementCounts]
-  object EngagedResults {
-    def apply(results: NonEmptyList[ResultId], engagements: NonEmptyMap[ResultId, EngagementCounts]): EngagedResults = {
-      val resSet = results.toNes
-
-      lazy val labelsNotInResultSet = engagements.toNel.toList
-        .mapFilter { case (id, e) => (!resSet.contains(id)).guard[Option].as((id -> e)) }
-        .mapWithIndex((label, idx) => (Int.MaxValue - idx) -> label )
-
-      val nem = results.mapWithIndex((id, idx) => (idx + 1, (id, engagements.lookup(id).getOrElse(Map.empty)))).toNem
-      val added = labelsNotInResultSet.foldLeft(nem)(_ add _)
-      IndexedResults(added, results.size)
-    }
-  }
-  type LabelledResults    = NonEmptyMap[ResultId, Label]
 
   type EngagementCounts = Map[Engagement, Count]
   object EngagementCounts {
