@@ -5,6 +5,7 @@ package dsl
 import cats.data.{NonEmptyList, NonEmptyMap}
 import cats.implicits._
 import com.adrielc.quivr.metrics.data.{EngagedResults, LabelledIndexes}
+import com.adrielc.quivr.metrics.dsl.EvalOp.Metric.Gain
 import org.scalatest.{FlatSpec, Matchers}
 
 
@@ -70,7 +71,7 @@ class FreeEvalTest extends FlatSpec with Matchers {
     val metrics =
       plusAll(+Click, +Purchase, +CartAdd) >>>
         plusAll(NonEmptyList.of(10, 20 to 60 by 10:_*).map(atK[LabelledIndexes](_))) >>>
-        plusAll(NonEmptyList.of(Pow2, Pow1p1, Pow1p01).map(ndcgWithGain(_)))
+        plusAll(NonEmptyList.of(Gain.Pow2, Gain.Pow1p1, Gain.Pow1p01).map(ndcgWithGain(_)))
 
     val f = compileToEvaluator(metrics)
 

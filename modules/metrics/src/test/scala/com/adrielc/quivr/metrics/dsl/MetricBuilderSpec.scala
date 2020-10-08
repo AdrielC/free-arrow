@@ -5,6 +5,9 @@ import com.adrielc.quivr.free.FreeArrow
 import org.scalatest.{FlatSpec, Matchers}
 import com.adrielc.quivr.metrics.EngagementCounts
 import com.adrielc.quivr.metrics.data.EngagedResults
+import FreeArrow._
+import com.adrielc.quivr.metrics.dsl.EvalOp.Metric.Gain
+import rank._
 
 class MetricBuilderSpec extends FlatSpec with Matchers {
 
@@ -19,8 +22,6 @@ class MetricBuilderSpec extends FlatSpec with Matchers {
   )
 
   "combine" should "build" in {
-    import FreeArrow._
-    import rank._
 
     val eval =
       plusAll (
@@ -29,7 +30,7 @@ class MetricBuilderSpec extends FlatSpec with Matchers {
         +|(Click -> 1.0, CartAdd -> 5.0, Purchase -> 25.0),
         plusAll(NonEmptyList.of(Click, CartAdd, Purchase).map(e => +e <+> !e))) >>>
         plusAll(atK(5), atK(10), atK(50), atK(60)) >>>
-        (plusAll(NonEmptyList.of(Pow2, Pow1p1, Pow1p01).map(ndcgWithGain(_))) <+> recall <+> precision)
+        (plusAll(NonEmptyList.of(Gain.Pow2, Gain.Pow1p1, Gain.Pow1p01).map(ndcgWithGain(_))) <+> recall <+> precision)
 
     val f = compileToEvaluator(eval)
 
@@ -38,5 +39,22 @@ class MetricBuilderSpec extends FlatSpec with Matchers {
     println(res)
 
     assert(res.get("countPurchase.recall.@50").contains(0.8))
+  }
+
+  "ranking metrics" should "be applied" in {
+
+    import com.adrielc.quivr.metrics.dsl.EvalOp.Metric._
+
+    val m = (!CartAdd + !Click)
+      .at(10)
+      .evalRanking(AveragePrecision)
+
+    val f = compileToEvaluator(m)
+
+    val res = f(EngagedResults(results, engagements))
+
+    println(res)
+
+    assert(res.size == 1)
   }
 }

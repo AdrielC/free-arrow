@@ -4,6 +4,7 @@ package dsl
 import cats.implicits._
 import cats.{Order, Show}
 import com.adrielc.quivr.metrics.data.{EngagedResults, LabelledIndexes, RelevanceCounts, ResultsWithRelevant}
+import com.adrielc.quivr.metrics.dsl.EvalOp.Metric.Gain
 import com.adrielc.quivr.~>|
 
 sealed trait EvalOp[-A, +B] extends Product with Serializable {
@@ -113,8 +114,8 @@ object EvalOp {
   }
 
   implicit val showEval: Show[EvalOp[Nothing, Any]] = Show.show {
-    case Dcg(`Pow2`)            => "dcg"
-    case Ndcg(`Pow2`)           => "ndcg"
+    case Dcg(Gain.Pow2)         => "dcg"
+    case Ndcg(Gain.Pow2)        => "ndcg"
     case Dcg(g)                 => s"dcg-${g.toString.toLowerCase}"
     case Ndcg(g)                => s"ndcg-${g.toString.toLowerCase}"
     case Precision              => "precision"

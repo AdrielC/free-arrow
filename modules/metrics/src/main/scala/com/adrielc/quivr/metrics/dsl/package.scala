@@ -10,6 +10,7 @@ import com.adrielc.quivr.metrics.dsl.EvalOp.EngagementOp.EngagementToLabel
 import com.adrielc.quivr.metrics.dsl.EvalOp.EngagementOp.EngagementToLabel._
 import com.adrielc.quivr.metrics.dsl.EvalOp.Metric.{Gain, RankingMetric, RetrievalMetric}
 import FreeArrow._
+import com.adrielc.quivr.metrics.dsl.EvalOp.Metric
 
 package object dsl
   extends RelevantCount.ToRelevantCountOps
@@ -102,11 +103,6 @@ package object dsl
     val evalFunction = fab.foldMap[EvalOpLedger](toEvalOpLedger)
     metricFormatter(evalFunction)
   }
-
-  val Pow1p01 : Gain = Gain.Pow1p01
-  val Pow1p1  : Gain = Gain.Pow1p1
-  val Pow2    : Gain = Gain.Pow2
-
   private[metrics] implicit val moniodLabeler: Monoid[GetLabel] =
     Monoid.instance(_ => Some(0.0), (a, b) => e => a(e) |+| b(e))
 
@@ -154,9 +150,9 @@ package dsl {
   import cats.instances.int._
 
   abstract class MetricBuilder[A: IndexedLabels : ToK] extends Serializable {
-    import com.adrielc.quivr.metrics.dsl.EvalOp.Metric._
+    import Metric._
     val ndcg              = lift((_: A).labels) >>^ Ndcg(Gain.Pow2)
-    def ndcgWithGain(g: Gain)    = lift((_: A).labels) >>^ Ndcg(g)
+    def ndcgWithGain(g: Gain)    = lift((_: A).labels) >>^ Metric.Ndcg(g)
     val averagePrecision  = lift((_: A).labels) >>^ AveragePrecision
     val reciprocalRank    = lift((_: A).labels) >>^ ReciprocalRank
     val rPrecision        = lift((_: A).labels) >>^ RPrecision
