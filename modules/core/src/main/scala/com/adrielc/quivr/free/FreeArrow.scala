@@ -401,13 +401,13 @@ object FreeArrow extends FreeArrowInstances {
   /** Always evaluate [[B]] */
   @inline def always[A, B](eval: => B): A >>> B = Always(Eval.always(eval))
 
-  @inline def <+>[R[f[_, _]] >: ACP[f] <: AR[f], F[_, _], A, B](
+  @inline def plusAll[R[f[_, _]] >: ACP[f] <: AR[f], F[_, _], A, B](
     f: FreeArrow[R, F, A, B],
     fs: FreeArrow[R, F, A, B]*
   )(implicit P: <+>@[R]): FreeArrow[P.Lub, F, A, B] =
-    <+>(NonEmptyList(f, fs.toList))
+    plusAll(NonEmptyList(f, fs.toList))
 
-  @inline def <+>[R[f[_, _]] >: ACP[f] <: AR[f], F[_, _], A, B](
+  @inline def plusAll[R[f[_, _]] >: ACP[f] <: AR[f], F[_, _], A, B](
     nel: NonEmptyList[FreeArrow[R, F, A, B]]
   )(implicit P: <+>@[R]): FreeArrow[P.Lub, F, A, B] =
     PlusAll(nel)

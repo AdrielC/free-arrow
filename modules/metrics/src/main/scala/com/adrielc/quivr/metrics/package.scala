@@ -1,6 +1,6 @@
 package com.adrielc.quivr
 
-import cats.data.{NonEmptyList, NonEmptyMap, NonEmptySet}
+import cats.data.{NonEmptyMap, NonEmptySet}
 import com.adrielc.quivr.metrics.data.{IndexedResults, WithRelevant}
 import cats.implicits._
 import com.adrielc.quivr.metrics.dsl.Engagement
@@ -42,6 +42,15 @@ package object metrics
     private def guard[N](n: N)(e: Engagement)(implicit N: Numeric[N]): EngagementCounts = if(N.gt(n, N.zero)) Map(e -> N.toLong(n)) else Map.empty
   }
 
+  implicit class EngCountOps[N](private val n: N) extends AnyVal {
+    def clicks(implicit N: Numeric[N]): EngagementCounts = EngagementCounts.clicks(n)
+    def click(implicit N: Numeric[N]): EngagementCounts = EngagementCounts.clicks(n)
+    def cartAdds(implicit N: Numeric[N]): EngagementCounts = EngagementCounts.cartAdds(n)
+    def cartAdd(implicit N: Numeric[N]): EngagementCounts = EngagementCounts.cartAdds(n)
+    def purchases(implicit N: Numeric[N]): EngagementCounts = EngagementCounts.purchases(n)
+    def purchase(implicit N: Numeric[N]): EngagementCounts = EngagementCounts.purchases(n)
+  }
+
   implicit class RichNumeric[N](n: N)(implicit N: Numeric[N]) {
     def binarize: N = if(N.gt(n, N.zero)) N.one else N.zero
   }
@@ -54,17 +63,11 @@ package object metrics
     def purchases: Long = countOf(Engagement.Purchase)
   }
 
-  private[metrics] val log2p1 = (i: Int) => log(i + 1.0) / log(2.0)
+  private[metrics] val log2 = (d: Double) => log(d) / log(2.0)
+  private[metrics] val log2p1 = (i: Int) => 1 / log2(i + 1.0)
   private[metrics] val powOf: Double => Double => Double = e => i => pow(e, i) - 1.0
   private[metrics] val pow2 = powOf(2.0)
-  private[metrics] val safeDivide: (Double, Double) => Try[Double] =
-    (a, b) => Try(a / b)
-      .filter(p =>
-        p != Double.NaN ||
-          p != Double.PositiveInfinity ||
-          p != Double.NegativeInfinity
-      )
-  private[metrics] val calc = (a: Int, b: Int) => safeDivide(a.toDouble, b.toDouble).toOption
-
-  implicit val nelResultSet: ResultSet[NonEmptyList[Long]] = identity
+  private[metrics] val safeDiv: (Double, Double) => Option[Double] =
+    (a, b) => Try(a / b).toOption.filter(p => p != Double.NaN || p.abs != Double.PositiveInfinity)
+  private[metrics] val calc = (a: Double, b: Int) => safeDiv(a, b.toDouble)
 }

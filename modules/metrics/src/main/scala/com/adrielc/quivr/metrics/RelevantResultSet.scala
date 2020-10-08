@@ -18,10 +18,9 @@ import simulacrum.{op, typeclass}
 
   override def labels(a: A): LabelledIndexes = {
     val rel = relevant(a)
-    val res = resultIds(a)
-    val labels = res.mapWithIndex((id, idx) => (idx + 1) -> (if(rel.contains(id)) 1.0 else 0.0)).toNem
-    val unknownIdxRel = (rel diff res.toNes).toList.toNel.map(_.mapWithIndex((_, idx) => (Int.MaxValue - idx) -> 1.0).toNem)
-    val fullLabels = unknownIdxRel.fold(labels)(_ ++ labels)
-    LabelledIndexes(fullLabels, nResults(a))
+    val labs = labels(a)
+    val unknownIdxRel = (rel diff resultIds(a).toNes).toList.toNel.map(_.mapWithIndex((_, idx) => (Int.MaxValue - idx) -> 1.0).toNem)
+    val fullLabels = unknownIdxRel.fold(labs.labels)(labs.labels ++ _)
+    LabelledIndexes(fullLabels, labs.k, labs.maxK)
   }
 }

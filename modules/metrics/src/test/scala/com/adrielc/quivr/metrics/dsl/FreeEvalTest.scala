@@ -11,15 +11,6 @@ import org.scalatest.{FlatSpec, Matchers}
 
 class FreeEvalTest extends FlatSpec with Matchers {
 
-  val results = NonEmptyList.fromListUnsafe((1L to 10L).toList)
-
-  val engagements = Map(
-    1L -> EngagementCounts(1, 1, 1),
-    2L -> EngagementCounts(2, 2, 2),
-    3L -> EngagementCounts(3, 3, 3),
-    4L -> EngagementCounts(4, 4, 4)
-  )
-
   val labelled = LabelledIndexes.of(10)(
     1 -> 1.0,
     2 -> 2.0,
@@ -37,7 +28,7 @@ class FreeEvalTest extends FlatSpec with Matchers {
       3 -> 3.0,
       4 -> 4.0,
       100 -> 100.0
-    ), 10)))(
+    ), 10, 100)))(
 
       AtK[LabelledIndexes](10).apply(labelled)
     )
@@ -45,25 +36,35 @@ class FreeEvalTest extends FlatSpec with Matchers {
 
   "Free Eval" should "evaluate correctly" in {
 
-    val metrics = {
-      import rank._
-      for {
-        k <- 1 to 100
-        e <- List(Click, CartAdd, Purchase)
-        m <- List(ndcg2, precision, recall)
-      } yield +e >>> atK(k) >>> m
-    }
+    import rank._
+    import com.adrielc.quivr.free.FreeArrow._
 
-    val f = compileMetrics(metrics, compileToList)
+    val metrics =
+      plusAll(NonEmptyList.of(Click, CartAdd, Purchase).map(count)) >>>
+      plusAll(NonEmptyList.of(1, 2 to 100:_*).map(atK)) >>>
+      plusAll(ndcg, precision, recall)
 
-    val result = f(EngagedResults(results, engagements)).toMap
+    val f = compileToEvaluator(metrics)
+
+    val results = NonEmptyList.of(1L, 2L to 10L:_*)
+
+    val engagements = Map(
+      1L -> EngagementCounts(1, 1, 1),
+      2L -> EngagementCounts(2, 2, 2),
+      3L -> EngagementCounts(3, 3, 3),
+      4L -> EngagementCounts(4, 4, 4)
+    )
+
+    val result = f(EngagedResults(results, engagements))
 
     assert(result.size == 90)
 
-    assert(result.get("countCartAdd.ndcg.@10.p2").contains(0.6020905207089401))
+    assert(result.get("countCartAdd.ndcg.@10").contains(0.6020905207089401))
   }
 
   "Free Eval" should "combine" in {
+    import rank._
+    import com.adrielc.quivr.free.FreeArrow.plusAll
 
     val results = NonEmptyList.fromListUnsafe((1L to 60L).toList)
 
@@ -76,21 +77,17 @@ class FreeEvalTest extends FlatSpec with Matchers {
       70L -> (1.purchase + 1.cartAdd + 1.click)
     )
 
-    val metrics = {
-      import rank._
-      for {
-        k <- 10 to 60 by 10
-        e <- List(Click, Purchase, CartAdd)
-        p <- List(p2, p11, p101)
-      } yield +e >>> p >>> atK(k) >>> ndcg
-    }
+    val metrics =
+      plusAll(+Click, +Purchase, +CartAdd) >>>
+        plusAll(NonEmptyList.of(10, 20 to 60 by 10:_*).map(atK)) >>>
+        plusAll(NonEmptyList.of(Pow2, Pow1p1, Pow1p01).map(ndcg2(_)))
 
-    val f = compileMetrics(metrics, compileToList)
+    val f = compileToEvaluator(metrics)
 
-    val result = f(EngagedResults(results, engagements)).toMap
+    val result = f(EngagedResults(results, engagements))
 
     assert(result.size == 54)
-    assert(result.get("countClick.ndcg.@50.p2").contains(0.31792842410318195))
+    assert(result.get("countClick.ndcg.@50").contains(0.31792842410318195))
   }
 }
 

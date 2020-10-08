@@ -23,13 +23,13 @@ class MetricBuilderSpec extends FlatSpec with Matchers {
     import rank._
 
     val eval =
-      <+> (
+      plusAll (
         +|(Purchase -> 10.0),
         +|(CartAdd -> 5.0, Purchase -> 10.0),
         +|(Click -> 1.0, CartAdd -> 5.0, Purchase -> 25.0),
-        <+>(NonEmptyList.of(Click, CartAdd, Purchase).map(e => count(e) <+> binary(count(e))))) >>>
-        <+>(atK(5), atK(10), atK(50), atK(60)) >>>
-        ((<+>(p2, p11, p101) >>> ndcg) <+> (recall <+> precision))
+        plusAll(NonEmptyList.of(Click, CartAdd, Purchase).map(e => count(e) <+> binary(count(e))))) >>>
+        plusAll(atK(5), atK(10), atK(50), atK(60)) >>>
+        (plusAll(NonEmptyList.of(Pow2, Pow1p1, Pow1p01).map(ndcg2(_))) <+> recall <+> precision)
 
     val f = compileToEvaluator(eval)
 

@@ -11,11 +11,11 @@ import cats.implicits._
 
   @op("precision")
   def precision(a: A): Option[Double] =
-    calc(nRelevantResults(a), nResults(a))
+    safeDiv(nRelevantResults(a).toDouble, nResults(a).toDouble)
 
   @op("recall")
   def recall(a: A): Option[Double] =
-    calc(nRelevantResults(a), nRelevant(a))
+    safeDiv(nRelevantResults(a).toDouble, nRelevant(a).toDouble)
 
   @op("fScore")
   def fScore(a: A): Option[Double] =
