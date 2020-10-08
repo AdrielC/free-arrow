@@ -3,40 +3,54 @@ package dsl
 
 import cats.implicits._
 import cats.{Order, Show}
-import com.adrielc.quivr.metrics.data.{EngagedResults, LabelledIndexes, ResultsWithRelevant}
-import com.adrielc.quivr.metrics.dsl.EvalOp.MetricOp.Discount.Log2p1
+import com.adrielc.quivr.metrics.data.{EngagedResults, LabelledIndexes, RelevanceCounts, ResultsWithRelevant}
 import com.adrielc.quivr.~>|
 
-sealed trait EvalOp[-A, +B] {
+sealed trait EvalOp[-A, +B] extends Product with Serializable {
   def apply(a: A): Option[B]
 }
 object EvalOp {
-  import MetricOp._
+  import Metric._
   import EngagementOp._
   import EngagementToRelevancy._
   import EngagementToLabel._
 
-  sealed trait MetricOp[-A] extends EvalOp[A, Double]
-  object MetricOp {
+  sealed trait Metric[-A] extends EvalOp[A, Double]
+  object Metric {
 
-    case class Ndcg[A: IndexedLabels](g: Gain = Pow2, d: Discount = Log2p1) extends MetricOp[A] { def apply(v1: A): Option[Double] = v1.ndcg(g, d) }
-    case class AveragePrecision[A: IndexedLabels]() extends MetricOp[A] { def apply(v1: A): Option[Double] = v1.averagePrecision }
-    case class ReciprocalRank[A: IndexedLabels]()   extends MetricOp[A] { def apply(v1: A): Option[Double] = v1.reciprocalRank }
-    case class Precision[A: RelevantCount]()        extends MetricOp[A] { def apply(v1: A): Option[Double] = v1.precision }
-    case class Recall[A: RelevantCount]()           extends MetricOp[A] { def apply(v1: A): Option[Double] = v1.recall }
-    case class FScore[A: RelevantCount]()           extends MetricOp[A] { def apply(v1: A): Option[Double] = v1.fScore }
-    case class RPrecision[A: RelevantCount : ToK]() extends MetricOp[A] { def apply(v1: A): Option[Double] = v1.rPrecision }
+    case class Dcg(gain: Gain)                      extends RankingMetric
+    case class Ndcg(gain: Gain)                     extends RankingMetric
+    case object AveragePrecision                    extends RankingMetric
+    case object ReciprocalRank                      extends RankingMetric
+    case object RPrecision                          extends RankingMetric
+    case object Precision                           extends RetrievalMetric
+    case object Recall                              extends RetrievalMetric
+    case object FScore                              extends RetrievalMetric
 
-    sealed abstract class Gain(val f: Double => Double) extends Product with Serializable { def apply(z: Label): Label = f(z) }
+    sealed trait RankingMetric extends Metric[LabelledIndexes] {
+      def apply(a: LabelledIndexes): Option[Label] = this match {
+        case Dcg(g)           => a.dcg(g.f)
+        case Ndcg(g)          => a.ndcg(g.f)
+        case AveragePrecision => a.averagePrecision
+        case ReciprocalRank   => a.reciprocalRank
+        case RPrecision       => a.rPrecision
+      }
+    }
+    sealed trait RetrievalMetric extends Metric[RelevanceCounts] {
+      def apply(a: RelevanceCounts): Option[Label] = this match {
+        case Precision  => a.precision
+        case Recall     => a.recall
+        case FScore     => a.fScore
+      }
+    }
+
+
+    sealed abstract class Gain(val f: Double => Double)
     object Gain {
-      case object Pow2    extends Gain(powOf(2.0)) // can overflow when applied to counts of engagements
+      case object Pow2    extends Gain(pow2) // can overflow when applied to counts of engagements
       case object Pow1p1  extends Gain(powOf(1.1)) // preferred when label is derived from a count that often exceeds 1000 (e.g. clicks)
       case object Pow1p01 extends Gain(powOf(1.01))
       case object Id      extends Gain(identity)
-    }
-    sealed abstract class Discount(val f: Int => Double) extends Product with Serializable { def apply(z: Index): Label = f(z) }
-    object Discount {
-      case object Log2p1 extends Discount(log2p1)
     }
   }
   sealed trait EngagementOp[-A, +B] extends EvalOp[A, B]
@@ -63,7 +77,7 @@ object EvalOp {
         val k = e.results.length
         e.results.toNel.toList
           .mapFilter { case (idx, (_, eng)) => eng.flatMap(label).map(idx -> _) }.toNel
-          .map(nel => LabelledIndexes(nel.toNem, k, k))
+          .map(nel => LabelledIndexes(nel.toNem, k))
       }
     }
     object EngagementToLabel {
@@ -94,24 +108,26 @@ object EvalOp {
   // metric keys are in this order
   implicit val orderEval: Order[EvalOp[_, _]] = Order.by {
     case _: EvalOp.EngagementOp[_, _] => 1
-    case _: EvalOp.MetricOp[_]        => 2
+    case _: EvalOp.Metric[_]        => 2
     case EvalOp.AtK(_)                => 3
   }
 
   implicit val showEval: Show[EvalOp[Nothing, Any]] = Show.show {
-    case Ndcg(`Pow2`, _)        => "ndcg"
-    case Ndcg(g, _)             => s"ndcg$g"
-    case Precision()            => "precision"
-    case RPrecision()           => "rPrecision"
-    case Recall()               => "recall"
-    case FScore()               => "fScore"
-    case AveragePrecision()     => "averagePrecision"
-    case ReciprocalRank()       => "reciprocalRank"
+    case Dcg(`Pow2`)            => "dcg"
+    case Ndcg(`Pow2`)           => "ndcg"
+    case Dcg(g)                 => s"dcg-${g.toString.toLowerCase}"
+    case Ndcg(g)                => s"ndcg-${g.toString.toLowerCase}"
+    case Precision              => "precision"
+    case RPrecision             => "rPrecision"
+    case Recall                 => "recall"
+    case FScore                 => "f1"
+    case AveragePrecision       => "map"
+    case ReciprocalRank         => "mrr"
     case MoreThan(e, n)         => s"${e}MoreThan$n"
     case HasAny(e)              => s"hasAny$e"
     case Count(e)               => s"count$e"
     case PercentOf(num, den)    => s"${num}Per$den"
-    case WeightedCount(weights) => "wtCount_" + formatWeights(weights)
+    case WeightedCount(weights) => "wtCount-" + formatWeights(weights)
     case AtK(k)                 => s"@$k"
 
     case Binary(l) =>

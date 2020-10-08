@@ -15,3 +15,8 @@ import simulacrum.{op, typeclass}
   override def indexedIds(a: A): NonEmptyMap[Int, Long] =
     resultIds(a).mapWithIndex((id, idx) => (idx + 1) -> id ).toNem
 }
+
+object ResultSet {
+
+  implicit val rResultSet: ResultSet[NonEmptyList[Long]] = identity
+}

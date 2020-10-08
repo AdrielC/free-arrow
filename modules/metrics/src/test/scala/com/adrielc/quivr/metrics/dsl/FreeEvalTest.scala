@@ -5,20 +5,10 @@ package dsl
 import cats.data.{NonEmptyList, NonEmptyMap}
 import cats.implicits._
 import com.adrielc.quivr.metrics.data.{EngagedResults, LabelledIndexes}
-import com.adrielc.quivr.metrics.dsl.EvalOp.AtK
 import org.scalatest.{FlatSpec, Matchers}
 
 
 class FreeEvalTest extends FlatSpec with Matchers {
-
-  val labelled = LabelledIndexes.of(10)(
-    1 -> 1.0,
-    2 -> 2.0,
-    3 -> 3.0,
-    4 -> 4.0,
-    100 -> 100
-  )
-
 
   "AtK" should "filter" in {
 
@@ -28,9 +18,9 @@ class FreeEvalTest extends FlatSpec with Matchers {
       3 -> 3.0,
       4 -> 4.0,
       100 -> 100.0
-    ), 10, 100)))(
+    ), 10)))(
 
-      AtK[LabelledIndexes](10).apply(labelled)
+      LabelledIndexes.of(1 -> 1.0, 2 -> 2.0, 3 -> 3.0, 4 -> 4.0, 100 -> 100).toK(10)
     )
   }
 
@@ -40,9 +30,9 @@ class FreeEvalTest extends FlatSpec with Matchers {
     import com.adrielc.quivr.free.FreeArrow._
 
     val metrics =
-      plusAll(NonEmptyList.of(Click, CartAdd, Purchase).map(count)) >>>
-      plusAll(NonEmptyList.of(1, 2 to 100:_*).map(atK)) >>>
-      plusAll(ndcg, precision, recall)
+      plusAll(+Click, +CartAdd, +Purchase)
+        .at(1, 2 to 100:_*) >>>
+        plusAll(ndcg, precision, recall)
 
     val f = compileToEvaluator(metrics)
 
@@ -79,8 +69,8 @@ class FreeEvalTest extends FlatSpec with Matchers {
 
     val metrics =
       plusAll(+Click, +Purchase, +CartAdd) >>>
-        plusAll(NonEmptyList.of(10, 20 to 60 by 10:_*).map(atK)) >>>
-        plusAll(NonEmptyList.of(Pow2, Pow1p1, Pow1p01).map(ndcg2(_)))
+        plusAll(NonEmptyList.of(10, 20 to 60 by 10:_*).map(atK[LabelledIndexes](_))) >>>
+        plusAll(NonEmptyList.of(Pow2, Pow1p1, Pow1p01).map(ndcgWithGain(_)))
 
     val f = compileToEvaluator(metrics)
 

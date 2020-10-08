@@ -1,14 +1,15 @@
 package com.adrielc.quivr.metrics
 
-import cats.data.{Kleisli}
+import cats.data.{Kleisli, NonEmptyList}
 import cats.{Monoid, Order, Show}
 import com.adrielc.quivr.free.{ACP, AP, AR, FA, FreeArrow}
-import com.adrielc.quivr.{ArrowPlus, ~>|, ~~>}
+import com.adrielc.quivr.{ArrowChoicePlus, ~>|, ~~>}
 import cats.implicits._
 import com.adrielc.quivr.metrics.data.{EngagedResults, LabelledIndexes, ResultsWithRelevant}
 import com.adrielc.quivr.metrics.dsl.EvalOp.EngagementOp.EngagementToLabel
 import com.adrielc.quivr.metrics.dsl.EvalOp.EngagementOp.EngagementToLabel._
-import com.adrielc.quivr.metrics.dsl.EvalOp.MetricOp.Gain
+import com.adrielc.quivr.metrics.dsl.EvalOp.Metric.{Gain, RankingMetric, RetrievalMetric}
+import FreeArrow._
 
 package object dsl
   extends RelevantCount.ToRelevantCountOps
@@ -30,38 +31,31 @@ package object dsl
   val Favorite  : Engagement = Engagement.Favorite
   val Review    : Engagement = Engagement.Review
 
+  object rank       extends MetricBuilder[LabelledIndexes]
+  object retrieval  extends MetricBuilder[ResultsWithRelevant]
+
   val oneFiveTwentyFive : EngagementWt = Map(Click -> 1.0, CartAdd -> 5.0, Purchase -> 25.0)
   val onlyPurchTwenty   : EngagementWt = Map(Purchase -> 20)
   val onlyPurchOne      : EngagementWt = Map(Purchase -> 1)
   val cartOnePurchTen   : EngagementWt = Map(CartAdd -> 1, Purchase -> 10)
 
-  val binary    = (a: Labeler) => FreeArrow(Binary(a))
-  val count     = (e: Engagement) => FreeArrow(Count(e))
-  val plus      = (a: Labeler, b: Labeler) => FreeArrow(Plus(a, b))
-  val percentOf = (a: Engagement, b: Engagement) => FreeArrow(PercentOf(a, b))
+  def +|(w: (Engagement, Double), ws: (Engagement, Double)*)  = liftK(WeightedCount((w +: ws).toMap))
 
-  def !|(w: (Engagement, Double), ws: (Engagement, Double)*)  = binary(+|(w, ws:_*))
+  def !|(w: (Engagement, Double), ws: (Engagement, Double)*)  = liftK(Binary(+|(w, ws:_*)))
 
-  def +|(w: (Engagement, Double), ws: (Engagement, Double)*)  = FreeArrow(WeightedCount((w +: ws).toMap))
-
-  object ir   extends EvalRank[ResultsWithRelevant]
-  object rank extends EvalRank[LabelledIndexes]
-
-  val Pow1p01 : Gain = Gain.Pow1p01
-  val Pow1p1  : Gain = Gain.Pow1p1
-  val Pow2    : Gain = Gain.Pow2
+  def atK[A: ToK](k: Int) = FreeArrow(EvalOp.AtK(k))
 
   implicit class EngagementOps(private val e: Engagement) extends AnyVal {
-    def +(other: Engagement): Labeler = count(e) + count(other)
-    def /(other: Engagement): Labeler = percentOf(e, other)
-    def unary_+ : Labeler             = count(e)
-    def unary_! : Labeler             = binary(count(e))
+    def +(other: Engagement): Labeler = +e + +other
+    def /(other: Engagement): Labeler = e/other
+    def unary_+ : Labeler             = liftK(Count(e))
+    def unary_! : Labeler             = liftK(Binary(+e))
   }
 
   implicit class LabelerOps(private val l: Labeler) extends AnyVal {
-    def +(other: Labeler): Labeler = plus(l, other)
-    def +(other: Engagement): Labeler = l + count(other)
-    def unary_! : Labeler = binary(l)
+    def +(other: Labeler): Labeler = liftK(Plus(l, other))
+    def +(other: Engagement): Labeler = l + +other
+    def unary_! : Labeler = !l
 
     private[metrics] def getLabeler: EngagementCounts => Option[Double] = l.analyze[GetLabel](new (EngagementToLabel ~>| GetLabel) {
       def apply[A, B](fab: EngagementToLabel[A, B]): GetLabel = fab.label
@@ -69,7 +63,29 @@ package object dsl
   }
 
   implicit class EvalOps[R[f[_, _]] >: ACP[f] <: AR[f], A, B](private val e: FreeArrow[R, EvalOp, A, B]) extends AnyVal {
-    def at(k: Int)(implicit T: ToK[B]): FreeArrow[R, EvalOp, A, B] = e >>> FreeArrow(EvalOp.AtK[B](k))
+
+    def at(k: Int)(implicit T: ToK[B]): FreeArrow[R, EvalOp, A, B] =
+      e >>> liftK(EvalOp.AtK[B](k))
+
+    def at(k: Int, ks: Int*)(implicit T: ToK[B], P: <+>@[R]): FreeArrow[P.Lub, EvalOp, A, B] =
+      e >>> plusAll(NonEmptyList(liftK(EvalOp.AtK[B](k)), ks.map(k => liftK(EvalOp.AtK[B](k))).toList))
+  }
+
+  implicit class MetricOps[R[f[_, _]] >: ACP[f] <: AR[f], A, B](private val e: FreeArrow[R, EvalOp, A, B]) extends AnyVal {
+
+    def evalRanking(m: RankingMetric)(implicit T: IndexedLabels[B]): FreeArrow[R, EvalOp, A, Double] =
+      e.rmap(_.labels) >>^ m
+
+    def evalRanking(m: RankingMetric, ms: RankingMetric*)
+                   (implicit T: IndexedLabels[B], P: <+>@[R]): FreeArrow[P.Lub, EvalOp, A, Double] =
+      e.rmap(_.labels) >>> plusAll(NonEmptyList(m, ms.toList).map(liftK))
+
+    def evalResults(m: RetrievalMetric)(implicit T: RelevantCount[B]): FreeArrow[R, EvalOp, A, Double] =
+      e.rmap(_.relevanceCounts) >>^ m
+
+    def evalResults(m: RetrievalMetric, ms: RetrievalMetric*)
+                   (implicit T: RelevantCount[B], P: <+>@[R]): FreeArrow[P.Lub, EvalOp, A, Double] =
+      e.rmap(_.relevanceCounts) >>> plusAll(NonEmptyList(m, ms.toList).map(liftK))
   }
 
   implicit class RichNumeric[N](n: N)(implicit N: Numeric[N]) {
@@ -87,6 +103,10 @@ package object dsl
     metricFormatter(evalFunction)
   }
 
+  val Pow1p01 : Gain = Gain.Pow1p01
+  val Pow1p1  : Gain = Gain.Pow1p1
+  val Pow2    : Gain = Gain.Pow2
+
   private[metrics] implicit val moniodLabeler: Monoid[GetLabel] =
     Monoid.instance(_ => Some(0.0), (a, b) => e => a(e) |+| b(e))
 
@@ -99,7 +119,13 @@ package object dsl
         }.toMap)
     }
 
-  implicit def arrowToKList[F[_, _]]: ArrowPlus[OpLedger[F, *, *]] = new ArrowPlus[OpLedger[F, -*, *]] {
+  implicit def arrowToKList[F[_, _]]: ArrowChoicePlus[OpLedger[F, *, *]] = new ArrowChoicePlus[OpLedger[F, -*, *]] {
+
+    def choose[A, B, C, D](f: OpLedger[F, A, C])(g: OpLedger[F, B, D]): OpLedger[F, Either[A, B], Either[C, D]] =
+      Kleisli {
+        case Left(a)  => f(a).map { case (k, v) => k -> Left(v) }
+        case Right(b) => g(b).map { case (k, v) => k -> Right(v) }
+      }
 
     def zeroArrow[B, C]: OpLedger[F, B, C] = Kleisli(_ => Nil)
 
@@ -126,7 +152,18 @@ package dsl {
 
   import cats.Order
   import cats.instances.int._
-  import com.adrielc.quivr.metrics.dsl.EvalOp.MetricOp.{Discount, Gain}
+
+  abstract class MetricBuilder[A: IndexedLabels : ToK] extends Serializable {
+    import com.adrielc.quivr.metrics.dsl.EvalOp.Metric._
+    val ndcg              = lift((_: A).labels) >>^ Ndcg(Gain.Pow2)
+    def ndcgWithGain(g: Gain)    = lift((_: A).labels) >>^ Ndcg(g)
+    val averagePrecision  = lift((_: A).labels) >>^ AveragePrecision
+    val reciprocalRank    = lift((_: A).labels) >>^ ReciprocalRank
+    val rPrecision        = lift((_: A).labels) >>^ RPrecision
+    val recall            = lift((_: A).relevanceCounts) >>^ Recall
+    val precision         = lift((_: A).relevanceCounts) >>^ Precision
+    val fScore            = lift((_: A).relevanceCounts) >>^ FScore
+  }
 
   sealed abstract class Engagement(val shortName: String) extends Product with Serializable
   object Engagement {
@@ -153,15 +190,5 @@ package dsl {
       case Favorite   => favorite
       case Review     => review
     }
-  }
-
-  abstract class EvalRank[A: IndexedLabels : ToK] extends Serializable {
-    val ndcg = FreeArrow(EvalOp.MetricOp.Ndcg[A]())
-    def ndcg2(g: Gain = Pow2, d: Discount = Discount.Log2p1) = FreeArrow(EvalOp.MetricOp.Ndcg[A](g, d))
-    def atK(k: Int) = FreeArrow(EvalOp.AtK[A](k))
-    val recall      = FreeArrow(EvalOp.MetricOp.Recall[A])
-    val precision   = FreeArrow(EvalOp.MetricOp.Precision[A])
-    val rPrecision  = FreeArrow(EvalOp.MetricOp.RPrecision[A])
-    val fScore      = FreeArrow(EvalOp.MetricOp.FScore[A])
   }
 }

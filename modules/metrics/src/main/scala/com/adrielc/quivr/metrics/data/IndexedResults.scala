@@ -5,7 +5,7 @@ import cats.data.{NonEmptyList, NonEmptyMap}
 import cats.implicits._
 import cats.Functor
 
-case class IndexedResults[+A] private (results: NonEmptyMap[Index, (ResultId, A)], k: Int, maxK: Int) {
+case class IndexedResults[+A] private (results: NonEmptyMap[Index, (ResultId, A)], k: Int) {
 
   def map[B](f: A => B): IndexedResults[B] =
     copy(results = results.map { case (id, a) => (id, f(a)) })
@@ -15,16 +15,11 @@ case class IndexedResults[+A] private (results: NonEmptyMap[Index, (ResultId, A)
 }
 object IndexedResults {
 
-  def apply[A](results: NonEmptyMap[Index, (ResultId, A)]): IndexedResults[A] = {
-    val k = results.last._1
-    new IndexedResults(results, k, k)
-  }
+  def apply[A](results: NonEmptyMap[Index, (ResultId, A)]): IndexedResults[A] =
+    new IndexedResults(results, results.last._1)
 
   def apply[A](results: NonEmptyList[(ResultId, A)]): IndexedResults[A] =
     IndexedResults(results.mapWithIndex((id, idx) => (idx + 1, id)).toNem)
-
-  def of(results: NonEmptyList[ResultId]): IndexedResults[Unit] =
-    IndexedResults(results.map(a => (a, ())))
 
   def of[A](h: (ResultId, A), t: (ResultId, A)*): IndexedResults[A] =
     IndexedResults(NonEmptyList.of(h, t:_*))
@@ -35,11 +30,11 @@ object IndexedResults {
   }
 
   implicit def resultsToK[A]: ToK[IndexedResults[A]] =
-    (a, k) => if(k > a.maxK) None else Some(a.copy(k = k))
+    (a, k) => if(k > a.k) None else Some(a.copy(k = k))
 
   implicit def resultSet[A]: ResultSet[IndexedResults[A]] =
     _.results.toNel.map(_._2._1)
 
   implicit val labelledIndexesInstances: IndexedLabels[LabelledResults] =
-    a => LabelledIndexes(a.results.map(_._2), a.k, a.maxK)
+    a => LabelledIndexes(a.results.map(_._2), a.k)
 }

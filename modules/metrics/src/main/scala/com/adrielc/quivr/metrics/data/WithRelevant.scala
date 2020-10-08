@@ -7,7 +7,7 @@ case class WithRelevant[+A](results: A, relevant: NonEmptySet[ResultId])
 
 object WithRelevant {
 
-  implicit val resultsWithRelevant: ToK[ResultsWithRelevant] =
+  implicit def resultsWithRelevant[A: ToK]: ToK[WithRelevant[A]] =
     (a, k) => a.results.toK(k).map(WithRelevant(_, a.relevant))
 
   implicit def withRelevantRelevantCounts[A: ResultSet]: RelevantResultSet[WithRelevant[A]] = new RelevantResultSet[WithRelevant[A]] {

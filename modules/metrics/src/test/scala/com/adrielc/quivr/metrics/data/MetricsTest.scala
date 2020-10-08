@@ -1,14 +1,14 @@
 package com.adrielc.quivr.metrics.data
 
-import com.adrielc.quivr.metrics.dsl.EvalOp.MetricOp.Gain
+import com.adrielc.quivr.metrics.dsl.EvalOp.Metric.Gain
 import org.scalatest.{FlatSpec, Matchers}
 
 class MetricsTest extends FlatSpec with Matchers {
 
   "Ndcg" should "accurately compute" in {
 
-    assert(LabelledIndexes.labels(1.0, 2.0, 3.0, 4.0).ndcg(Gain.Pow2).contains(0.6020905207089401))
-    assert(LabelledIndexes.labels(1.0, 2.0, 3.0, 4.0).ndcg(Gain.Id).contains(0.7489030296784172))
+    assert(LabelledIndexes.labels(1.0, 2.0, 3.0, 4.0).ndcg(Gain.Pow2.f).contains(0.6020905207089401))
+    assert(LabelledIndexes.labels(1.0, 2.0, 3.0, 4.0).ndcg(Gain.Id.f).contains(0.7489030296784172))
   }
 
   "Recall" should "accurately compute" in {
@@ -62,5 +62,12 @@ class MetricsTest extends FlatSpec with Matchers {
     val results = LabelledIndexes.labels(0, 0, 1, 1, 0, 1, 0, 0)
 
     assert(results.reciprocalRank.contains(0.3333333333333333))
+  }
+
+  "RPrecision" should "accurately compute" in {
+
+    val results = LabelledIndexes.labels(0, 1, 1, 0, 0, 1, 0, 0)
+
+    assert(results.rPrecision.contains(0.6666666666666666))
   }
 }

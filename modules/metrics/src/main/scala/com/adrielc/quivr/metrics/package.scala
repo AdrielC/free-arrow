@@ -18,7 +18,6 @@ package object metrics
   with IndexedLabels.ToIndexedLabelsOps {
 
   type ResultsWithEngagements = IndexedResults[Option[EngagementCounts]]
-
   type ResultsWithRelevancy[+A] = WithRelevant[IndexedResults[A]]
 
   type Index        = Int

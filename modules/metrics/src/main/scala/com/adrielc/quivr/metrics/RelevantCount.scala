@@ -2,6 +2,7 @@ package com.adrielc.quivr.metrics
 
 import simulacrum.{op, typeclass}
 import cats.implicits._
+import com.adrielc.quivr.metrics.data.RelevanceCounts
 
 @typeclass trait RelevantCount[A] extends ResultsCount[A] {
 
@@ -28,4 +29,8 @@ import cats.implicits._
   @op("rPrecision")
   def rPrecision(a: A)(implicit T: ToK[A]): Option[Double] =
     a.toK(nRelevant(a)).flatMap(precision)
+
+  @op("relevanceCounts")
+  def relevanceCounts(a: A): RelevanceCounts =
+    RelevanceCounts(nResults(a), nRelevant(a), nRelevantResults(a))
 }

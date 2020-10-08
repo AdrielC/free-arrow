@@ -27,13 +27,15 @@ class MetricBuilderSpec extends FlatSpec with Matchers {
         +|(Purchase -> 10.0),
         +|(CartAdd -> 5.0, Purchase -> 10.0),
         +|(Click -> 1.0, CartAdd -> 5.0, Purchase -> 25.0),
-        plusAll(NonEmptyList.of(Click, CartAdd, Purchase).map(e => count(e) <+> binary(count(e))))) >>>
+        plusAll(NonEmptyList.of(Click, CartAdd, Purchase).map(e => +e <+> !e))) >>>
         plusAll(atK(5), atK(10), atK(50), atK(60)) >>>
-        (plusAll(NonEmptyList.of(Pow2, Pow1p1, Pow1p01).map(ndcg2(_))) <+> recall <+> precision)
+        (plusAll(NonEmptyList.of(Pow2, Pow1p1, Pow1p01).map(ndcgWithGain(_))) <+> recall <+> precision)
 
     val f = compileToEvaluator(eval)
 
     val res = f(EngagedResults(results, engagements))
+
+    println(res)
 
     assert(res.get("countPurchase.recall.@50").contains(0.8))
   }

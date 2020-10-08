@@ -3,7 +3,7 @@ package com.adrielc.quivr.metrics
 import com.adrielc.quivr.metrics.data.LabelledIndexes
 import simulacrum.{op, typeclass}
 import cats.implicits._
-import com.adrielc.quivr.metrics.dsl.EvalOp.MetricOp.{Discount, Gain}
+import com.adrielc.quivr.metrics.dsl.EvalOp.Metric.Gain
 
 @typeclass trait IndexedLabels[A] extends RelevantCount[A] {
 
@@ -11,14 +11,14 @@ import com.adrielc.quivr.metrics.dsl.EvalOp.MetricOp.{Discount, Gain}
   def labels(a: A): LabelledIndexes
 
   @op("ndcg")
-  def ndcg(a: A, g: Gain = Gain.Pow2, d: Discount = Discount.Log2p1): Option[Double] =
-    labels(a).ndcg(g, d)
+  def ndcg(a: A)(g: Gain = Gain.Pow2): Option[Double] =
+    labels(a).ndcg(g)
 
   @op("dcg")
-  def dcg(a: A, g: Gain = Gain.Pow2, d: Discount = Discount.Log2p1): Option[Double] =
-    labels(a).dcg(g, d)
+  def dcg(a: A, g: Gain = Gain.Pow2): Option[Double] =
+    labels(a).dcg(g)
 
-  @op("averagePrecision")
+  @op("map", alias = true)
   def averagePrecision(a: A): Option[Double] = {
     val l = labels(a)
     val (correct, sum) = (1 to l.k).foldLeft((0, 0.0)) { case ((c, s), k) =>
@@ -32,7 +32,7 @@ import com.adrielc.quivr.metrics.dsl.EvalOp.MetricOp.{Discount, Gain}
     safeDiv(sum.toDouble, correct.toDouble)
   }
 
-  @op("reciprocalRank")
+  @op("mrr", alias = true)
   def reciprocalRank(a: A): Option[Double] =
     labels(a).labels.toNel
       .find(_._2 > 0.0)
@@ -45,7 +45,7 @@ import com.adrielc.quivr.metrics.dsl.EvalOp.MetricOp.{Discount, Gain}
     labels(a).k
 
   override def nRelevantResults(a: A): Int = {
-    val LabelledIndexes(l, k, _) = labels(a)
+    val LabelledIndexes(l, k) = labels(a)
     l.toNel.count { case (idx, label) => label > 0.0 && idx <= k }.toInt
   }
 }
