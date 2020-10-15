@@ -103,7 +103,8 @@ sealed abstract class FreeArrow[-R[f[_, _]] >: ArrowChoicePlus[f] <: Arrow[f], +
   ): FreeArrow[RR, FF, In, C] =
     self.andThen(fbc)
 
-
+  def andThen2[RR[f[_, _]] >: ACP[f] <: R[f], A](fbc: A)(implicit C: Comp[RR, Flow, In, Out, A]): FreeArrow[C.R2, C.FF, In, C.Out] =
+    C.compose(self, fbc)
 
   /** Alias for [[compose]] */
   def <<<[RR[f[_, _]] >: ACP[f] <: R[f], FF[a, b] >: Flow[a, b], C](
@@ -154,7 +155,7 @@ sealed abstract class FreeArrow[-R[f[_, _]] >: ArrowChoicePlus[f] <: Arrow[f], +
   )(implicit L: |||@[RR]): FreeArrow[L.Lub, FF, Either[In, C], Out] =
     self.choice(fcb)
 
-  /** Alias for [[plus]] */
+  /** Alias for [[plusAll]] */
   final def <+>[RR[f[_, _]] >: ACP[f] <: R[f], FF[a, b] >: Flow[a, b]](
     fcb: FreeArrow[RR, FF, In, Out]
   )(implicit L: <+>@[RR]): FreeArrow[L.Lub, FF, In, Out] =
@@ -167,13 +168,13 @@ sealed abstract class FreeArrow[-R[f[_, _]] >: ArrowChoicePlus[f] <: Arrow[f], +
     self.and(fab)
 
   /** [[split]] wwith `fab` and then [[cats.Semigroup.combine]] the tupled [[Out]] */
-  def *|+|[RR[f[_, _]] >: ACP[f] <: R[f], FF[a, b] >: Flow[a, b], A](
+  def ***|+|[RR[f[_, _]] >: ACP[f] <: R[f], FF[a, b] >: Flow[a, b], A](
     fab: FreeArrow[RR, FF, A, Out]
   )(implicit S: Semigroup[Out]): FreeArrow[RR, FF, (In, A), Out] =
     self.split(fab).rmap((S.combine _).tupled)
 
   /** [[merge]] wwith `fab` and then [[cats.Semigroup.combine]] the tupled [[Out]] */
-  def &|+|[RR[f[_, _]] >: ACP[f] <: R[f], FF[a, b] >: Flow[a, b], A](
+  def &&&|+|[RR[f[_, _]] >: ACP[f] <: R[f], FF[a, b] >: Flow[a, b], A](
     fab: FreeArrow[RR, FF, In, Out]
   )(implicit S: Semigroup[Out]): FreeArrow[RR, FF, In, Out] =
     self.mergeWith(fab)(_ |+| _)
@@ -344,15 +345,9 @@ sealed abstract class FreeArrow[-R[f[_, _]] >: ArrowChoicePlus[f] <: Arrow[f], +
     Plus[RR, FF, In, Out](self, fcb)
 
   final def plusAll[RR[f[_, _]] >: ACP[f] <: R[f], FF[a, b] >: Flow[a, b]](
-    fcb: FreeArrow[RR, FF, In, Out],
     fcbs: FreeArrow[RR, FF, In, Out]*
   )(implicit L: <+>@[RR]): FreeArrow[L.Lub, FF, In, Out] =
-    PlusAll[RR, FF, In, Out](NonEmptyList(self, (fcb +: fcbs).toList))
-
-  final def plusAll[RR[f[_, _]] >: ACP[f] <: R[f], FF[a, b] >: Flow[a, b]](
-    fcbs: Seq[FreeArrow[RR, FF, In, Out]]
-  )(implicit L: <+>@[RR]): FreeArrow[L.Lub, FF, In, Out] =
-    plusAll(self, fcbs:_*)
+    PlusAll[RR, FF, In, Out](NonEmptyList(self, fcbs.toList))
 
   def and[RR[f[_, _]] >: ACP[f] <: R[f], FF[a, b] >: Flow[a, b], C](
     fab: FreeArrow[RR, FF, In, C]
@@ -400,6 +395,8 @@ object FreeArrow extends FreeArrowInstances {
 
   /** Always evaluate [[B]] */
   @inline def always[A, B](eval: => B): A >>> B = Always(Eval.always(eval))
+
+  def choice[A, B](eval: => B): A >>> B = Always(Eval.always(eval))
 
   @inline def plusAll[R[f[_, _]] >: ACP[f] <: AR[f], F[_, _], A, B](
     f: FreeArrow[R, F, A, B],
@@ -515,7 +512,7 @@ object FreeArrow extends FreeArrowInstances {
     def foldMap[G[_, _]](fg: F ~~> G)(implicit A: Arr[G] with ArrowChoice[G]): G[Either[C, A], Either[C, B]] =
       A.right(_right.foldMap(fg))
   }
-  final private case class Choice[Arr[f[_, _]] >: ACP[f] <: AR[f], F[_, _], A, B, C](
+  final private[free] case class Choice[Arr[f[_, _]] >: ACP[f] <: AR[f], F[_, _], A, B, C](
     _left: FreeArrow[Arr, F, A, B],
     _right: FreeArrow[Arr, F, C, B]
   ) extends FreeArrow[λ[α[_, _] => Arr[α] with ArrowChoice[α]], F, Either[A, C], B] {
@@ -548,6 +545,32 @@ object FreeArrow extends FreeArrowInstances {
   }
 
   private val Z = arrowInstance[ArrowChoiceZero, Nothing]
+
+
+  trait Comp[R1[f[_, _]] >: ACP[f] <: AR[f], -F[_, _], I, O, A] {
+
+    type R2[f[_, _]] >: ACP[f] with R1[f] <: AR[f]
+
+    type FF[a, b] >: F[a, b]
+
+    type Out
+
+    def compose(fab: FreeArrow[R1, F, I, O], fbc: A): FreeArrow[R2, FF, I, Out]
+  }
+
+  object Comp {
+    type Aux[R1[f[_, _]] >: ACP[f] <: AR[f], -F[_, _], I, O, A, RR[f[_, _]] <: R1[f], F2[a, b] >: F[a, b], OO] =
+      Comp[R1, F, I, O, A] { type R2[f[_, _]] = RR[f]; type FF[a, b] = F2[a, b]; type Out = OO }
+
+    implicit def compArr[R1[f[_, _]] >: ACP[f] <: AR[f], F[_, _], A, B, C]: Comp.Aux[R1, F, A, B, FreeArrow[R1, F, B, C], R1, F, C] =
+      new Comp[R1, F, A, B, FreeArrow[R1, F, B, C]] {
+        type R2[f[_, _]] = R1[f]
+        type FF[a, b] = F[a, b]
+        type Out = C
+        def compose(fab: FreeArrow[R1, F, A, B], fbc: FreeArrow[R1, F, B, C]): FreeArrow[R1, F, A, C] =
+          fab andThen fbc
+      }
+  }
 }
 
 private[free] trait FreeArrowInstances extends FreeArrowInstances0 {
@@ -616,16 +639,16 @@ private[free] trait FreeArrowInstances extends FreeArrowInstances0 {
     }
 
   implicit def semigroup[Arr[f[_, _]] >: ACP[f] <: AR[f], F[_, _], I, O: Semigroup]: Semigroup[FreeArrow[Arr, F, I, O]] =
-    Semigroup.instance(_ &|+| _)
+    Semigroup.instance(_ &&&|+| _)
 
   implicit def monoid[Arr[f[_, _]] >: ACP[f] <: AR[f], F[_, _], I, O: Monoid]: Monoid[FreeArrow[Arr, F, I, O]] =
-    Monoid.instance(FreeArrow.empty, _ &|+| _)
+    Monoid.instance(FreeArrow.empty, _ &&&|+| _)
 
   implicit def semigroupK[Arr[f[_, _]] >: ACP[f] <: AR[f], F[_, _], I, M[_]: SemigroupK]: SemigroupK[λ[α => FreeArrow[Arr, F, I, M[α]]]] =
     new SemigroupK[λ[α => FreeArrow[Arr, F, I, M[α]]]] {
       def combineK[A](x: FreeArrow[Arr, F, I, M[A]], y: FreeArrow[Arr, F, I, M[A]]): FreeArrow[Arr, F, I, M[A]] = {
         implicit val s = SemigroupK[M].algebra[A]
-        x &|+| y
+        x &&&|+| y
       }
     }
 
@@ -635,7 +658,7 @@ private[free] trait FreeArrowInstances extends FreeArrowInstances0 {
         arrow.empty(MonoidK[M].algebra)
       def combineK[A](x: FreeArrow[Arr, F, I, M[A]], y: FreeArrow[Arr, F, I, M[A]]): FreeArrow[Arr, F, I, M[A]] = {
         implicit val s = SemigroupK[M].algebra[A]
-        x &|+| y
+        x &&&|+| y
       }
     }
 }
@@ -653,7 +676,7 @@ private[free] trait FreeArrowInstances0 {
         arrow.empty
 
       override def product[A, B](fa: FreeArrow[Arr, F, A, O], fb: FreeArrow[Arr, F, B, O]): FreeArrow[Arr, F, (A, B), O] =
-        fa *|+| fb
+        fa ***|+| fb
     }
 
 

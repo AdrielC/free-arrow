@@ -1,158 +1,110 @@
 package com.adrielc.quivr.metrics
 package dsl
 
+
+import cats.data.{Kleisli, NonEmptyMap, NonEmptySet, WriterT}
 import cats.implicits._
-import cats.{Order, Show}
-import com.adrielc.quivr.metrics.data.{EngagedResults, LabelledIndexes, RelevanceCounts, ResultsWithRelevant}
-import com.adrielc.quivr.metrics.dsl.EvalOp.Metric.Gain
-import com.adrielc.quivr.~>|
+import com.adrielc.quivr.metrics.data.Judged.{WithGroundTruth, WithLabels}
+import com.adrielc.quivr.metrics.data._
+import com.adrielc.quivr.metrics.function.Gain
+import com.adrielc.quivr.~~>
+import eu.timepit.refined.auto._
+import eu.timepit.refined.numeric._
+
 
 sealed trait EvalOp[-A, +B] extends Product with Serializable {
   def apply(a: A): Option[B]
 }
 object EvalOp {
-  import Metric._
-  import EngagementOp._
-  import EngagementToRelevancy._
-  import EngagementToLabel._
 
-  sealed trait Metric[-A] extends EvalOp[A, Double]
-  object Metric {
-
-    case class Dcg(gain: Gain)                      extends RankingMetric
-    case class Ndcg(gain: Gain)                     extends RankingMetric
-    case object AveragePrecision                    extends RankingMetric
-    case object ReciprocalRank                      extends RankingMetric
-    case object RPrecision                          extends RankingMetric
-    case object Precision                           extends RetrievalMetric
-    case object Recall                              extends RetrievalMetric
-    case object FScore                              extends RetrievalMetric
-
-    sealed trait RankingMetric extends Metric[LabelledIndexes] {
-      def apply(a: LabelledIndexes): Option[Label] = this match {
-        case Dcg(g)           => a.dcg(g.f)
-        case Ndcg(g)          => a.ndcg(g.f)
-        case AveragePrecision => a.averagePrecision
-        case ReciprocalRank   => a.reciprocalRank
-        case RPrecision       => a.rPrecision
-      }
-    }
-    sealed trait RetrievalMetric extends Metric[RelevanceCounts] {
-      def apply(a: RelevanceCounts): Option[Label] = this match {
-        case Precision  => a.precision
-        case Recall     => a.recall
-        case FScore     => a.fScore
-      }
-    }
-
-
-    sealed abstract class Gain(val f: Double => Double)
-    object Gain {
-      case object Pow2    extends Gain(pow2) // can overflow when applied to counts of engagements
-      case object Pow1p1  extends Gain(powOf(1.1)) // preferred when label is derived from a count that often exceeds 1000 (e.g. clicks)
-      case object Pow1p01 extends Gain(powOf(1.01))
-      case object Id      extends Gain(identity)
-    }
+  sealed abstract class MetricOp[-A, +B](f: A => Option[B]) extends EvalOp[A, B] {
+    final def apply(a: A): Option[B] = f(a)
   }
+  object MetricOp {
+    case class Ndcg[A: LabelledSet](gain: Gain)           extends MetricOp[A, Double](_.ndcg(gain))
+    case class AveragePrecision[A: RelevanceJudgements]() extends MetricOp[A, Double](_.averagePrecision)
+    case class ReciprocalRank[A: RelevanceJudgements]()   extends MetricOp[A, Double](_.reciprocalRank)
+    case class RPrecision[A: RelevanceJudgements]()       extends MetricOp[A, Double](_.rPrecision)
+    case class Precision[A: TruePositiveCount]()          extends MetricOp[A, Double](_.precision)
+    case class FScore[A: RelevantCounts]()                extends MetricOp[A, Double](_.fScore)
+    case class Recall[A: RelevantCounts]()                extends MetricOp[A, Double](_.recall)
+  }
+
+  case class K[A: AtK](k: Rank) extends EvalOp[A, A] { def apply(a: A): Option[A] = a.atK(k) }
+
+  case class BinaryRelevance[A: ResultLabels](threshold: Int) extends EvalOp[A, WithGroundTruth[A]] {
+    def apply(a: A): Option[WithGroundTruth[A]] =
+      a.resultLabels.toNel.toList
+        .mapFilter { case (id, label) => if(label >= threshold) Some(id) else None }
+        .toNel.map(n => WithGroundTruth(a, n.toNes))
+  }
+
+
   sealed trait EngagementOp[-A, +B] extends EvalOp[A, B]
   object EngagementOp {
-    sealed trait EngagementToRelevancy extends EngagementOp[EngagedResults, ResultsWithRelevant] {
+
+    case object BinaryEngagements extends EngagementOp[EngagedResults, EngagedResults] {
+
+      def apply(f: EngagedResults): Option[EngagedResults] =
+        Some(f.copy(engagements = f.engagements.map(a => a.copy(engagements = a.engagements.map(_ => 1L)))))
+    }
+
+    sealed trait EngagementToRelevancy[-A, +B] extends EngagementOp[A, B] {
       def isRelevant(f: EngagementCounts): Boolean
-      final def apply(e: EngagedResults): Option[ResultsWithRelevant] = {
-        e.results.toNel.toList.mapFilter { case (_, (id, eng)) => eng.flatMap(isRelevant(_).guard[Option]).as(id) }.toNel.map { nel =>
-          ResultsWithRelevant(e.resultIds, nel.toNes)
-        }
-      }
+
+      final def apply(e: EngagedResults): Option[SetRelevance] =
+        e.engagements.toNel.toList.mapFilter { case (id, e) =>
+          isRelevant(e).guard[Option].as(id)
+        }.toNel.map(n => WithGroundTruth(e.results, n.toNes))
     }
+
     object EngagementToRelevancy {
-      case class MoreThan(e: Engagement, n: Int) extends EngagementToRelevancy {
-        def isRelevant(f: EngagementCounts): Boolean = f.get(e).exists(_ > n)
+
+      case class MoreThan(e: Engagement, n: Int) extends EngagementToRelevancy[EngagedResults, SetRelevance] {
+        def isRelevant(f: EngagementCounts): Boolean = f.engagements.lookup(e).exists(_ > n)
       }
-      case class HasAny(e: Engagement) extends EngagementToRelevancy {
-        def isRelevant(f: EngagementCounts): Boolean = f.contains(e)
+
+      case class Exists(e: Engagement) extends EngagementToRelevancy[EngagedResults, SetRelevance] {
+        def isRelevant(f: EngagementCounts): Boolean = f.engagements.contains(e)
       }
     }
+
     sealed trait EngagementToLabel[-A, +B] extends EngagementOp[A, B] {
       def label(f: EngagementCounts): Option[Double]
-      def apply(e: EngagedResults): Option[LabelledIndexes] = {
-        val k = e.results.length
-        e.results.toNel.toList
-          .mapFilter { case (idx, (_, eng)) => eng.flatMap(label).map(idx -> _) }.toNel
-          .map(nel => LabelledIndexes(nel.toNem, k))
-      }
+
+      def apply(e: EngagedResults): Option[SetLabels] =
+        e.engagements.toNel.toList
+          .mapFilter { case (id, e) => label(e).map((id, _))}.toNel
+          .map(n => WithLabels(e.results, n.toNem))
     }
+
     object EngagementToLabel {
-      case class Count(e: Engagement) extends EngagementToLabel[EngagedResults, LabelledIndexes] {
-        def label(f: EngagementCounts): Option[Label] = f.get(e).map(_.toDouble)
+
+      case class Count(e: NonEmptySet[Engagement]) extends EngagementToLabel[EngagedResults, SetLabels] {
+        def label(f: EngagementCounts): Option[Label] = e.foldMap(f.engagements.lookup(_).map(_.toDouble))
       }
-      case class Binary(l: Labeler) extends EngagementToLabel[EngagedResults, LabelledIndexes] {
-        def label(f: EngagementCounts): Option[Label] = l.getLabeler(f)
-        override def apply(v1: EngagedResults): Option[LabelledIndexes] =
-          super.apply(v1.map(_.map(_.mapValues(_.binarize))))
+
+      // only the denominator engagment needs to be present for this to compute
+      case class RatioOf(num: Engagement, den: Engagement) extends EngagementToLabel[EngagedResults, SetLabels] {
+        def label(f: EngagementCounts): Option[Label] = f.engagements.lookup(den).map { p => f.engagements.lookup(num).map(_.toLong).getOrElse(0L) / p.toDouble }
       }
-      case class Plus(a: Labeler, b: Labeler) extends EngagementToLabel[EngagedResults, LabelledIndexes] { self =>
-        def label(f: EngagementCounts): Option[Label] = a.getLabeler(f)
-      }
-      case class PercentOf(num: Engagement, den: Engagement) extends EngagementToLabel[EngagedResults, LabelledIndexes] {
-        def label(f: EngagementCounts): Option[Label] = f.get(den).map { p => f.getOrElse(num, 0L) / p.toDouble }
-      }
-      case class WeightedCount(weights: Map[Engagement, Double]) extends EngagementToLabel[EngagedResults, LabelledIndexes] {
-        def label(f: EngagementCounts): Option[Label] = weights.toList.foldMap { case (e, w) => f.get(e).map(_ * w) }
+
+      case class WeightedCount(weights: NonEmptyMap[Engagement, Double]) extends EngagementToLabel[EngagedResults, SetLabels] {
+        def label(f: EngagementCounts): Option[Label] = weights.toNel.foldMap { case (e, w) => f.engagements.lookup(e).map(_.toDouble * w) }
       }
     }
   }
-  case class AtK[A: ToK](k: Int) extends EvalOp[A, A] {
-    def apply(v1: A): Option[A] = v1.toK(k)
+
+
+
+  object compile {
+
+    val toEvalOpLedger: EvalOp ~~> EvalOpLedger = new (EvalOp ~~> EvalOpLedger) {
+      def apply[A, B](fab: EvalOp[A, B]): EvalOpLedger[A, B] = Kleisli(fab(_).foldMapK(b => WriterT.put(b)(List(fab))))
+    }
+
+    val toOption: EvalOp ~~> Kleisli[Option, *, *] = new (EvalOp ~~> Kleisli[Option, *, *]) {
+      def apply[A, B](fab: EvalOp[A, B]): Kleisli[Option, A, B] = Kleisli(fab(_))
+    }
   }
-
-
-  // metric keys are in this order
-  implicit val orderEval: Order[EvalOp[_, _]] = Order.by {
-    case _: EvalOp.EngagementOp[_, _] => 1
-    case _: EvalOp.Metric[_]        => 2
-    case EvalOp.AtK(_)                => 3
-  }
-
-  implicit val showEval: Show[EvalOp[Nothing, Any]] = Show.show {
-    case Dcg(Gain.Pow2)         => "dcg"
-    case Ndcg(Gain.Pow2)        => "ndcg"
-    case Dcg(g)                 => s"dcg-${g.toString.toLowerCase}"
-    case Ndcg(g)                => s"ndcg-${g.toString.toLowerCase}"
-    case Precision              => "precision"
-    case RPrecision             => "rPrecision"
-    case Recall                 => "recall"
-    case FScore                 => "f1"
-    case AveragePrecision       => "map"
-    case ReciprocalRank         => "mrr"
-    case MoreThan(e, n)         => s"${e}MoreThan$n"
-    case HasAny(e)              => s"hasAny$e"
-    case Count(e)               => s"count$e"
-    case PercentOf(num, den)    => s"${num}Per$den"
-    case WeightedCount(weights) => "wtCount-" + formatWeights(weights)
-    case AtK(k)                 => s"@$k"
-
-    case Binary(l) =>
-      val binShort = new (EngagementToLabel ~>| String) {
-        def apply[A, B](fab: EngagementToLabel[A, B]): String = fab match {
-          case Count(e)                 => s"binary${e.shortName.capitalize}"
-          case WeightedCount(weights)   => "wtBinary" + formatWeights(weights)
-          case other                    => s"binary${showEval.show(other)}"
-        }
-      }
-      l.analyze(binShort)
-
-    case Plus(a, b) =>
-      val plusShort = new (EngagementToLabel ~>| String) {
-        def apply[A, B](fab: EngagementToLabel[A, B]): String = fab match {
-          case Count(e)                 => s"${e.toString.toLowerCase}s"
-          case WeightedCount(weights)   => "wt" + formatWeights(weights)
-          case other                    => showEval.show(other)
-        }
-      }
-      s"${a.analyze(plusShort)}Plus${b.analyze(plusShort).capitalize}"
-  }
-
-  private def formatWeights(weights: Map[Engagement, Double]): String =
-    weights.toList.map { case (eng, weight) => eng.shortName + weight.toInt.toString }
-      .foldSmash("", "-", "")
 }

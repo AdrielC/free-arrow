@@ -8,11 +8,11 @@ import com.adrielc.quivr.free.FreeArrow._
 import Recs._
 import org.scalatest.{FlatSpec, Matchers}
 import cats.implicits._
-import com.adrielc.quivr.free.FCP
+import com.adrielc.quivr.free.FACP
 
 class AkkaStreamArrowSpec extends FlatSpec with Matchers {
 
-  private def createFlow(counter: AtomicInteger): FCP[Recs, User, Either[Unit, Either[Unit, Product]]] = {
+  private def createFlow(counter: AtomicInteger): FACP[Recs, User, Either[Unit, Either[Unit, Product]]] = {
 
     val handleError = lift(logError) >>> always(counter.getAndIncrement()) >^ (i => println((i + 1) + " errors"))
 

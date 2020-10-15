@@ -19,24 +19,24 @@ package object free {
 
   /** All levels of FreeArrow capability */
   type FA[+F[_, _], A, B] = FreeArrow[AR, F, A, B]
-  type FC[+F[_, _], A, B] = FreeArrow[AC, F, A, B]
-  type FP[+F[_, _], A, B] = FreeArrow[AP, F, A, B]
-  type FZ[+F[_, _], A, B] = FreeArrow[AZ, F, A, B]
-  type FCZ[+F[_, _], A, B] = FreeArrow[ACZ, F, A, B]
-  type FCP[+F[_, _], A, B] = FreeArrow[ACP, F, A, B]
+  type FAC[+F[_, _], A, B] = FreeArrow[AC, F, A, B]
+  type FAP[+F[_, _], A, B] = FreeArrow[AP, F, A, B]
+  type FAZ[+F[_, _], A, B] = FreeArrow[AZ, F, A, B]
+  type FACZ[+F[_, _], A, B] = FreeArrow[ACZ, F, A, B]
+  type FACP[+F[_, _], A, B] = FreeArrow[ACP, F, A, B]
 
 
   /** Specialized types of [[FreeArrow]] that correspond to method symbols */
   type >>>[A, B] = FA[Nothing, A, B]
 
   /** [[FreeArrow.justLeft]] */
-  type ^|-[L, R] = FCZ[Nothing, Either[L, R], L]
+  type ^|-[L, R] = FACZ[Nothing, Either[L, R], L]
 
   /** [[FreeArrow.justRight]] */
-  type -|^[L, R] = FCZ[Nothing, Either[L, R], R]
+  type -|^[L, R] = FACZ[Nothing, Either[L, R], R]
 
   /** [[FreeArrow.zeroArrow]] */
-  type ~@~[A, B] = FZ[Nothing, A, B]
+  type ~@~[A, B] = FAZ[Nothing, A, B]
 
 
   /** Rebuild/Optimize FreeA

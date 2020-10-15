@@ -4,81 +4,95 @@ package dsl
 
 import cats.data.{NonEmptyList, NonEmptyMap}
 import cats.implicits._
-import com.adrielc.quivr.metrics.data.{EngagedResults, LabelledIndexes}
-import com.adrielc.quivr.metrics.dsl.EvalOp.Metric.Gain
+import com.adrielc.quivr.metrics.data._
 import org.scalatest.{FlatSpec, Matchers}
+import eu.timepit.refined.auto._
+import eu.timepit.refined.cats._
+import eu.timepit.refined.numeric._
 
 
 class FreeEvalTest extends FlatSpec with Matchers {
 
-  "AtK" should "filter" in {
+  "AtK" should "update K" in {
 
-    assertResult(Some(LabelledIndexes(NonEmptyMap.of(
-      1 -> 1.0,
-      2 -> 2.0,
-      3 -> 3.0,
-      4 -> 4.0,
-      100 -> 100.0
-    ), 10)))(
+    val resAt4 = Ranked.of(1, 2, 3, 4, 5).atK(4)
 
-      LabelledIndexes.of(1 -> 1.0, 2 -> 2.0, 3 -> 3.0, 4 -> 4.0, 100 -> 100).toK(10)
-    )
+    assert(resAt4.contains(
+      Ranked(NonEmptyMap.of((1:Rank) -> 1, (2: Rank) -> 2, (3: Rank) -> 3, (4: Rank) -> 4, (5: Rank) -> 5), 4)
+    ))
   }
 
   "Free Eval" should "evaluate correctly" in {
 
-    import rank._
-    import com.adrielc.quivr.free.FreeArrow._
 
-    val metrics =
-      plusAll(+Click, +CartAdd, +Purchase)
-        .at(1, 2 to 100:_*) >>>
-        plusAll(ndcg, precision, recall)
+    val metrics = label.engagement.count(Click, CartAdd) >>> atK(10) >>> eval.rank.ndcg
 
-    val f = compileToEvaluator(metrics)
-
-    val results = NonEmptyList.of(1L, 2L to 10L:_*)
-
-    val engagements = Map(
-      1L -> EngagementCounts(1, 1, 1),
-      2L -> EngagementCounts(2, 2, 2),
-      3L -> EngagementCounts(3, 3, 3),
-      4L -> EngagementCounts(4, 4, 4)
+    val results = EngagedResults(
+      NonEmptyList.of(1L, 2L to 10L:_*),
+      NonEmptyMap.of(
+        1L -> (1.click + 1.cartAdd + 1.purchase),
+        2L -> (2.click + 2.cartAdd + 2.purchase),
+        3L -> (3.click + 3.cartAdd + 3.purchase),
+        4L -> (4.click + 4.cartAdd + 4.purchase)
+      )
     )
 
-    val result = f(EngagedResults(results, engagements))
-
-    assert(result.size == 90)
+    val result = metrics.evaluate(results).toMap
 
     assert(result.get("countCartAdd.ndcg.@10").contains(0.6020905207089401))
   }
 
   "Free Eval" should "combine" in {
-    import rank._
-    import com.adrielc.quivr.free.FreeArrow.plusAll
 
-    val results = NonEmptyList.fromListUnsafe((1L to 60L).toList)
-
-    val engagements = Map(
-      1L -> (10.clicks + 5.cartAdds + 1.purchase),
-      4L -> (20.clicks + 5.cartAdds),
-      10L -> (2.purchases + 6.cartAdds + 23.clicks),
-      25L -> (5.purchases + 10.cartAdds + 1.click),
-      49L -> (3.cartAdds + 6.clicks),
-      70L -> (1.purchase + 1.cartAdd + 1.click)
+    val results = EngagedResults(
+      NonEmptyList.fromListUnsafe((1L to 60L).toList),
+      NonEmptyMap.of(
+        1L -> (10.clicks + 5.cartAdds + 1.purchase),
+        4L -> (20.clicks + 5.cartAdds),
+        10L -> (2.purchases + 6.cartAdds + 23.clicks),
+        25L -> (5.purchases + 10.cartAdds + 1.click),
+        49L -> (3.cartAdds + 6.clicks),
+        70L -> (1.purchase + 1.cartAdd + 1.click)
+      )
     )
 
     val metrics =
-      plusAll(+Click, +Purchase, +CartAdd) >>>
-        plusAll(NonEmptyList.of(10, 20 to 60 by 10:_*).map(atK[LabelledIndexes](_))) >>>
-        plusAll(NonEmptyList.of(Gain.Pow2, Gain.Pow1p1, Gain.Pow1p01).map(ndcgWithGain(_)))
+      label.engagement.count(Click, Purchase, CartAdd) >>> atK(10, 20, 30, 40, 50, 60) >>> eval.rank.ndcg
 
-    val f = compileToEvaluator(metrics)
 
-    val result = f(EngagedResults(results, engagements))
+    val result = metrics.evaluate(results)
 
-    assert(result.size == 54)
-    assert(result.get("countClick.ndcg.@50").contains(0.31792842410318195))
+    assert(result.size == 18)
+    assert(result.get("countClick.ndcg.@50").contains(0.31792843661581627))
+  }
+
+  "Engagements" should "become labels" in {
+
+    val results = EngagedResults(
+      NonEmptyList.fromListUnsafe((1L to 60L).toList),
+      NonEmptyMap.of(
+        1L -> (10.clicks + 5.cartAdds + 1.purchase),
+        4L -> (20.clicks + 5.cartAdds),
+        10L -> (2.purchases + 6.cartAdds + 23.clicks),
+        25L -> (5.purchases + 10.cartAdds + 1.click),
+        49L -> (3.cartAdds + 6.clicks),
+        70L -> (1.purchase + 1.cartAdd + 1.click)
+      )
+    )
+
+
+    assertResult(Some(
+      NonEmptyMap.of(
+        1L -> 6.0,
+        4L -> 5.0,
+        10L -> 8.0,
+        25L -> 15.0,
+        49L -> 3.0,
+        70L -> 2.0
+    ))) {
+      val labeler = (Purchase + CartAdd) >>> atK(50)
+      labeler.apply(results).map(_.labels)
+    }
   }
 }
 

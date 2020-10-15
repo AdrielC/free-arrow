@@ -14,7 +14,9 @@ import cats.syntax.all._
 }
 
 
-object ArrowChoicePlus {
+object ArrowChoicePlus extends ArrowChoicePlusInstances
+
+private[quivr] trait ArrowChoicePlusInstances {
 
   implicit def arrowChoicePlusForKleisli[M[_] : Monad : MonoidK]: ArrowChoicePlus[Kleisli[M, *, *]] =
     new ArrowChoicePlusInstance[Kleisli[M, *, *]] {
@@ -27,20 +29,20 @@ object ArrowChoicePlus {
       def zeroArrow[B, C]: Kleisli[M, B, C] =
         Kleisli.liftF(MonoidK[M].empty)
     }
+}
 
-  private[quivr] trait ArrowChoicePlusInstance[~>[_, _]] extends ArrowChoicePlus[~>] {
+sealed private[quivr] trait ArrowChoicePlusInstance[~>[_, _]] extends ArrowChoicePlus[~>] {
 
-    def A: ArrowChoice[~>]
+  def A: ArrowChoice[~>]
 
-    def compose[A, B, C](f: B ~> C, g: A ~> B): A ~> C = A.compose(f, g)
+  def compose[A, B, C](f: B ~> C, g: A ~> B): A ~> C = A.compose(f, g)
 
-    def lift[A, B](f: A => B): A ~> B = A.lift(f)
+  def lift[A, B](f: A => B): A ~> B = A.lift(f)
 
-    def first[A, B, C](fa: A ~> B): (A, C) ~> (B, C) = A.first(fa)
+  def first[A, B, C](fa: A ~> B): (A, C) ~> (B, C) = A.first(fa)
 
-    def choose[A, B, C, D](f: A ~> C)(g: B ~> D): Either[A, B] ~> Either[C, D] = A.choose(f)(g)
+  def choose[A, B, C, D](f: A ~> C)(g: B ~> D): Either[A, B] ~> Either[C, D] = A.choose(f)(g)
 
-    override def split[A, B, C, D](f: A ~> B, g: C ~> D): (A, C) ~> (B, D) = A.split(f, g)
-  }
+  override def split[A, B, C, D](f: A ~> B, g: C ~> D): (A, C) ~> (B, D) = A.split(f, g)
 }
 

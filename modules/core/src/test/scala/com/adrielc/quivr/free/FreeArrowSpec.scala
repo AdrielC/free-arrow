@@ -96,7 +96,7 @@ class FreeArrowSpec extends FlatSpec with Matchers {
         }
       },
       new (|~>[Int, AC, Cnsl]) {
-        def apply[A, B](f: EnvA[Int, Cnsl, A, B]): FC[Cnsl, A, B] = f._2 match {
+        def apply[A, B](f: EnvA[Int, Cnsl, A, B]): FAC[Cnsl, A, B] = f._2 match {
 
           case d if d.isInstanceOf[Cnsl.Dictionary]  =>
 
@@ -133,7 +133,7 @@ class FreeArrowSpec extends FlatSpec with Matchers {
         }
       },
       new (|~>[Int, AC, Cnsl]) {
-        def apply[A, B](f: EnvA[Int, Cnsl, A, B]): FC[Cnsl, A, B] = arrow.liftK(f._2)
+        def apply[A, B](f: EnvA[Int, Cnsl, A, B]): FAC[Cnsl, A, B] = arrow.liftK(f._2)
       }
     )
 
