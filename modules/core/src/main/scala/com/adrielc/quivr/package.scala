@@ -7,6 +7,14 @@ import cats.implicits._
 
 package object quivr {
 
+  /** Arrow hierarchy supported by FreeArrow */
+  type AR[f[_, _]] = Arrow[f]
+  type AC[f[_, _]] = ArrowChoice[f]
+  type AP[f[_, _]] = ArrowPlus[f]
+  type AZ[f[_, _]] = ArrowZero[f]
+  type ACZ[f[_, _]] = ArrowChoiceZero[f]
+  type ACP[f[_, _]] = ArrowChoicePlus[f]
+
   type ~~>[-F[_, _], +G[_, _]] = BiFunctionK[F, G]
 
   type ToFunction[-F[_, _]] = BiFunctionK[F, Function1]

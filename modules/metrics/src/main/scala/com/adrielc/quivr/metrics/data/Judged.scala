@@ -1,17 +1,18 @@
 package com.adrielc.quivr.metrics
 package data
 
-import cats.Functor
-import cats.data.{NonEmptyList, NonEmptyMap, NonEmptySet}
+import cats.{Functor, SemigroupK}
+import cats.data.{NonEmptyMap, NonEmptySet}
 import cats.implicits._
-import com.adrielc.quivr.metrics.data.Judged.{LabelsAndRelevant, WithLabels, WithGroundTruth}
+import com.adrielc.quivr.metrics.ranking.RelevanceLabels
+import com.adrielc.quivr.metrics.result.{AtK, Engagements, GroundTruthSet, ResultLabels, Results}
 
 sealed trait Judged[+A] {
+  import Judged.{WithLabels, WithGroundTruth}
 
   def map[B](f: A => B): Judged[B] = this match {
-    case Judged.WithGroundTruth(results, relevant) => WithGroundTruth(f(results), relevant)
-    case Judged.WithLabels(results, labels) => WithLabels(f(results), labels)
-    case Judged.LabelsAndRelevant(results, labels, relevant) => LabelsAndRelevant(f(results), labels, relevant)
+    case WithGroundTruth(results, relevant) => WithGroundTruth(f(results), relevant)
+    case WithLabels(results, labels) => WithLabels(f(results), labels)
   }
 }
 object Judged {
@@ -19,43 +20,62 @@ object Judged {
   case class WithGroundTruth[+A](results: A, groundTruth: NonEmptySet[ResultId]) extends Judged[A]
   object WithGroundTruth {
 
-    implicit def resultsWithRelevant[A: AtK]: AtK[WithGroundTruth[A]] =
-      (a, k) => a.results.atK(k).map(WithGroundTruth(_, a.groundTruth))
+    def apply[A: GroundTruthSet](results: A): WithGroundTruth[A] =
+      WithGroundTruth(results, results.groundTruthSet)
+
+    def fromLabels[A, V](a: A, labels: Map[ResultId, V], judgeLabel: V => Boolean): Option[WithGroundTruth[A]] =
+      labels.toList
+        .mapFilter { case (id, v) => judgeLabel(v).guard[Option].as(id) }
+        .toNel.map(n => WithGroundTruth(a, n.toNes))
+
+    def fromResultLabels[A: ResultLabels](a: A, judgeLabel: Label => Boolean): Option[WithGroundTruth[A]] =
+      WithGroundTruth.fromLabels(a, a.resultLabels.toSortedMap, judgeLabel)
 
     implicit def withRelGroundTruthSet[A]: GroundTruthSet[WithGroundTruth[A]] = _.groundTruth
+    implicit def resultsWithRelevant[A: AtK]: AtK[WithGroundTruth[A]] = (a, k) => a.results.atK(k).map(WithGroundTruth(_, a.groundTruth))
+    implicit def withRelResultSet[A: Results]: Results[WithGroundTruth[A]] = _.results.results
+    implicit def withLabelled[A: RelevanceLabels]: RelevanceLabels[WithGroundTruth[A]] = _.results.relevanceLabels
+    implicit def withRelEngagements[A: Engagements[*, E], E]: Engagements[WithGroundTruth[A], E] = _.results.engagementCounts
 
-    implicit def withLabelled[A: LabelledSet]: LabelledSet[WithGroundTruth[A]] = _.results.labelledSet
-
-    implicit def withRelResultSet[A: ResultSet]: ResultSet[WithGroundTruth[A]] = _.results.results
+    implicit val semigroupKWithGroundTruth: SemigroupK[WithGroundTruth] = new SemigroupK[WithGroundTruth] {
+      def combineK[A](x: WithGroundTruth[A], y: WithGroundTruth[A]): WithGroundTruth[A] =
+        WithGroundTruth(x.results, x.groundTruth union y.groundTruth)
+    }
   }
 
   case class WithLabels[+A](results: A, labels: NonEmptyMap[ResultId, Label]) extends Judged[A]
   object WithLabels {
 
+    def apply[A: ResultLabels](results: A): WithLabels[A] =
+      WithLabels(results, results.resultLabels)
+
+    def fromGroundTruth[A: GroundTruthSet](a: A, groundTruthLabel: Label): WithLabels[A] =
+      WithLabels(a, a.groundTruthSet.map(_ -> groundTruthLabel).toNonEmptyList.toNem)
+
+    def fromLabels[A, V](a: A, resultLabels: Map[ResultId, V], toLabel: V => Option[Label]): Option[WithLabels[A]] =
+      resultLabels.toList
+        .mapFilter { case (id, e) => toLabel(e).map(id -> _) }.toNel
+        .map(n => WithLabels(a, n.toNem))
+
     implicit def withEngagementsInstance[A]: ResultLabels[WithLabels[A]] = _.labels
+    implicit def resultsWithLabels[A: AtK]: AtK[WithLabels[A]] = (a, k) => a.results.atK(k).map(WithLabels(_, a.labels))
+    implicit def withLabelsResultSetInstance[A: Results]: Results[WithLabels[A]] = _.results.results
+    implicit def withLabGroundTruthSet[A: GroundTruthSet]: GroundTruthSet[WithLabels[A]] = _.results.groundTruthSet
+    implicit def withLabEngagements[A: Engagements[*, E], E]: Engagements[WithLabels[A], E] = _.results.engagementCounts
 
-    implicit def withLabelsResultSetInstance[A: ResultSet]: ResultSet[WithLabels[A]] = _.results.results
-
-    implicit def withLabGroundTruthSet[A: GroundTruthSet]: GroundTruthSet[WithLabels[A]] = _.results.groundTruth
-
-    implicit def resultsWithLabels[A: AtK]: AtK[WithLabels[A]] =
-      (a, k) => a.results.atK(k).map(WithLabels(_, a.labels))
+    implicit val semigroupKLabels: SemigroupK[WithLabels] = new SemigroupK[WithLabels] {
+      def combineK[A](x: WithLabels[A], y: WithLabels[A]): WithLabels[A] =
+        WithLabels(x.results, NonEmptyMap.fromMapUnsafe(x.labels.toSortedMap |+| y.labels.toSortedMap))
+    }
   }
 
-  case class LabelsAndRelevant[+A](results: A, labels: NonEmptyMap[ResultId, Label], relevant: NonEmptySet[ResultId]) extends Judged[A]
-  object LabelsAndRelevant {
-
-    implicit def labelledAndRelevant[A: ResultSet]: LabelledSet[LabelsAndRelevant[A]] with RelevanceJudgements[LabelsAndRelevant[A]] =
-      new LabelledSet[LabelsAndRelevant[A]] with RelevanceJudgements[LabelsAndRelevant[A]] {
-        def labelledSet(a: LabelsAndRelevant[A]): NonEmptyList[Label] = a.results.results.map(a.labels.lookup(_).getOrElse(0.0))
-        def relevanceJudgements(a: LabelsAndRelevant[A]): NonEmptyList[Boolean] = a.results.results.map(a.relevant.contains)
-        override def resultCount(a: LabelsAndRelevant[A]): Int = ResultSet[A].resultCount(a.results)
-      }
-
+  implicit val judgedFunctor: Functor[Judged] = new Functor[Judged] {
+    def map[A, B](fa: Judged[A])(f: A => B): Judged[B] = fa.map(f)
   }
 
-  implicit def withRelevantFunctor[F[_]: Functor]: Functor[λ[α => Judged[F[α]]]] = new Functor[λ[α => Judged[F[α]]]] {
-    def map[A, B](fa: Judged[F[A]])(f: A => B): Judged[F[B]] = fa.map(_.map(f))
+  implicit def atKJudged[A: AtK]: AtK[Judged[A]] = (a, k) => a match {
+    case g @ WithGroundTruth(_, _)  => g.atK(k)
+    case l @ WithLabels(_, _)       => l.atK(k)
   }
 }
 

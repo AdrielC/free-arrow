@@ -133,7 +133,7 @@ class FreeArrowSpec extends FlatSpec with Matchers {
         }
       },
       new (|~>[Int, AC, Cnsl]) {
-        def apply[A, B](f: EnvA[Int, Cnsl, A, B]): FAC[Cnsl, A, B] = arrow.liftK(f._2)
+        def apply[A, B](f: EnvA[Int, Cnsl, A, B]): FAC[Cnsl, A, B] = FA.liftK(f._2)
       }
     )
 

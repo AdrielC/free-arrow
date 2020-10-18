@@ -35,6 +35,8 @@ lazy val core = (project in file("modules/core"))
     libraryDependencies ++= Seq(
       Libraries.cats,
       Libraries.simulacrum,
+      Libraries.shapeless,
+      "com.slamdata" %% "matryoshka-core" % "0.21.3",
       compilerPlugin(Libraries.kindProjector)
     )
   )
@@ -47,6 +49,7 @@ lazy val metrics = (project in file("modules/metrics"))
       "com.chuusai" %% "shapeless" % "2.3.3",
       "eu.timepit" %% "refined" % "0.9.17",
       "eu.timepit" %% "refined-cats" % "0.9.17",
+      "com.slamdata" %% "matryoshka-core" % "0.21.3",
       compilerPlugin(Libraries.kindProjector)
     )
   )

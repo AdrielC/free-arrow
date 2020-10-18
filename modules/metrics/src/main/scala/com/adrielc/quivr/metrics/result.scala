@@ -1,52 +1,100 @@
 package com.adrielc.quivr.metrics
 
+import cats.Contravariant
 import cats.data.{NonEmptyList, NonEmptyMap, NonEmptySet}
-import simulacrum.{op, typeclass}
+import cats.implicits.none
+import com.adrielc.quivr.metrics.retrieval.{GroundTruthCount, ResultCount}
+import com.adrielc.quivr.metrics.data.{KeyCounts, Label, Rank, ResultId}
 import cats.implicits._
-import com.adrielc.quivr.metrics.data.{Label, ResultId}
+import com.adrielc.quivr.metrics.data.Judged.WithLabels
+import eu.timepit.refined.auto._
+import simulacrum.{op, typeclass}
 
 
-@typeclass trait ResultSet[A] extends ResultCount[A] {
+object result {
 
-  @op("results")
-  def results(a: A): NonEmptyList[ResultId]
+  @typeclass trait AtK[A] {
 
-  def withGroundTruth(a: A, groundTruth: NonEmptySet[ResultId]): NonEmptyList[Boolean] =
-    results(a).map(groundTruth.contains)
+    @op("atK")
+    def atK(a: A, k: Rank): Option[A]
+  }
 
-  def labelWithLabels(a: A, labels: NonEmptyMap[ResultId, Label]): NonEmptyList[Double] =
-    results(a).map(labels.lookup(_).getOrElse(0.0))
+  object AtK {
 
-  override def resultCount(a: A): Int =
-    results(a).size
-}
-object ResultSet {
-  implicit val resultSet: ResultSet[NonEmptyList[ResultId]] = identity
-  implicit def leftTupleResultSet[A: ResultSet, B]: ResultSet[(A, B)] = a => ResultSet[A].results(a._1)
-  implicit def rightTupleResultSet[A, B: ResultSet]: ResultSet[(A, B)] = a => ResultSet[B].results(a._2)
-}
+    implicit def toKReseults[A]: AtK[NonEmptyList[A]] =
+      (a, k) => if(k > a.length) none else a.toList.take(k).toNel
+  }
 
-@typeclass trait GroundTruthSet[A] extends GroundTruthCount[A] {
 
-  @op("groundTruth")
-  def groundTruth(a: A): NonEmptySet[ResultId]
+  @typeclass trait Results[A] extends ResultCount[A] {
 
-  override def groundTruthCount(a: A): Int =
-    groundTruth(a).size.toInt
-}
-object GroundTruthSet {
-  implicit val groundTruthSetIdentityInstance: GroundTruthSet[NonEmptySet[ResultId]] = identity
-  implicit def groundTruthSetTupleLeftInstance[A: GroundTruthSet, B]: GroundTruthSet[(A, B)] = a => GroundTruthSet[A].groundTruth(a._1)
-  implicit def groundTruthSetTupleRightInstance[A, B: GroundTruthSet]: GroundTruthSet[(A, B)] = a => GroundTruthSet[B].groundTruth(a._2)
-}
+    @op("results")
+    def results(a: A): NonEmptyList[ResultId]
 
-@typeclass trait ResultLabels[A] extends Serializable {
+    def judgeWith(a: A, groundTruth: NonEmptySet[ResultId]): NonEmptyList[Boolean] =
+      results(a).map(groundTruth.contains)
 
-  @op("resultLabels")
-  def resultLabels(a: A): NonEmptyMap[ResultId, Label]
-}
-object ResultLabels {
-  implicit val resultLabelsIdentityInstance: ResultLabels[NonEmptyMap[ResultId, Label]] = identity
-  implicit def resultLabelsTupleLeftInstance[A: ResultLabels, B]: ResultLabels[(A, B)] = a => ResultLabels[A].resultLabels(a._1)
-  implicit def resultLabelsTupleRightInstance[A, B: ResultLabels]: ResultLabels[(A, B)] = a => ResultLabels[B].resultLabels(a._2)
+    def labelWith(a: A, labels: NonEmptyMap[ResultId, Label]): NonEmptyList[Double] =
+      results(a).map(labels.lookup(_).getOrElse(0.0))
+
+    override def resultCount(a: A): Int =
+      results(a).size
+  }
+  object Results {
+    implicit val resultSetIdentityInstance: Results[NonEmptyList[ResultId]] = identity
+    implicit val contravariantResultSet: Contravariant[Results] = new Contravariant[Results] {
+      def contramap[A, B](fa: Results[A])(f: B => A): Results[B] = a => fa.results(f(a))
+    }
+  }
+
+
+  trait Engagements[A, E] {
+
+    def engagementCounts(a: A): Map[ResultId, KeyCounts[E]]
+  }
+
+  object Engagements {
+    trait ToEngagementsOps {
+      implicit def toEngagementsOps[A](a: A): EngagementsOps[A] = new EngagementsOps(a)
+    }
+    class EngagementsOps[A](private val a: A) extends AnyVal {
+      def engagementCounts[E](implicit E: Engagements[A, E]): Map[ResultId, KeyCounts[E]] = E.engagementCounts(a)
+    }
+    implicit def engagementsIdentityInstance[E]: Engagements[Map[ResultId, KeyCounts[E]], E] = identity
+    implicit def contravariantEngagements[E]: Contravariant[Engagements[*, E]] = new Contravariant[Engagements[*, E]] {
+      def contramap[A, B](fa: Engagements[A, E])(f: B => A): Engagements[B, E] = a => fa.engagementCounts(f(a))
+    }
+  }
+
+  @typeclass trait ResultLabels[A] extends Serializable {
+
+    @op("resultLabels")
+    def resultLabels(a: A): NonEmptyMap[ResultId, Label]
+  }
+  object ResultLabels {
+    implicit val resultLabelsIdentityInstance: ResultLabels[NonEmptyMap[ResultId, Label]] = identity
+    implicit val contravariantResultLabels: Contravariant[ResultLabels] = new Contravariant[ResultLabels] {
+      def contramap[A, B](fa: ResultLabels[A])(f: B => A): ResultLabels[B] = a => fa.resultLabels(f(a))
+    }
+  }
+
+
+  @typeclass trait GroundTruthSet[A] extends GroundTruthCount[A] {
+
+    @op("groundTruthSet")
+    def groundTruthSet(a: A): NonEmptySet[ResultId]
+
+    @op("withLabelsFromGroundTruth")
+    def withLabelsFromGroundTruth(a: A, groundTruthLabel: Label): WithLabels[A] =
+      WithLabels(a, groundTruthSet(a).map(_ -> groundTruthLabel).toNonEmptyList.toNem)
+
+    override def groundTruthCount(a: A): Int =
+      groundTruthSet(a).length
+  }
+  object GroundTruthSet {
+    implicit val identityGroundTruthSetInstance: GroundTruthSet[NonEmptySet[ResultId]] = identity
+    implicit val contravariantGroundTruthSet: Contravariant[GroundTruthSet] = new Contravariant[GroundTruthSet] {
+      def contramap[A, B](fa: GroundTruthSet[A])(f: B => A): GroundTruthSet[B] = a => fa.groundTruthSet(f(a))
+    }
+  }
 }

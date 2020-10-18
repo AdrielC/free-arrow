@@ -1,52 +1,71 @@
 package com.adrielc.quivr.metrics
 
+import com.adrielc.quivr.metrics.data.Judged.WithGroundTruth
+import com.adrielc.quivr.metrics.ranking.RelevanceJudgements
+import com.adrielc.quivr.metrics.result.{GroundTruthSet, Results}
 import simulacrum.{op, typeclass}
+import cats.implicits._
 
-@typeclass trait ResultCount[A] extends Serializable {
+object retrieval {
 
-  // Number of results retrieved in this result set
-  def resultCount(a: A): Int
-}
+  @typeclass trait ResultCount[A] extends Serializable {
 
-@typeclass trait GroundTruthCount[A] extends Serializable {
+    // Number of results retrieved in this result set
+    def resultCount(a: A): Int
+  }
 
-  // Global or ground truth count of relevant results for this result set
-  def groundTruthCount(a: A): Int
-}
+  @typeclass trait GroundTruthCount[A] extends Serializable {
 
-@typeclass trait TruePositiveCount[A] extends ResultCount[A] {
+    // Global or ground truth count of relevant results for this result set
+    def groundTruthCount(a: A): Int
+  }
 
-  // Number of relevant results in this result set
-  def truePositiveCount(a: A): Int
 
-  @op("precision")
-  def precision(a: A): Option[Double] =
-    safeDiv(truePositiveCount(a).toDouble, resultCount(a).toDouble)
-}
-object TruePositiveCount {
-  implicit def relevantResultInstance[A: RelevanceJudgements]: TruePositiveCount[A] = RelevanceJudgements[A]
-}
+  @typeclass trait TruePositiveCount[A] extends ResultCount[A] {
 
-@typeclass trait RelevantCounts[A] extends TruePositiveCount[A] with GroundTruthCount[A] {
+    // Number of relevant results in this result set
+    def truePositiveCount(a: A): Int
 
-  @op("recall")
-  def recall(a: A): Option[Double] =
-    safeDiv(truePositiveCount(a).toDouble, groundTruthCount(a).toDouble)
+    @op("precision")
+    def precision(a: A): Option[Double] =
+      safeDiv(truePositiveCount(a).toDouble, resultCount(a).toDouble)
+  }
+  object TruePositiveCount {
+    implicit def relevantResultInstance[A](implicit R: RelevanceJudgements[A]): TruePositiveCount[A] = R
+  }
 
-  @op("fScore")
-  def fScore(a: A): Option[Double] = {
-    val rel = truePositiveCount(a).toDouble
-    for {
-      r <- safeDiv(rel, groundTruthCount(a).toDouble)
-      p <- safeDiv(rel, resultCount(a).toDouble)
-      plus = r + p
-      if plus != 0
-    } yield 2 * (r * p / plus)
+  @typeclass trait RelevanceCounts[A] extends TruePositiveCount[A] {
+
+    def groundTruthCount(a: A): Int
+
+    @op("recall")
+    def recall(a: A): Option[Double] =
+      safeDiv(truePositiveCount(a).toDouble, groundTruthCount(a).toDouble)
+
+    @op("fScore")
+    def fScore(a: A): Option[Double] = {
+      val rel = truePositiveCount(a).toDouble
+      for {
+        r <- safeDiv(rel, groundTruthCount(a).toDouble)
+        p <- safeDiv(rel, resultCount(a).toDouble)
+        plus = r + p
+        if plus != 0
+      } yield 2 * (r * p / plus)
+    }
+  }
+
+  object RelevanceCounts {
+
+    implicit def relWithG[A: Results]: RelevanceCounts[WithGroundTruth[A]] = new RelevanceCounts[WithGroundTruth[A]] {
+      override def resultCount(a: WithGroundTruth[A]): Int = Results[A].resultCount(a.results)
+      override def truePositiveCount(a: WithGroundTruth[A]): Int = a.results.results.count(a.groundTruth.contains).toInt
+      override def groundTruthCount(a: WithGroundTruth[A]): Int = a.groundTruth.length
+    }
+
+    implicit def relevanceK[A: Results : GroundTruthSet]: RelevanceCounts[A] = new RelevanceCounts[A] {
+      final def groundTruthCount(a: A): Int = GroundTruthSet[A].groundTruthCount(a)
+      final def resultCount(a: A): Int = Results[A].resultCount(a)
+      final def truePositiveCount(a: A): Int = RelevanceJudgements[A].truePositiveCount(a)
+    }
   }
 }
-
-object RelevantCounts {
-
-  implicit def relevanceK[A: ResultSet: GroundTruthSet]: RelevantCounts[A] = GroundTruthRelevance[A]
-}
-

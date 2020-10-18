@@ -1,21 +1,11 @@
 package com.adrielc.quivr
 
-import cats.arrow.{Arrow, ArrowChoice}
 import com.adrielc.quivr.data.{BiEitherK, EnvA}
 
 package object free {
 
-  val arrow = FreeArrow
-  val compose = FreeCompose
-
-  /** Arrow hierarchy supported by FreeArrow */
-  type AR[f[_, _]] = Arrow[f]
-  type AC[f[_, _]] = ArrowChoice[f]
-  type AP[f[_, _]] = ArrowPlus[f]
-  type AZ[f[_, _]] = ArrowZero[f]
-  type ACZ[f[_, _]] = ArrowChoiceZero[f]
-  type ACP[f[_, _]] = ArrowChoicePlus[f]
-
+  val FA = FreeArrow
+  val FC = FreeCompose
 
   /** All levels of FreeArrow capability */
   type FA[+F[_, _], A, B] = FreeArrow[AR, F, A, B]

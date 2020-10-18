@@ -4,6 +4,8 @@ package data
 import cats.data.{NonEmptyList, NonEmptyMap}
 import cats.implicits._
 import cats.Functor
+import com.adrielc.quivr.metrics.ranking.RelevanceLabels
+import com.adrielc.quivr.metrics.result.AtK
 import eu.timepit.refined.cats._
 import eu.timepit.refined.types.numeric.PosInt
 
@@ -35,6 +37,7 @@ object Ranked {
   implicit def indexesToK[A]: AtK[Ranked[A]] =
     (a, k) => if(k > a.k) None else Some(a.copy(k = k))
 
-  implicit val rankedLabels: LabelledSet[Ranked[Label]] =
+  implicit val rankedLabels: RelevanceLabels
+    [Ranked[Label]] =
     a => NonEmptyList.fromListUnsafe(a.indexes.toNel.toList.filter(_._1 <= a.k).map(_._2))
 }

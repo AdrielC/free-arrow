@@ -7,6 +7,7 @@ object Dependencies {
     val circe       = "0.12.3"
     val simulacrum  = "1.0.0"
     val finagle     = "20.8.1"
+    val shapeless   = "2.3.3"
 
     // Test
     val scalaTest  = "3.0.8"
@@ -23,6 +24,7 @@ object Dependencies {
     lazy val simulacrum = "org.typelevel" %% "simulacrum"   % Versions.simulacrum
     lazy val circe      = "io.circe"      %% "circe-core"   % Versions.circe
     lazy val finagle    = "com.twitter"   %% "finagle-core" % Versions.finagle
+    lazy val shapeless  = "com.chuusai"   %% "shapeless"    % Versions.shapeless
 
     // Test
     lazy val scalaTest  = "org.scalatest"  %% "scalatest"  % Versions.scalaTest
