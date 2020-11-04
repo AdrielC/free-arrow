@@ -1,4 +1,4 @@
-package com.adrielc.quivr.metrics.data
+package com.adrielc.quivr.data
 
 import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem}
 import cats.{Monad, Monoid, Order, Semigroup, SemigroupK}
@@ -17,7 +17,7 @@ case class AccumMap[K, +E, +V](sortedMap: Nem[K, Either[E, V]]) {
         v.fold(e => Nel.one(k -> e.asLeft), f(_).sortedMap.toNel.map { case (k1, v1) => (k |+| k1) -> v1 })
       }.toNem)
 
-  def combine[EE >: E, VV >: V: Semigroup](x: AccumMap[K, EE, VV]): AccumMap[K, EE, VV] =
+  def combine[EE >: E, VV >: V: Semigroup](x: AccumMap[K, EE, VV])(implicit O: Order[K]): AccumMap[K, EE, VV] =
     AccumMap(Nem.fromMapUnsafe(x.sortedMap.toSortedMap |+| sortedMap.toSortedMap))
 }
 object AccumMap {

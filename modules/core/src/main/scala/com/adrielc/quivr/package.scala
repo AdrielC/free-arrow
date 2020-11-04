@@ -1,11 +1,14 @@
 package com.adrielc
 
-import cats.Show
 import cats.arrow.{Arrow, ArrowChoice}
-import cats.data.{Chain, Ior}
+import cats.data.Ior
 import cats.implicits._
 
 package object quivr {
+
+  object implicits
+    extends syntax.AllSyntax
+      with instances.AllInstances
 
   /** Arrow hierarchy supported by FreeArrow */
   type AR[f[_, _]] = Arrow[f]
@@ -32,8 +35,6 @@ package object quivr {
 
   /** A [[~~>]] that outputs values of kind "*" */
   type ~>|[-F[_, _], M] = F ~~> λ[(α, β) => M]
-
-  def analyzer[F[_, _]] = new AnalyzeOp[F]
 
   def liftA2[~>[_, _]: Arrow, A, B, C, D](ab: A ~> B)(ac: A ~> C)(f: (B, C) => D): A ~> D =
     (ab &&& ac) >>> Arrow[~>].lift(f.tupled)
@@ -85,11 +86,5 @@ package quivr {
     override def choice[A, B, C](f: A ~> C, g: B ~> C): Either[A, B] ~> C = A.choice(f, g)
     override def left[A, B, C](fab: A ~> B): Either[A, C] ~> Either[B, C] = A.left(fab)
     override def right[A, B, C](fab: A ~> B): Either[C, A] ~> Either[C, B] = A.right(fab)
-  }
-
-  class AnalyzeOp[F[_, _]] private[quivr] extends Serializable {
-    def list: F ~>| List[F[_, _]] = BiFunctionK.collect[F]
-    def chain: F ~>| Chain[F[_, _]] = BiFunctionK.id[F].pureOutK[Chain, F]
-    def string(implicit S: Show[F[_, _]]): F ~>| String = new (F ~>| String) { def apply[A, B](fab: F[A, B]): String = S.show(fab) }
   }
 }

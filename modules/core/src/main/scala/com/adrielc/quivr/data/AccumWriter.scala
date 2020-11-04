@@ -1,7 +1,7 @@
-package com.adrielc.quivr.metrics.data
+package com.adrielc.quivr.data
 
-import cats.{Monad, Monoid, MonoidK, Semigroup}
 import cats.implicits._
+import cats.{Monad, Monoid, MonoidK, Semigroup}
 
 case class AccumWriter[L, A](l: L, run: Option[A]) {
 

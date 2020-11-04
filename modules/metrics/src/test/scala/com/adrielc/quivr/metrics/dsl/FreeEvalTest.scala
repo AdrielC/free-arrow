@@ -7,8 +7,6 @@ import cats.implicits._
 import com.adrielc.quivr.metrics.data._
 import org.scalatest.{FlatSpec, Matchers}
 import eu.timepit.refined.auto._
-import eu.timepit.refined.cats._
-import eu.timepit.refined.numeric._
 import MyEngagement._
 import com.adrielc.quivr.metrics.dsl.evaluation.EvalOp.{EvalErr, KGreaterThanMax}
 
@@ -48,7 +46,7 @@ class FreeEvalTest extends FlatSpec with Matchers {
     val resAt4 = Ranked.of(1, 2, 3, 4, 5).atK(4)
 
     assert(resAt4.contains(
-      Ranked(NonEmptyMap.of((1:Rank) -> 1, (2: Rank) -> 2, (3: Rank) -> 3, (4: Rank) -> 4, (5: Rank) -> 5), 4)
+      Ranked(Ranked.at((1:Rank) -> 1, (2: Rank) -> 2, (3: Rank) -> 3, (4: Rank) -> 4, (5: Rank) -> 5).indexes, 4)
     ))
   }
 

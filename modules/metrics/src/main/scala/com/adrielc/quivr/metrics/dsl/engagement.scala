@@ -17,6 +17,8 @@ object engagement {
     def times[E](e1: Labeler[E], e2: Labeler[E])  : Labeler[E] = Fix(Mult(e1, e2))
     def div[E](e1: Labeler[E], e2: Labeler[E])    : Labeler[E] = Fix(Div(e1, e2))
     def ifThen[E](i: Judge[E], t: Labeler[E])     : Labeler[E] = Fix(IfThen(i, t))
+
+    // label filters
     def and[E](e1: Labeler[E], e2: Labeler[E])    : Labeler[E] = Fix(And(e1, e2))
     def or[E](e1: Labeler[E], e2: Labeler[E])     : Labeler[E] = Fix(Or(e1, e2))
     def isEq[E](e: Labeler[E], v: Labeler[E])     : Labeler[E] = Fix(Equiv(double.===, e, v): LabelerF[E, Labeler[E]])
@@ -61,9 +63,7 @@ object engagement {
       case Sum(e1, e2)      => Sum(f(e1), f(e2))
       case IfThen(e1, e2)   => IfThen(e1, f(e2))
       case Div(exp1, exp2)  => Div(f(exp1), f(exp2))
-      case Equiv(eq, e, v) => Equiv(eq, e, v)
-      case Or(exp1, exp2) => Or(f(exp1), f(exp2))
-      case And(exp1, exp2) => And(f(exp1), f(exp2))
+      case j: JudgeF[E, A]  => j.map(f)
     }
   }
 
@@ -74,15 +74,15 @@ object engagement {
     case class And[E, A](e1: A, e2: A) extends JudgeF[E, A]
 
     implicit def functorJudgeF[E]: Functor[JudgeF[E, *]] =
-      new Functor[JudgeF[E, *]] {
-        def map[A, B](fa: JudgeF[E, A])(f: A => B): JudgeF[E, B] = fa match {
-          case Equiv(eq, e, v) => Equiv(eq, e, v)
-          case Or(exp1, exp2) => Or(f(exp1), f(exp2))
-          case And(exp1, exp2) => And(f(exp1), f(exp2))
-        }
-      }
+      new Functor[JudgeF[E, *]] { def map[A, B](fa: JudgeF[E, A])(f: A => B): JudgeF[E, B] = fa.map(f) }
   }
-  private[dsl] sealed trait JudgeF[+E, +A] extends LabelerF[E, A]
+  private[dsl] sealed trait JudgeF[+E, +A] extends LabelerF[E, A] {
+    override def map[B](f: A => B): JudgeF[E, B] = this match {
+      case Equiv(eq, e, v) => Equiv(eq, e, v)
+      case Or(exp1, exp2) => Or(f(exp1), f(exp2))
+      case And(exp1, exp2) => And(f(exp1), f(exp2))
+    }
+  }
 
   private[dsl] trait LabelFor[A, E] { def embed(a: A): Labeler[E] }
   private[dsl] object LabelFor {
