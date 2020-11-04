@@ -21,6 +21,7 @@ object Dependencies {
 
   object Libraries {
     lazy val cats       = "org.typelevel" %% "cats-core"    % Versions.cats
+    lazy val catsfree   = "org.typelevel" %% "cats-free"    % Versions.cats
     lazy val simulacrum = "org.typelevel" %% "simulacrum"   % Versions.simulacrum
     lazy val circe      = "io.circe"      %% "circe-core"   % Versions.circe
     lazy val finagle    = "com.twitter"   %% "finagle-core" % Versions.finagle

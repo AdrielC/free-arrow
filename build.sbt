@@ -34,6 +34,7 @@ lazy val core = (project in file("modules/core"))
     commonSettings,
     libraryDependencies ++= Seq(
       Libraries.cats,
+      Libraries.catsfree,
       Libraries.simulacrum,
       Libraries.shapeless,
       "com.slamdata" %% "matryoshka-core" % "0.21.3",

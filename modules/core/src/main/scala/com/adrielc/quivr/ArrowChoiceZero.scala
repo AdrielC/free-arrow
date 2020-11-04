@@ -1,9 +1,8 @@
 package com.adrielc.quivr
 
-import cats.arrow.ArrowChoice
 import simulacrum.typeclass
 
-@typeclass trait ArrowChoiceZero[~>[_, _]] extends ArrowChoice[~>] with ArrowZero[~>] {
+@typeclass trait ArrowChoiceZero[~>[_, _]] extends ArrowZero[~>] with ArrowChoicePlus[~>] {
 
   def justLeft[A, B]: Either[B, A] ~> B = choice(id, zeroArrow)
 

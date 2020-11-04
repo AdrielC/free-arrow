@@ -2,14 +2,20 @@ package com.adrielc.quivr.metrics
 
 import cats.data.{NonEmptyList, NonEmptyMap, NonEmptySet}
 import com.adrielc.quivr.metrics.data.Judged.{WithGroundTruth, WithLabels}
-import eu.timepit.refined.types.numeric.{PosInt, PosLong}
+import eu.timepit.refined.types.numeric.PosInt
+import eu.timepit.refined.auto._
 
 package object data {
 
   type Rank             = PosInt
-  type NonZeroCount     = PosLong
+  object Rank {
+    def apply(c: Int): Either[String, Rank] = PosInt.from(c)
+    private[metrics] def fromIndex(c: Int): Rank = PosInt.unsafeFrom(c + 1)
+    private[metrics] def unsafe(c: Int): Rank = PosInt.unsafeFrom(c)
+  }
+  type NonZeroCount = PosInt
   object NonZeroCount {
-    def apply(c: Long): Either[String, NonZeroCount] = PosLong.from(c)
+    def apply(c: Int): Either[String, NonZeroCount] = PosInt.from(c)
   }
   type ResultId         = Long
   type Label            = Double
@@ -24,19 +30,4 @@ package object data {
 
   type SetRelevance     = WithGroundTruth[ResultSet]
   type SetLabels        = WithLabels[ResultSet]
-  type EngagementCounts = KeyCounts[Engagement]
-  object EngagementCounts {
-
-    def apply(click: NonZeroCount, cart: NonZeroCount, purchase: NonZeroCount): EngagementCounts =
-      clicks(click) + cartAdds(cart) + purchases(purchase)
-
-    def clicks(n: NonZeroCount): EngagementCounts =
-      KeyCounts(NonEmptyMap.one(Engagement.Click, n))
-
-    def cartAdds(n: NonZeroCount): EngagementCounts =
-      KeyCounts(NonEmptyMap.one(Engagement.CartAdd, n))
-
-    def purchases(n: NonZeroCount): EngagementCounts =
-      KeyCounts(NonEmptyMap.one(Engagement.Purchase, n))
-  }
 }

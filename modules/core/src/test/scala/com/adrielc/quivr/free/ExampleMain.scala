@@ -2,6 +2,7 @@ package com.adrielc.quivr
 package free
 
 import cats.implicits._
+import com.adrielc.quivr.instances.all._
 
 import scala.io.StdIn
 

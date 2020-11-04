@@ -4,8 +4,9 @@ package data
 import cats.{Functor, SemigroupK}
 import cats.data.{NonEmptyMap, NonEmptySet}
 import cats.implicits._
-import com.adrielc.quivr.metrics.ranking.RelevanceLabels
-import com.adrielc.quivr.metrics.result.{AtK, Engagements, GroundTruthSet, ResultLabels, Results}
+import com.adrielc.quivr.metrics.ranking.GradedRelevance
+import com.adrielc.quivr.metrics.result.{AtK, Engagements, Qrels, ResultLabels, Results}
+import com.adrielc.quivr.metrics.types.QrelSet
 
 sealed trait Judged[+A] {
   import Judged.{WithLabels, WithGroundTruth}
@@ -18,10 +19,13 @@ sealed trait Judged[+A] {
 object Judged {
 
   case class WithGroundTruth[+A](results: A, groundTruth: NonEmptySet[ResultId]) extends Judged[A]
+  case class WithLabels[+A](results: A, labels: NonEmptyMap[ResultId, Label]) extends Judged[A]
+
+
   object WithGroundTruth {
 
-    def apply[A: GroundTruthSet](results: A): WithGroundTruth[A] =
-      WithGroundTruth(results, results.groundTruthSet)
+    def apply[A: Qrels](results: A): WithGroundTruth[A] =
+      WithGroundTruth(results, results.groundTruthSet.qrelSet)
 
     def fromLabels[A, V](a: A, labels: Map[ResultId, V], judgeLabel: V => Boolean): Option[WithGroundTruth[A]] =
       labels.toList
@@ -31,10 +35,10 @@ object Judged {
     def fromResultLabels[A: ResultLabels](a: A, judgeLabel: Label => Boolean): Option[WithGroundTruth[A]] =
       WithGroundTruth.fromLabels(a, a.resultLabels.toSortedMap, judgeLabel)
 
-    implicit def withRelGroundTruthSet[A]: GroundTruthSet[WithGroundTruth[A]] = _.groundTruth
+    implicit def withRelGroundTruthSet[A]: Qrels[WithGroundTruth[A]] = a => QrelSet(a.groundTruth)
     implicit def resultsWithRelevant[A: AtK]: AtK[WithGroundTruth[A]] = (a, k) => a.results.atK(k).map(WithGroundTruth(_, a.groundTruth))
     implicit def withRelResultSet[A: Results]: Results[WithGroundTruth[A]] = _.results.results
-    implicit def withLabelled[A: RelevanceLabels]: RelevanceLabels[WithGroundTruth[A]] = _.results.relevanceLabels
+    implicit def withLabelled[A: GradedRelevance]: GradedRelevance[WithGroundTruth[A]] = _.results.relevanceLabels
     implicit def withRelEngagements[A: Engagements[*, E], E]: Engagements[WithGroundTruth[A], E] = _.results.engagementCounts
 
     implicit val semigroupKWithGroundTruth: SemigroupK[WithGroundTruth] = new SemigroupK[WithGroundTruth] {
@@ -43,14 +47,13 @@ object Judged {
     }
   }
 
-  case class WithLabels[+A](results: A, labels: NonEmptyMap[ResultId, Label]) extends Judged[A]
   object WithLabels {
 
     def apply[A: ResultLabels](results: A): WithLabels[A] =
       WithLabels(results, results.resultLabels)
 
-    def fromGroundTruth[A: GroundTruthSet](a: A, groundTruthLabel: Label): WithLabels[A] =
-      WithLabels(a, a.groundTruthSet.map(_ -> groundTruthLabel).toNonEmptyList.toNem)
+    def fromGroundTruth[A: Qrels](a: A, groundTruthLabel: Label): WithLabels[A] =
+      WithLabels(a, a.groundTruthSet.qrelSet.map(_ -> groundTruthLabel).toNonEmptyList.toNem)
 
     def fromLabels[A, V](a: A, resultLabels: Map[ResultId, V], toLabel: V => Option[Label]): Option[WithLabels[A]] =
       resultLabels.toList
@@ -60,7 +63,7 @@ object Judged {
     implicit def withEngagementsInstance[A]: ResultLabels[WithLabels[A]] = _.labels
     implicit def resultsWithLabels[A: AtK]: AtK[WithLabels[A]] = (a, k) => a.results.atK(k).map(WithLabels(_, a.labels))
     implicit def withLabelsResultSetInstance[A: Results]: Results[WithLabels[A]] = _.results.results
-    implicit def withLabGroundTruthSet[A: GroundTruthSet]: GroundTruthSet[WithLabels[A]] = _.results.groundTruthSet
+    implicit def withLabGroundTruthSet[A: Qrels]: Qrels[WithLabels[A]] = _.results.groundTruthSet
     implicit def withLabEngagements[A: Engagements[*, E], E]: Engagements[WithLabels[A], E] = _.results.engagementCounts
 
     implicit val semigroupKLabels: SemigroupK[WithLabels] = new SemigroupK[WithLabels] {

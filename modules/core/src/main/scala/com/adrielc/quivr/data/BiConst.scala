@@ -3,7 +3,7 @@ package com.adrielc.quivr.data
 import cats.Monoid
 import cats.kernel.Semigroup
 import cats.syntax.monoid._
-import com.adrielc.quivr.{ArrowChoicePlus, BiDistributes}
+import com.adrielc.quivr.{ArrowChoiceZero, BiDistributes}
 
 /** Like [[cats.data.Const]] */
 case class BiConst[M, -A, +B](getConst: M) {
@@ -16,7 +16,7 @@ object BiConst {
   implicit def constArrMonoid[V: Monoid, A, B]: Monoid[BiConst[V, A, B]] =
     Monoid.instance(BiConst(Monoid.empty[V]), (a, b) => BiConst(a.getConst |+| b.getConst))
 
-  implicit def constArrow[V: Monoid]: ArrowChoicePlus[BiConst[V, *, *]] = new ArrowChoicePlus[BiConst[V, *, *]] {
+  implicit def constArrow[V: Monoid]: ArrowChoiceZero[BiConst[V, *, *]] = new ArrowChoiceZero[BiConst[V, *, *]] {
 
     def zeroArrow[B, C]: BiConst[V, B, C] = constArrMonoid[V, B, C].empty
 

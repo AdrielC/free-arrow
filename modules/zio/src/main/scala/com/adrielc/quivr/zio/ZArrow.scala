@@ -1,7 +1,7 @@
 package com.adrielc.quivr.zio
 import cats.arrow.ArrowChoice
 import cats.data.AndThen
-import com.adrielc.quivr.ArrowChoicePlus
+import com.adrielc.quivr.ArrowChoiceZero
 import zio.{IO, ZIO}
 
 sealed trait ZArrow[+E, -A, +B] extends Serializable { self =>
@@ -450,8 +450,8 @@ object ZArrow extends Serializable with ZArrowInstances {
         })
     }
 
-  implicit val zArrArrowChoicePlus: ArrowChoicePlus[ZA] =
-    new ZArrowArrowChoice[Throwable] with ArrowChoicePlus[ZA] {
+  implicit val zArrArrowChoicePlus: ArrowChoiceZero[ZA] =
+    new ZArrowArrowChoice[Throwable] with ArrowChoiceZero[ZA] {
 
       def zeroArrow[B, C]: ZA[B, C] = ZArrow.fail(ZeroArrow)
 

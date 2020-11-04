@@ -15,7 +15,7 @@ object ArrFunctor {
     def armap[G[_, _]](nt: F ~~> G)(implicit F: ArrFunctor[Ar]): Ar[G, A, B] = F.arrmap(nt)(ar)
   }
 
-  implicit def freeAArFunctor[Ar[f[_, _]] >: ArrowChoicePlus[f] <: Arrow[f]]: ArrFunctor[FreeArrow[Ar, *[_, _], *, *]] =
+  implicit def freeAArFunctor[Ar[f[_, _]] >: ArrowChoicePlus[f] <: Arrow[f]: FreeArrow.->>]: ArrFunctor[FreeArrow[Ar, *[_, _], *, *]] =
     new ArrFunctor[FreeArrow[Ar, *[_, _], *, *]] {
 
       def arrmap[F[_, _], G[_, _]](nt: F ~~> G): FreeArrow[Ar, F, *, *] ~~> FreeArrow[Ar, G, *, *] =

@@ -2,7 +2,7 @@ package com.adrielc.quivr.data
 
 import cats.arrow.Arrow
 import cats.{Applicative, CoflatMap, Comonad, Distributive, FlatMap, Functor, Monad, MonoidK}
-import com.adrielc.quivr.ArrowChoicePlus
+import com.adrielc.quivr.ArrowChoiceZero
 
 case class BiKleisli[W[_], M[_], A, B](run: W[A] => M[B]) {
 
@@ -50,8 +50,8 @@ object BiKleisli {
     }
 
 
-  implicit def arrowChoicePlusBiKleisli[W[_], M[_]](implicit A: MonoidK[M], C: Comonad[W], M: Monad[M], D: Distributive[M]): ArrowChoicePlus[BiKleisli[W, M, *, *]] =
-    new ArrowChoicePlus[BiKleisli[W, M, *, *]] {
+  implicit def arrowChoicePlusBiKleisli[W[_], M[_]](implicit A: MonoidK[M], C: Comonad[W], M: Monad[M], D: Distributive[M]): ArrowChoiceZero[BiKleisli[W, M, *, *]] =
+    new ArrowChoiceZero[BiKleisli[W, M, *, *]] {
 
       def zeroArrow[B, C]: BiKleisli[W, M, B, C] =
         BiKleisli.empty

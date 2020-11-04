@@ -9,6 +9,7 @@ import Recs._
 import org.scalatest.{FlatSpec, Matchers}
 import cats.implicits._
 import com.adrielc.quivr.free.FACP
+import com.adrielc.quivr.instances.all._
 
 class AkkaStreamArrowSpec extends FlatSpec with Matchers {
 

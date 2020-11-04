@@ -2,7 +2,8 @@ package com.adrielc.quivr.metrics
 
 import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem, NonEmptySet => Nes}
 import cats.implicits._
-import com.adrielc.quivr.metrics.result.{GroundTruthSet, ResultLabels, Results}
+import com.adrielc.quivr.metrics.result.{Qrels, ResultLabels, Results}
+import com.adrielc.quivr.metrics.types.QrelSet
 import eu.timepit.refined.auto._
 import eu.timepit.refined.types.numeric.PosInt
 import org.scalatest.{FlatSpec, Matchers}
@@ -10,7 +11,7 @@ import org.scalatest.{FlatSpec, Matchers}
 case class ResultsWithRelevant(results: Nel[Long], relevant: Nes[Long], labels: Nem[Long, Double])
 object ResultsWithRelevant {
   implicit val resultSetResultsWithRelevant: Results[ResultsWithRelevant] = _.results
-  implicit val groundTruthResultsWithRelevant: GroundTruthSet[ResultsWithRelevant] = _.relevant
+  implicit val groundTruthResultsWithRelevant: Qrels[ResultsWithRelevant] = a => QrelSet(a.relevant)
   implicit val resultLabelsResultsWithRelevant: ResultLabels[ResultsWithRelevant] = _.labels
 }
 
@@ -36,8 +37,8 @@ class MetricsTest extends FlatSpec with Matchers {
 
   "Ndcg" should "accurately compute" in {
 
-    assert(results.ndcg(function.Gain.Pow2).contains(0.6020905207089401))
-    assert(results.ndcg(function.Gain.Id).contains(0.7489030296784172))
+    assert(results.ndcg(gain.pow2).contains(0.6020905207089401))
+    assert(results.ndcg(gain.id).contains(0.7489030296784172))
   }
 
   "Recall" should "accurately compute" in {

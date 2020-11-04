@@ -1,12 +1,12 @@
 package com.adrielc.quivr.finagle
 
-import com.adrielc.quivr.ArrowChoicePlus
+import com.adrielc.quivr.ArrowChoiceZero
 import com.twitter.finagle.Service
 import com.twitter.util.Future
 
 trait ServiceInstances {
 
-  implicit val serviceArrow: ArrowChoicePlus[Service] = new ArrowChoicePlus[Service] {
+  implicit val serviceArrow: ArrowChoiceZero[Service] = new ArrowChoiceZero[Service] {
 
     final def plus[A, B](f: Service[A, B], g: Service[A, B]): Service[A, B] =
       Service.mk(a => f(a) or g(a))

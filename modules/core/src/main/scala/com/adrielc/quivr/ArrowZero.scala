@@ -1,16 +1,10 @@
 package com.adrielc.quivr
 
-import cats.{Monad, MonoidK}
-import cats.arrow.Arrow
-import cats.data.Kleisli
 import simulacrum.typeclass
 
-@typeclass trait ArrowZero[~>[_, _]] extends Arrow[~>] {
+@typeclass trait ArrowZero[~>[_, _]] extends ArrowPlus[~>] {
 
   def zeroArrow[B, C]: B ~> C
-}
 
-object ArrowZero {
-
-  implicit def kleisliArrowZero[M[_]: Monad : MonoidK]: ArrowZero[Kleisli[M, *, *]] = ArrowChoicePlus.arrowChoicePlusForKleisli
+  def thenToZero[A, B, C](fab: A ~> B): A ~> C = andThen(fab, zeroArrow[B, C])
 }

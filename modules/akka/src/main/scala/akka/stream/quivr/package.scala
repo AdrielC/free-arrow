@@ -2,14 +2,14 @@ package akka.stream
 
 import akka.NotUsed
 import akka.stream.scaladsl.{Broadcast, Flow, GraphDSL, Keep, Merge, OrElse, Partition, Sink, Source, Unzip, WireTap, Zip}
-import com.adrielc.quivr.ArrowChoicePlus
+import com.adrielc.quivr.ArrowChoiceZero
 import cats.implicits._
 
 package object quivr {
 
   type AkkaFlow[-A, +B] = Flow[A, B, NotUsed]
 
-  implicit def flowArrow[M]: ArrowChoicePlus[AkkaFlow] = new ArrowChoicePlus[AkkaFlow] {
+  implicit def flowArrow[M]: ArrowChoiceZero[AkkaFlow] = new ArrowChoiceZero[AkkaFlow] {
 
     def lift[A, B](f: A => B): AkkaFlow[A, B] =
       Flow.fromFunction(f)

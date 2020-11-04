@@ -8,17 +8,11 @@ import com.adrielc.quivr.metrics.data._
 import org.scalatest.{FlatSpec, Matchers}
 import eu.timepit.refined.auto._
 import eu.timepit.refined.cats._
-
-object test {
-  type ResultEngs = EngagedResults[Engagement]
-  val clicks = engagement.count(Engagement.Click: Engagement)
-  val cartAdds = engagement.count(Engagement.CartAdd: Engagement)
-  val purchases = engagement.count(Engagement.Purchase: Engagement)
-}
+import eu.timepit.refined.numeric._
+import MyEngagement._
 
 
 class FreeEvalTest extends FlatSpec with Matchers {
-  import test._
 
   "AtK" should "update K" in {
 
@@ -32,11 +26,11 @@ class FreeEvalTest extends FlatSpec with Matchers {
   "Free Eval" should "evaluate correctly" in {
 
     val metrics =
-      engagement.toLabel[ResultEngs](cartAdds, clicks, purchases) >>> atK(10) >>> eval.ndcg
+      label.count.from[ResultEngs](cartAdds, clicks, purchases, purchases | clicks) >>> atK(10, 20) >>> eval.ndcg
 
     val results = EngagedResults(
       NonEmptyList.of(1L, 2L to 10L:_*),
-      Map(
+      NonEmptyMap.of(
         1L -> (1.click + 1.cartAdd + 1.purchase),
         2L -> (2.click + 2.cartAdd + 2.purchase),
         3L -> (3.click + 3.cartAdd + 3.purchase),
@@ -44,18 +38,19 @@ class FreeEvalTest extends FlatSpec with Matchers {
       )
     )
 
-    val result = metrics.evaluate(results)
+    val result = metrics.run(results)
 
     println(result)
 
-    assert(result.get("label(cartadds).ndcg.@10").contains(0.6020905207089401))
+    assert(result.lookup("label(cartadds).ndcg.@10").exists(_.contains(0.6020905207089401)))
   }
 
   "Free Eval" should "combine" in {
+    import eval._
 
     val results = EngagedResults(
       NonEmptyList.fromListUnsafe((1L to 60L).toList),
-      Map(
+      NonEmptyMap.of(
         1L -> (10.clicks + 5.cartAdds + 1.purchase),
         4L -> (20.clicks + 5.cartAdds),
         10L -> (2.purchases + 6.cartAdds + 23.clicks),
@@ -65,12 +60,17 @@ class FreeEvalTest extends FlatSpec with Matchers {
       )
     )
 
-    val metrics = engagement.toLabel[ResultEngs](clicks, cartAdds, purchases) >>> atK(10, 20, 30, 40, 50, 60) >>> eval.ndcg
+    val metrics =
+      label.count.from[ResultEngs](clicks, cartAdds, purchases).relIfPositive >>>
+        atK(10, 20, 30, 40, 50, 60) >++
+        (ndcg, precision, recall, rPrecision)
 
-    val result = metrics.evaluate(results)
+    val result = metrics.run(results)
 
-    assert(result.size == 18)
-    assert(result.get("label(clicks).ndcg.@50").contains(0.31792843661581627))
+    println(result)
+
+    assert(result.length == 72)
+    assert(result.lookup("label(clicks).judgeLabel>0.ndcg.@50").exists(_.contains(0.31792843661581627)))
   }
 
   "Engagements" should "become labels" in {
@@ -81,22 +81,21 @@ class FreeEvalTest extends FlatSpec with Matchers {
       10L -> (2.purchases + 6.cartAdds + 23.clicks),
       25L -> (5.purchases + 10.cartAdds + 1.click),
       49L -> (3.cartAdds + 6.clicks),
+      69L -> 1.click,
       70L -> (1.purchase + 1.cartAdd + 1.click)
-    )
+    ).mapValues(_.toMap)
 
 
     assertResult(
-      NonEmptyMap.of(
+      Some(NonEmptyMap.of(
         1L -> 6.0,
         4L -> 5.0,
         10L -> 8.0,
         25L -> 15.0,
         49L -> 3.0,
         70L -> 2.0
-    )) {
-      engagement.toLabel(cartAdds + purchases)
-        .evaluate(engagements)
-        .values.head.labels
+    ))) {
+      (cartAdds + purchases).run(engagements)
     }
   }
 
@@ -106,24 +105,23 @@ class FreeEvalTest extends FlatSpec with Matchers {
     val engagements =
       Map(
         1L -> (10.clicks + 5.cartAdds + 1.purchase),
-        4L -> (20.clicks + 5.cartAdds),
+        4L -> (20.clicks + 6.cartAdds),
         10L -> (2.purchases + 6.cartAdds + 23.clicks),
         25L -> (5.purchases + 10.cartAdds + 1.click),
         49L -> (3.cartAdds + 6.clicks),
         70L -> (1.purchase + 1.cartAdd + 200.click)
-      )
-
-    import engagement._
+      ).mapValues(_.toMap)
 
     val standardWeightedEngs = clicks + (cartAdds * 5) + (purchases * 25)
 
-    val negativeIfTwoTimesMoreClicks = ifThen((((purchases + cartAdds) | 0) <= 2) && (clicks >= 200), -1)
+    val negativeIfTwoTimesMoreClicks = (((purchases + cartAdds) <= 2) && (clicks >= 200)) ->> -1
 
-    val a  = negativeIfTwoTimesMoreClicks | ifThen(standardWeightedEngs < 50, 30) | 500
+    val a  = negativeIfTwoTimesMoreClicks | ((standardWeightedEngs < 50) ->> 30) | 500
 
-    assertResult(Map(1 -> 500.0, 4 -> 500.0, 10 -> 500.0, 25 -> 500.0, 49 -> 30.0, 70 -> -1.0))(
-      engagement.toLabel(a).apply(engagements).get.labels
-    )
+    assertResult(NonEmptyMap.of(1L -> 500.0, 4L -> 500.0, 10L -> 500.0, 25L -> 500.0, 49L -> 30.0, 70L -> -1.0)){
+
+      a.run(engagements).get
+    }
   }
 }
 

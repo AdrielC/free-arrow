@@ -3,6 +3,7 @@ package free
 
 import org.scalatest.{FlatSpec, Matchers}
 import cats.instances.all._
+import instances.all._
 import com.adrielc.quivr.data.exampleDsl.Cnsl.free._
 import com.adrielc.quivr.data.exampleDsl.Expr.free._
 import com.adrielc.quivr.data.EnvA
@@ -14,7 +15,7 @@ import scala.concurrent.duration.{Duration, MILLISECONDS}
 import scala.concurrent.{Await, ExecutionContext, Future}
 
 class FreeArrowSpec extends FlatSpec with Matchers {
-  import FreeArrow.{id, lift, liftK, zeroArrow}
+  import FreeArrow._
 
   "FreeArrow" should "not stack overflow" in {
 
@@ -218,11 +219,11 @@ class FreeArrowSpec extends FlatSpec with Matchers {
 
     val _: FreeArrow[ArrowChoice,   Nothing, Either[Unit, Unit], Unit]  = ar ||| ar
 
-    val az: FreeArrow[ArrowZero,    Nothing, Unit, Unit]                = ar >>> zeroArrow[Unit, Unit]
+    val ap: FreeArrow[ArrowPlus,    Nothing, Unit, Unit]                = ar <+> ar <+> ar
 
-    val ap: FreeArrow[ArrowPlus,    Nothing, Unit, Unit]                = az <+> ar <+> ar
+    val az: FreeArrow[ArrowZero,    Nothing, Unit, Unit]                = ap >>> zeroArrow[Unit, Unit] <+> ar <+> ar
 
-    val run = ap.foldMap(BiFunctionK.id[Function1].kleisli[List])
+    val run = az.foldMap(BiFunctionK.id[Function1].kleisli[List])
 
     assert(run(()) === List((), ()))
   }

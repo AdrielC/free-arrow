@@ -4,9 +4,9 @@ import cats.Contravariant
 import cats.data.{NonEmptyList, NonEmptyMap, NonEmptySet}
 import cats.implicits.none
 import com.adrielc.quivr.metrics.retrieval.{GroundTruthCount, ResultCount}
-import com.adrielc.quivr.metrics.data.{KeyCounts, Label, Rank, ResultId}
+import com.adrielc.quivr.metrics.data.{Label, Rank, ResultId}
 import cats.implicits._
-import com.adrielc.quivr.metrics.data.Judged.WithLabels
+import com.adrielc.quivr.metrics.types.QrelSet
 import eu.timepit.refined.auto._
 import simulacrum.{op, typeclass}
 
@@ -50,7 +50,7 @@ object result {
 
   trait Engagements[A, E] {
 
-    def engagementCounts(a: A): Map[ResultId, KeyCounts[E]]
+    def engagements(a: A): Map[ResultId, Map[E, Int]]
   }
 
   object Engagements {
@@ -58,11 +58,11 @@ object result {
       implicit def toEngagementsOps[A](a: A): EngagementsOps[A] = new EngagementsOps(a)
     }
     class EngagementsOps[A](private val a: A) extends AnyVal {
-      def engagementCounts[E](implicit E: Engagements[A, E]): Map[ResultId, KeyCounts[E]] = E.engagementCounts(a)
+      def engagementCounts[E](implicit E: Engagements[A, E]): Map[ResultId, Map[E, Int]] = E.engagements(a)
     }
-    implicit def engagementsIdentityInstance[E]: Engagements[Map[ResultId, KeyCounts[E]], E] = identity
+    implicit def engagementsIdentityInstance[E]: Engagements[Map[ResultId, Map[E, Int]], E] = identity
     implicit def contravariantEngagements[E]: Contravariant[Engagements[*, E]] = new Contravariant[Engagements[*, E]] {
-      def contramap[A, B](fa: Engagements[A, E])(f: B => A): Engagements[B, E] = a => fa.engagementCounts(f(a))
+      def contramap[A, B](fa: Engagements[A, E])(f: B => A): Engagements[B, E] = a => fa.engagements(f(a))
     }
   }
 
@@ -79,22 +79,18 @@ object result {
   }
 
 
-  @typeclass trait GroundTruthSet[A] extends GroundTruthCount[A] {
+  @typeclass trait Qrels[A] extends GroundTruthCount[A] {
 
-    @op("groundTruthSet")
-    def groundTruthSet(a: A): NonEmptySet[ResultId]
+    @op("groundTruthSet", alias = true)
+    def qrels(a: A): QrelSet
 
-    @op("withLabelsFromGroundTruth")
-    def withLabelsFromGroundTruth(a: A, groundTruthLabel: Label): WithLabels[A] =
-      WithLabels(a, groundTruthSet(a).map(_ -> groundTruthLabel).toNonEmptyList.toNem)
 
     override def groundTruthCount(a: A): Int =
-      groundTruthSet(a).length
+      qrels(a).nRel
   }
-  object GroundTruthSet {
-    implicit val identityGroundTruthSetInstance: GroundTruthSet[NonEmptySet[ResultId]] = identity
-    implicit val contravariantGroundTruthSet: Contravariant[GroundTruthSet] = new Contravariant[GroundTruthSet] {
-      def contramap[A, B](fa: GroundTruthSet[A])(f: B => A): GroundTruthSet[B] = a => fa.groundTruthSet(f(a))
+  object Qrels {
+    implicit val contravariantGroundTruthSet: Contravariant[Qrels] = new Contravariant[Qrels] {
+      def contramap[A, B](fa: Qrels[A])(f: B => A): Qrels[B] = a => fa.qrels(f(a))
     }
   }
 }

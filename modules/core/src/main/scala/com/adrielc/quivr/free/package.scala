@@ -10,10 +10,10 @@ package object free {
   /** All levels of FreeArrow capability */
   type FA[+F[_, _], A, B] = FreeArrow[AR, F, A, B]
   type FAC[+F[_, _], A, B] = FreeArrow[AC, F, A, B]
-  type FAP[+F[_, _], A, B] = FreeArrow[AP, F, A, B]
   type FAZ[+F[_, _], A, B] = FreeArrow[AZ, F, A, B]
-  type FACZ[+F[_, _], A, B] = FreeArrow[ACZ, F, A, B]
+  type FAP[+F[_, _], A, B] = FreeArrow[AP, F, A, B]
   type FACP[+F[_, _], A, B] = FreeArrow[ACP, F, A, B]
+  type FACZ[+F[_, _], A, B] = FreeArrow[ACZ, F, A, B]
 
 
   /** Specialized types of [[FreeArrow]] that correspond to method symbols */
@@ -35,9 +35,12 @@ package object free {
    *
    * Isomorphic to `(M, F[A, B]) => FreeA[Arrow, F, A, B]`
    * */
-  type |~>[M, -R[f[_, _]] >: ACP[f] <: AR[f], F[_, _]] = EnvA[M, F, *, *] ~~> FreeArrow[R, F, *, *]
+  type |~>[M, -R[f[_, _]] <: AR[f], F[_, _]] = EnvA[M, F, *, *] ~~> FreeArrow[R, F, *, *]
 
-  type EitherFreeA[-R[f[_, _]] >: ACP[f] <: AR[f], +F[_, _], +G[_, _], A, B] = FreeArrow[R, BiEitherK[F, G, *, *], A, B]
+  type EitherFreeA[-R[f[_, _]] <: AR[f], +F[_, _], +G[_, _], A, B] = FreeArrow[R, BiEitherK[F, G, *, *], A, B]
+
+
+  type ->>>[R[f[_, _]] <: AR[f], F[_, _]] = R[FreeArrow[R, F, *, *]]
 
   type || = Either[Unit, Unit]
   type ||| = Either[Either[Unit, Unit], Unit]

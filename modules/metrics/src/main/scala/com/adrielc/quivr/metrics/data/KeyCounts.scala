@@ -11,8 +11,10 @@ case class KeyCounts[K](counts: NonEmptyMap[K, NonZeroCount]) {
   def +(other: KeyCounts[K])(implicit O: Order[K]): KeyCounts[K] =
     KeyCounts(NonEmptyMap.fromMapUnsafe(counts.toSortedMap |+| other.counts.toSortedMap))
 
+  def toMap: Map[K, Int] = counts.toSortedMap.mapValues(_.toInt)
+
   def binarize: KeyCounts[K] =
-    copy(counts = counts.map(_ => 1L))
+    copy(counts = counts.map(_ => 1))
 }
 object KeyCounts {
 
