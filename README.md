@@ -42,7 +42,7 @@ Then define smart constructors to lift your algebra into the FreeArrow
 
 
 ```scala
-import FreeA.liftK // for lifting `ConsoleOp` into `FreeA`
+import FreeArrow.liftK // for lifting `ConsoleOp` into `FreeA`
 
 val getLine = liftK(GetLine)
 val putLine = liftK(PutLine)
