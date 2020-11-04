@@ -18,42 +18,51 @@ class MetricBuilderSpec extends FlatSpec with Matchers {
   val results = EngagedResults(
     NonEmptyList.fromListUnsafe((1L to 60L).toList),
     NonEmptyMap.of(
-      1L -> EngagementCounts(1, 1, 2),
-      20L -> EngagementCounts(2, 2, 2),
-      30L -> EngagementCounts(3, 3, 3),
-      40L -> EngagementCounts(4, 4, 4),
-      70L -> EngagementCounts(7, 7, 1)
+      1L -> (1.click + 1.cartAdd + 2.purchases),
+      20L -> (2.clicks + 2.cartAdds + 2.purchases),
+      30L -> (3.clicks + 3.cartAdds + 3.purchases),
+      40L -> (4.clicks + 4.cartAdds + 4.purchases),
+      70L -> (7.clicks + 7.cartAdds + 7.purchases)
     )
   )
 
   "combine" should "build" in {
 
-    val metrics = label.count.from[EngagedResults[MyEngagement]](
+    val labeler = label.count.from[Res](
       purchases,
-      clicks && (purchases.filter === 10) // is not valid, none have 100 clicks therefore should be missing from metrics
-    ) >>> atK(50) >>> judge.label.pos >>> (eval.recall[ResTruth] &&& eval.precision)
+      clicks && (purchases.filter === 100) // is not valid, none have 100 clicks therefore should be missing from metrics
+    )
+
+    val metrics = labeler >>> judge.label.isPositive >>> atK(50) >>> (eval.recall[ResTruth] &&& eval.precision)
 
     val res = metrics.run(results)
 
-    println(res)
-
     assert(res.length == 2)
-    assert(res.lookup("label(purchases).judgeLabel>0.(recall,precision).@50").exists(_.contains((0.8, 0.08))))
+    assert(res.lookup("label(purchase).judge(>=0).(recall,prec).@50").exists(_.contains((0.8, 0.08))))
+    assert(res.lookup("label((click&filter(purchase=100))").exists(_.isLeft))
   }
 
   "ranking metrics" should "be applied" in {
 
-    val dups =
-      (atK[Res](10, 20) >>> label.count.from[Res](clicks, clicks, clicks) >>> eval.ndcg) <+>
-        (atK[Res](30, 40) >>> judge.count.from[Res](judge.count.any[MyEngagement](Click)) >>> eval.averagePrecision)
-
+    val levels = atK[Res](10, 20) >>> label.count.from[Res](clicks, cartAdds, purchases)  >>> eval.ndcg
+    val binary = atK[Res](30, 40) >>> judge.count.from[Res](anyClicks)                    >>> eval.averagePrecision
+    val dups = levels <+> binary
 
     val res = dups.run(results)
 
     println(res)
 
-    assert(res.length == 4)
-    assert(res.lookup("judge((clicks>0)).ap.@40").isDefined)
-    assert(res.lookup("judge((clicks>0)).ap.@40").exists(_.contains(0.32500000000000007)))
+    assert(res.toSortedMap == Map(
+      "judge((click>0)).ap.@30"   -> Right(0.4000000000000001),
+      "judge((click>0)).ap.@40"   -> Right(0.32500000000000007),
+      "label(cartadd).ndcg.@10"   -> Right(1.0),
+      "label(cartadd).ndcg.@20"   -> Right(0.46352060224668756),
+      "label(click).ndcg.@10"     -> Right(1.0),
+      "label(click).ndcg.@20"     -> Right(0.46352060224668756),
+      "label(purchase).ndcg.@10"  -> Right(1.0),
+      "label(purchase).ndcg.@20"  -> Right(0.7527425666302089)
+    ))
+    assert(res.lookup("judge((click>0)).ap.@40").isDefined)
+    assert(res.lookup("judge((click>0)).ap.@40").exists(_.contains(0.32500000000000007)))
   }
 }

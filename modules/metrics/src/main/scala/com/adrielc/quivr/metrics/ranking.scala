@@ -3,12 +3,14 @@ package com.adrielc.quivr.metrics
 import cats.Contravariant
 import cats.data.NonEmptyList
 import com.adrielc.quivr.metrics.retrieval.{ResultCount, TruePositiveCount}
-import com.adrielc.quivr.metrics.data.{Ranked, Label, Rank}
+import com.adrielc.quivr.metrics.data.{Label, Rank, Ranked}
 import com.adrielc.quivr.metrics.result.{Qrels, ResultLabels, Results}
-import simulacrum.{typeclass}
+import simulacrum.{op, typeclass}
 import cats.implicits._
 import com.adrielc.quivr.metrics.relevancy.Relevancy
 import eu.timepit.refined.cats._
+import eu.timepit.refined.numeric._
+import eu.timepit.refined.auto._
 
 object ranking {
 
@@ -31,13 +33,67 @@ object ranking {
     def dcgK(a: A, k: Rank, g: Gain = gain.pow2, d: Discount = discount.log2): Option[Double] =
       gains(a).atK(k).flatMap(calcNdcgK(_: Ranked[Double], g, d))
 
+    @op("avgPrec", alias = true)
+    def averagePrecision(a: A): Option[Double] = {
+      val rnk = partialRelevanceLabels(a)
+      val (correct, sum) = rnk.indexes.toNel.foldLeft((0, 0.0)) { case ((c, s), (i, r)) =>
+        if (r.isRel) {
+          val correct = c + 1
+          val sum = s + (correct / i.toDouble)
+          (correct, sum)
+        } else (c, s)
+      }
+      safeDiv(sum.toDouble, correct.toDouble)
+    }
+
+    @op("avgPrecK", alias = true)
+    def averagePrecisionK(a: A, k: Rank): Option[Double] =
+      gains(a).atK(k).flatMap(_.averagePrecision)
+
+
+    //    Because BR(r) has an r in the denominator (just like P(r)),
+    //    Q-measure is guaranteed to become smaller as a relevant document goes
+    //    down the ranked list. A large b (e.g., b = 100) alleviates this effect,
+    //    and makes Q-measure more forgiving for relevant documents near the bottom of the ranked list.
+    //    Conversely, a small b (e.g., b = 1) imposes more penalty
+    def qMeasure(a: A, b: Double = 1): Option[Double] = {
+      val rnk = partialRelevanceLabels(a)
+      val labs = rnk.indexes.toNel
+      val ideal = labs.sortBy(-_._2.gainOrZero)
+      val withIdeal = labs.zipWith(ideal)((a, b) => (Rank.fromIndex(a._1), a._2, b._2))
+      val (_, _, correct, sum) = withIdeal.foldLeft((0.0, 0.0, 0, 0.0)) {
+        case (prev @ (cg, cgI, c, s), (k, r, rIdeal)) =>
+          if(r.isRel) {
+            val cG      = cg + r.gainOrZero
+            val cGI     = cgI + rIdeal.gainOrZero
+            val correct = c + 1
+            val sum     = s + ((b*cG + correct) / (b*cGI + k.toDouble))
+            (cG, cGI, correct, sum)
+          } else prev
+      }
+      safeDiv(sum.toDouble, correct.toDouble)
+    }
+
+    def qMeasureK(a: A, k: Rank, b: Double = 1): Option[Double] =
+      gains(a).atK(k).flatMap(_.qMeasure(b))
+
+    def reciprocalRank(a: A): Option[Double] =
+      partialRelevanceLabels(a).indexes.toNel
+        .find { case (_, r) => r.isRel }
+        .map { case (k, _) => 1 / k.toDouble }
+
     private def gains(a: A): Ranked[Double] =
-      partialRelevanceLabels(a).map(_.gainValue.getOrElse(0.0))
+      partialRelevanceLabels(a).map(_.gainOrZero)
+  }
+  object PartialRelevancy extends PartialRelevancy0 {
+    type Aux[R, A] = PartialRelevancy[R] { type Rel = A }
+    implicit def fromGradedRel[A: GradedRelevance]: PartialRelevancy.Aux[A, Double] = GradedRelevance[A]
+  }
+  trait PartialRelevancy0 {
+    implicit def fromBinaryRel[A: BinaryRelevance]: PartialRelevancy.Aux[A, Boolean] = BinaryRelevance[A]
   }
 
   @typeclass trait GradedRelevance[A] extends PartialRelevancy[A] with ResultCount[A] { self =>
-
-    type Rel = Double
 
     def relevanceLabels(a: A): NonEmptyList[Double]
 
@@ -47,38 +103,16 @@ object ranking {
     final def ndcg(a: A, g: Gain = gain.pow2, d: Discount = discount.log2): Option[Double] =
       calcNdcg(relevanceLabels(a), g, d)
 
-    //    Because BR(r) has an r in the denominator (just like P(r)),
-    //    Q-measure is guaranteed to become smaller as a relevant document goes
-    //    down the ranked list. A large b (e.g., b = 100) alleviates this effect,
-    //    and makes Q-measure more forgiving for relevant documents near the bottom of the ranked list.
-    //    Conversely, a small b (e.g., b = 1) imposes more penalty
-    def qMeasure(a: A, b: Double = 1): Option[Double] = {
-      val labs = relevanceLabels(a)
-      val ideal = labs.sortBy(-_)
-      val withIdeal = labs.zipWith(ideal)((a, b) => (a, b))
-      val (_, _, correct, sum) = withIdeal.zipWithIndex.foldLeft((0.0, 0.0, 0, 0.0)) {
-        case (prev @ (cg, cgI, c, s), ((rel, relI), i)) =>
-          if(rel > 0) {
-            val cG      = cg + rel
-            val cGI     = cgI + relI
-            val correct = c + 1
-            val sum     = s + ((b*cG + correct) / (b*cGI + (i+1.0)))
-            (cG, cGI, correct, sum)
-          } else prev
-      }
-      safeDiv(sum.toDouble, correct.toDouble)
-    }
-
     override def resultCount(a: A): Int =
       relevanceLabels(a).length
 
     def asRelevanceJudgements(f: Label => Boolean): BinaryRelevance[A] =
       relevanceLabels(_).map(f)
 
+    override type Rel = Double
+    def rel: Relevancy[Double] = Relevancy[Double]
     override def partialRelevanceLabels(a: A): Ranked[Label] =
       Ranked(relevanceLabels(a))
-
-    def rel: Relevancy[Double] = Relevancy[Double]
   }
   object GradedRelevance {
     implicit val identityLabelledSet: GradedRelevance[NonEmptyList[Label]] = identity
@@ -90,28 +124,12 @@ object ranking {
 
 
 
-  @typeclass trait BinaryRelevance[A] extends TruePositiveCount[A] { self =>
+  @typeclass trait BinaryRelevance[A] extends PartialRelevancy[A] with TruePositiveCount[A] { self =>
 
     def relevanceJudgements(a: A): NonEmptyList[Boolean]
 
-    def averagePrecision(a: A): Option[Double] = {
-      val (correct, sum) = relevanceJudgements(a).zipWithIndex.foldLeft((0, 0.0)) { case ((c, s), (isRel, i)) =>
-        if (isRel) {
-          val correct = c + 1
-          val sum     = s + (correct / (i + 1).toDouble)
-          (correct, sum)
-        } else (c, s)
-      }
-      safeDiv(sum.toDouble, correct.toDouble)
-    }
-
     final def binaryNdcg(a: A, g: Gain = gain.pow2, d: Discount = discount.log2): Option[Double] =
       calcNdcg(binaryLabels(a), g, d)
-
-    def reciprocalRank(a: A): Option[Double] =
-      relevanceJudgements(a).zipWithIndex
-        .find { case (isRel, _) => isRel }
-        .map { case (_, idx) => 1 / (idx + 1).toDouble }
 
     def precisionAtK(a: A, k: Rank): Option[Double] =
       relevanceJudgements(a).atK(k).flatMap(_.precision)
@@ -141,17 +159,17 @@ object ranking {
     def asBinaryLabels(relevanceToLabel: Boolean => Label): GradedRelevance[A] =
       relevanceJudgements(_).map(relevanceToLabel)
 
-    override def resultCount(a: A): Int =
-      relevanceJudgements(a).length
-
-    override def truePositiveCount(a: A): Int =
-      relevanceJudgements(a).toList.count(identity)
-
+    override def resultCount(a: A): Int = relevanceJudgements(a).length
+    override def truePositiveCount(a: A): Int = relevanceJudgements(a).toList.count(identity)
     private def binaryLabels(a: A): NonEmptyList[Double] = relevanceJudgements(a).map(if(_) 1.0 else 0.0)
+    override type Rel = Boolean
+    override val rel: Relevancy[Boolean] = Relevancy[Boolean]
+    override def partialRelevanceLabels(a: A): Ranked[Rel] =
+      Ranked(relevanceJudgements(a))
   }
-  object BinaryRelevance {
+  object BinaryRelevance extends PartialRelevancy.ToPartialRelevancyOps {
     implicit val identityRelevanceJudgements: BinaryRelevance[NonEmptyList[Boolean]] = identity
-    implicit def resultsWithRelInstance[A: Results : Qrels]: BinaryRelevance[A] = a => a.judgeWith(a.groundTruthSet.qrelSet)
+    implicit def resultsWithRelInstance[A: Results : Qrels]: BinaryRelevance[A] = a => a.judgeWith(a.qrels.set)
     implicit val contravariantForRelevanceJudgements: Contravariant[BinaryRelevance] = new Contravariant[BinaryRelevance] {
       def contramap[A, B](fa: BinaryRelevance[A])(f: B => A): BinaryRelevance[B] = a => fa.relevanceJudgements(f(a))
     }

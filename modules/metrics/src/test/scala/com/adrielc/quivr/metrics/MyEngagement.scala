@@ -14,7 +14,6 @@ object MyEngagement {
   val clicks    : engagement.Labeler[MyEngagement] = label.count.of(Click: MyEngagement)
   val cartAdds  : engagement.Labeler[MyEngagement] = label.count.of(CartAdd: MyEngagement)
   val purchases : engagement.Labeler[MyEngagement] = label.count.of(Purchase: MyEngagement)
-
   val anyClicks    : engagement.Judge[MyEngagement] = judge.count.any(Click: MyEngagement)
   val anyCartAdds  : engagement.Judge[MyEngagement] = judge.count.any(CartAdd: MyEngagement)
   val anyPurchases : engagement.Judge[MyEngagement] = judge.count.any(Purchase: MyEngagement)

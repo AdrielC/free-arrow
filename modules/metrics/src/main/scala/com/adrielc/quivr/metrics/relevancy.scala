@@ -13,6 +13,7 @@ object relevancy {
     def gainValue(r: Rel): Option[Double]
     def isJudged(a: Rel): Boolean = gainValue(a).isDefined
     def isRel(a: Rel): Boolean = gainValue(a).exists(_ > 0)
+    def gainOrZero(r: Rel): Double = gainValue(r).getOrElse(0.0)
   }
   object Relevancy {
     implicit val relevancyOptBool: Relevancy[Option[Boolean]] =

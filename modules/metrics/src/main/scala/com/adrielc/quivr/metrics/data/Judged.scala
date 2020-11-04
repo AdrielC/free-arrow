@@ -6,7 +6,6 @@ import cats.data.{NonEmptyMap, NonEmptySet}
 import cats.implicits._
 import com.adrielc.quivr.metrics.ranking.GradedRelevance
 import com.adrielc.quivr.metrics.result.{AtK, Engagements, Qrels, ResultLabels, Results}
-import com.adrielc.quivr.metrics.types.QrelSet
 
 sealed trait Judged[+A] {
   import Judged.{WithLabels, WithGroundTruth}
@@ -25,7 +24,7 @@ object Judged {
   object WithGroundTruth {
 
     def apply[A: Qrels](results: A): WithGroundTruth[A] =
-      WithGroundTruth(results, results.groundTruthSet.qrelSet)
+      WithGroundTruth(results, results.qrels.set)
 
     def fromLabels[A, V](a: A, labels: Map[ResultId, V], judgeLabel: V => Boolean): Option[WithGroundTruth[A]] =
       labels.toList
@@ -35,7 +34,7 @@ object Judged {
     def fromResultLabels[A: ResultLabels](a: A, judgeLabel: Label => Boolean): Option[WithGroundTruth[A]] =
       WithGroundTruth.fromLabels(a, a.resultLabels.toSortedMap, judgeLabel)
 
-    implicit def withRelGroundTruthSet[A]: Qrels[WithGroundTruth[A]] = a => QrelSet(a.groundTruth)
+    implicit def withRelGroundTruthSet[A]: Qrels[WithGroundTruth[A]] = a => Qrels.QrelSet(a.groundTruth)
     implicit def resultsWithRelevant[A: AtK]: AtK[WithGroundTruth[A]] = (a, k) => a.results.atK(k).map(WithGroundTruth(_, a.groundTruth))
     implicit def withRelResultSet[A: Results]: Results[WithGroundTruth[A]] = _.results.results
     implicit def withLabelled[A: GradedRelevance]: GradedRelevance[WithGroundTruth[A]] = _.results.relevanceLabels
@@ -53,7 +52,7 @@ object Judged {
       WithLabels(results, results.resultLabels)
 
     def fromGroundTruth[A: Qrels](a: A, groundTruthLabel: Label): WithLabels[A] =
-      WithLabels(a, a.groundTruthSet.qrelSet.map(_ -> groundTruthLabel).toNonEmptyList.toNem)
+      WithLabels(a, a.qrels.set.map(_ -> groundTruthLabel).toNonEmptyList.toNem)
 
     def fromLabels[A, V](a: A, resultLabels: Map[ResultId, V], toLabel: V => Option[Label]): Option[WithLabels[A]] =
       resultLabels.toList
@@ -63,7 +62,7 @@ object Judged {
     implicit def withEngagementsInstance[A]: ResultLabels[WithLabels[A]] = _.labels
     implicit def resultsWithLabels[A: AtK]: AtK[WithLabels[A]] = (a, k) => a.results.atK(k).map(WithLabels(_, a.labels))
     implicit def withLabelsResultSetInstance[A: Results]: Results[WithLabels[A]] = _.results.results
-    implicit def withLabGroundTruthSet[A: Qrels]: Qrels[WithLabels[A]] = _.results.groundTruthSet
+    implicit def withLabGroundTruthSet[A: Qrels]: Qrels[WithLabels[A]] = _.results.qrels
     implicit def withLabEngagements[A: Engagements[*, E], E]: Engagements[WithLabels[A], E] = _.results.engagementCounts
 
     implicit val semigroupKLabels: SemigroupK[WithLabels] = new SemigroupK[WithLabels] {

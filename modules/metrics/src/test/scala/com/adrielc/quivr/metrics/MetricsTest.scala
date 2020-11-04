@@ -3,7 +3,6 @@ package com.adrielc.quivr.metrics
 import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem, NonEmptySet => Nes}
 import cats.implicits._
 import com.adrielc.quivr.metrics.result.{Qrels, ResultLabels, Results}
-import com.adrielc.quivr.metrics.types.QrelSet
 import eu.timepit.refined.auto._
 import eu.timepit.refined.types.numeric.PosInt
 import org.scalatest.{FlatSpec, Matchers}
@@ -11,7 +10,7 @@ import org.scalatest.{FlatSpec, Matchers}
 case class ResultsWithRelevant(results: Nel[Long], relevant: Nes[Long], labels: Nem[Long, Double])
 object ResultsWithRelevant {
   implicit val resultSetResultsWithRelevant: Results[ResultsWithRelevant] = _.results
-  implicit val groundTruthResultsWithRelevant: Qrels[ResultsWithRelevant] = a => QrelSet(a.relevant)
+  implicit val groundTruthResultsWithRelevant: Qrels[ResultsWithRelevant] = a => Qrels.QrelSet(a.relevant)
   implicit val resultLabelsResultsWithRelevant: ResultLabels[ResultsWithRelevant] = _.labels
 }
 
@@ -24,7 +23,7 @@ class MetricsTest extends FlatSpec with Matchers {
     Nem.of(1L -> 1d, 2L -> 2d, 3L -> 3d, 4L -> 4d)
   )
 
-  val relevanceJudgements: Nel[Boolean] = Nel.of(
+  val relevanceJudgements: cats.data.NonEmptyList[Boolean] = Nel.of(
     true,
     false,
     true,
@@ -39,6 +38,7 @@ class MetricsTest extends FlatSpec with Matchers {
 
     assert(results.ndcg(gain.pow2).contains(0.6020905207089401))
     assert(results.ndcg(gain.id).contains(0.7489030296784172))
+    assert(results.ndcgK(4, gain.id).contains(0.7489030296784172))
   }
 
   "Recall" should "accurately compute" in {
@@ -92,6 +92,8 @@ class MetricsTest extends FlatSpec with Matchers {
     //coincidentally their AP example had an arithmetic error, 0.77 is right, 0.80 is wrong
 
     assert(relevanceJudgements.averagePrecision.contains(0.7708333333333333))
+
+    assert(relevanceJudgements.averagePrecisionK(8) == relevanceJudgements.averagePrecision)
   }
 
   "MRR" should "accurately compute" in {

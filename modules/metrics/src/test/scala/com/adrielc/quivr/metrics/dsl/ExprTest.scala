@@ -21,6 +21,24 @@ class ExprTest extends FlatSpec with Matchers {
     )
   )
 
+  "Labeler" should "sum engagements" in {
+
+    val labeler = clicks + cartAdds + purchases
+
+    assert(labeler.run(results).get(1L).contains(3.0))
+  }
+
+  "Labeler" should "sum weighted engagements" in {
+
+    val labeler = label.count.weightedSum(clicks -> 1, cartAdds -> 5, purchases -> 25)
+
+    val labeler2 = clicks + cartAdds*5 + purchases*25
+
+    assert(labeler.run(results).get(1L).contains(31.0))
+
+    assert(labeler.run(results).get(1L) == labeler2.run(results).get(1L))
+  }
+
 
   "ifThenElse" should "chain logic" in {
 
@@ -34,5 +52,57 @@ class ExprTest extends FlatSpec with Matchers {
   "Judgements" should "exclude any result with either only clicks or nothing" in {
 
     assert((anyCartAdds | anyPurchases).run(results).contains(NonEmptySet.of(1L, 2L, 3L, 4L, 8L, 9L)))
+  }
+
+  "Engagements" should "become labels" in {
+
+    val engagements = Map(
+      1L  -> (10.clicks + 5.cartAdds + 1.purchase),
+      4L  -> (20.clicks + 5.cartAdds),
+      10L -> (2.purchases + 6.cartAdds + 23.clicks),
+      25L -> (5.purchases + 10.cartAdds + 1.click),
+      49L -> (3.cartAdds + 6.clicks),
+      69L -> 1.click,
+      70L -> (1.purchase + 1.cartAdd + 1.click)
+    ).mapValues(_.toMap)
+
+
+    assert((cartAdds + purchases).run(engagements) == Map(
+      1L -> 6.0,
+      4L -> 5.0,
+      10L -> 8.0,
+      25L -> 15.0,
+      49L -> 3.0,
+      70L -> 2.0
+    ))
+  }
+
+
+  "Engagements" should "turn into labels" in {
+
+    val engagements =
+      Map(
+        1L  -> (10.clicks + 5.cartAdds + 1.purchase),
+        4L  -> (20.clicks + 6.cartAdds),
+        10L -> (2.purchases + 6.cartAdds + 23.clicks),
+        25L -> (5.purchases + 10.cartAdds + 1.click),
+        49L -> (3.cartAdds + 6.clicks),
+        70L -> (1.purchase + 1.cartAdd + 200.click)
+      ).mapValues(_.toMap)
+
+    val standardWeightedEngs = clicks + (cartAdds * 5) + (purchases * 25)
+
+    val negativeIfTwoTimesMoreClicks = (((purchases + cartAdds) <= 2) && (clicks >= 200)) ->> -1
+
+    val a  = negativeIfTwoTimesMoreClicks | ((standardWeightedEngs < 50) ->> 30) | 500
+
+    assert(a.run(engagements) == Map(
+      1L -> 500.0,
+      4L -> 500.0,
+      10L -> 500.0,
+      25L -> 500.0,
+      49L -> 30.0,
+      70L -> -1.0
+    ))
   }
 }

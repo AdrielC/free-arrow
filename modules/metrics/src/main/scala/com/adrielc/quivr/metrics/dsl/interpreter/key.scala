@@ -16,7 +16,7 @@ object key {
 
   def labelerToKey[E](e: engagement.Labeler[E]): String =
     e.cata[String] {
-      case Count(e)         => s"${e.toString.toLowerCase}s"
+      case Count(e)         => s"${e.toString.toLowerCase}"
       case Value(d)         => if (d.isValidInt) d.toInt.toString else e.toString.replace('.', 'p')
       case Mult(e1, e2)     => s"($e1*$e2)"
       case Sum(e1, e2)      => s"($e1+$e2)"
@@ -38,17 +38,18 @@ object key {
     new (EvalOp ~>| String) {
       def apply[A, B](fab: EvalOp[A, B]): String = fab match {
         case Ndcg(gain.pow2, _)       => "ndcg"
-        case Ndcg(g, _)               => s"ndcg-$g"
-        case Precision()              => "precision"
-        case RPrecision()             => "r-precision"
+        case QMeasure(b)              => s"q-B$b"
+        case Ndcg(g, _)               => s"ndcg-G$g"
+        case Precision()              => "prec"
+        case RPrecision()             => "rPrec"
         case Recall()                 => "recall"
         case FScore()                 => "f1"
         case AveragePrecision()       => "ap"
         case ReciprocalRank()         => "mrr"
-        case b: BinaryRels[_]         => s"judgeLabel>${b.threshold}"
-        case k: K[_]                  => s"@${k.k}"
+        case b: BinaryRels[_]         => s"judge(>=${b.threshold})"
         case EngagementToLabel(e)     => s"label(${labelerToKey(e)})"
         case EngagementToJudgement(e) => s"judge(${judgeToKey(e)})"
+        case k: K[_]                  => s"@${k.k}"
       }
     },
     new (EvalOp ~>| Int) {

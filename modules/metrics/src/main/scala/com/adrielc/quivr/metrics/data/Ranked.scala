@@ -4,7 +4,8 @@ package data
 import cats.data.{NonEmptyList, NonEmptyMap}
 import cats.implicits._
 import cats.Functor
-import com.adrielc.quivr.metrics.ranking.GradedRelevance
+import com.adrielc.quivr.metrics.ranking.PartialRelevancy
+import com.adrielc.quivr.metrics.relevancy.Relevancy
 import com.adrielc.quivr.metrics.result.AtK
 import eu.timepit.refined.cats._
 
@@ -41,6 +42,10 @@ object Ranked {
   implicit def indexesToK[A]: AtK[Ranked[A]] =
     (a, k) => if(k > a.k) None else Some(a.copy(k = k))
 
-  implicit val rankedLabels: GradedRelevance[Ranked[Label]] =
-    a => NonEmptyList.fromListUnsafe(a.indexes.toNel.toList.filter(_._1 <= a.k).map(_._2))
+  implicit def rankedLabels[R: Relevancy]: PartialRelevancy.Aux[Ranked[R], R] =
+    new PartialRelevancy[Ranked[R]] {
+      override type Rel = R
+      val rel: Relevancy[R] = Relevancy[R]
+      override def partialRelevanceLabels(a: Ranked[R]): Ranked[R] = a
+    }
 }

@@ -6,7 +6,6 @@ import cats.implicits.none
 import com.adrielc.quivr.metrics.retrieval.{GroundTruthCount, ResultCount}
 import com.adrielc.quivr.metrics.data.{Label, Rank, ResultId}
 import cats.implicits._
-import com.adrielc.quivr.metrics.types.QrelSet
 import eu.timepit.refined.auto._
 import simulacrum.{op, typeclass}
 
@@ -23,6 +22,8 @@ object result {
 
     implicit def toKReseults[A]: AtK[NonEmptyList[A]] =
       (a, k) => if(k > a.length) none else a.toList.take(k).toNel
+
+    implicit def toLeftTupleAtK[A: AtK, B]: AtK[(A, B)] = (ab, k) => ab._1.atK(k).map(_ -> ab._2)
   }
 
 
@@ -45,6 +46,7 @@ object result {
     implicit val contravariantResultSet: Contravariant[Results] = new Contravariant[Results] {
       def contramap[A, B](fa: Results[A])(f: B => A): Results[B] = a => fa.results(f(a))
     }
+    implicit def resultsLeftTuple[A: Results, B]: Results[(A, B)] = _._1.results
   }
 
 
@@ -64,6 +66,7 @@ object result {
     implicit def contravariantEngagements[E]: Contravariant[Engagements[*, E]] = new Contravariant[Engagements[*, E]] {
       def contramap[A, B](fa: Engagements[A, E])(f: B => A): Engagements[B, E] = a => fa.engagements(f(a))
     }
+    implicit def engagementsRightTuple[A, B: Engagements[*, E], E]: Engagements[(A, B), E] = _._2.engagementCounts
   }
 
   @typeclass trait ResultLabels[A] extends Serializable {
@@ -81,9 +84,7 @@ object result {
 
   @typeclass trait Qrels[A] extends GroundTruthCount[A] {
 
-    @op("groundTruthSet", alias = true)
-    def qrels(a: A): QrelSet
-
+    def qrels(a: A): Qrels.QrelSet
 
     override def groundTruthCount(a: A): Int =
       qrels(a).nRel
@@ -91,6 +92,12 @@ object result {
   object Qrels {
     implicit val contravariantGroundTruthSet: Contravariant[Qrels] = new Contravariant[Qrels] {
       def contramap[A, B](fa: Qrels[A])(f: B => A): Qrels[B] = a => fa.qrels(f(a))
+    }
+
+    // relevant document set
+    case class QrelSet(set: NonEmptySet[ResultId]) {
+
+      lazy val nRel: Int = set.length
     }
   }
 }

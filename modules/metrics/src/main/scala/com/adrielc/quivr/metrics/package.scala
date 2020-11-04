@@ -2,8 +2,8 @@ package com.adrielc.quivr
 
 import cats.data.NonEmptyList
 import com.adrielc.quivr.metrics.retrieval.{RelevanceCounts, TruePositiveCount}
-import com.adrielc.quivr.metrics.data.{Ranked, Rank}
-import com.adrielc.quivr.metrics.ranking.{BinaryRelevance, GradedRelevance}
+import com.adrielc.quivr.metrics.data.{Rank, Ranked}
+import com.adrielc.quivr.metrics.ranking.{BinaryRelevance, GradedRelevance, PartialRelevancy}
 import com.adrielc.quivr.metrics.result.{AtK, Engagements, Qrels, ResultLabels, Results}
 import eu.timepit.refined.cats._
 import eu.timepit.refined.numeric._
@@ -31,6 +31,7 @@ import scala.math.{log, pow}
  */
 
 package object metrics extends AtK.ToAtKOps
+  with PartialRelevancy.ToPartialRelevancyOps
   with Results.ToResultsOps
   with Engagements.ToEngagementsOps
   with TruePositiveCount.ToTruePositiveCountOps
@@ -49,7 +50,6 @@ package object metrics extends AtK.ToAtKOps
     val id      : Gain = Gain.Id
   }
   object discount {
-
     val log2    : Discount = Discount.Log2
     val id      : Discount = Discount.Id
   }
@@ -67,20 +67,20 @@ package object metrics extends AtK.ToAtKOps
    * Also possible to use
    *
     */
-  private[metrics] def calcNdcgK(labels: Ranked[Double], g: Gain = gain.pow2, d: Discount = discount.log2): Option[Double] = {
-    val ideal = labels.copy(indexes = labels.indexes.toNel.sortBy(-_._2).mapWithIndex { case ((_, l), i) => Rank(i + 1).right.get -> l }.toNem)
+  private[metrics] def calcNdcgK(labels: Ranked[Double], g: Gain, d: Discount): Option[Double] = {
+    val ideal = labels.copy(indexes = labels.indexes.toNel.sortBy(-_._2).mapWithIndex { case ((_, l), i) => Rank.fromIndex(i) -> l }.toNem)
     safeDiv(
       calcDcgK(labels, g, d),
       calcDcgK(ideal, g, d)
     )
   }
-  private[metrics] def calcDcgK(ranked: Ranked[Double], g: Gain = gain.pow2, d: Discount = discount.log2): Double =
+  private[metrics] def calcDcgK(ranked: Ranked[Double], g: Gain, d: Discount): Double =
     ranked.indexes.toNel.foldMap { case (r, label) => if(r > ranked.k) 0.0 else g(label) / d(r) }
 
-  private[metrics] def calcDcg(labels: NonEmptyList[Double], g: Gain = gain.pow2, d: Discount = discount.log2): Double =
+  private[metrics] def calcDcg(labels: NonEmptyList[Double], g: Gain, d: Discount): Double =
     labels.foldLeft((0.0, 1)) { case ((s, idx), label) => (s + (g(label) / d(idx)), idx + 1) }._1
 
-  private[metrics] def calcNdcg(labels: NonEmptyList[Double], g: Gain = gain.pow2, d: Discount = discount.log2): Option[Double] = {
+  private[metrics] def calcNdcg(labels: NonEmptyList[Double], g: Gain, d: Discount): Option[Double] = {
     val ideal = labels.sortBy(-_)
     safeDiv(
       calcDcg(labels, g, d),
