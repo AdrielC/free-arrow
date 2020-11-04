@@ -6,9 +6,21 @@ import cats.implicits._
 
 package object quivr {
 
+  object syntax {
+
+    object all extends AllSyntax
+
+    trait AllSyntax
+      extends ArrowChoicePlus.ToArrowChoicePlusOps
+        with ArrowChoiceZero.ToArrowChoiceZeroOps
+        with ArrowPlus.ToArrowPlusOps
+        with ArrowZero.ToArrowZeroOps
+  }
+
   object implicits
     extends syntax.AllSyntax
       with instances.AllInstances
+
 
   /** Arrow hierarchy supported by FreeArrow */
   type AR[f[_, _]] = Arrow[f]

@@ -19,7 +19,7 @@ class FreeArrowSpec extends FlatSpec with Matchers {
 
   "FreeArrow" should "not stack overflow" in {
 
-    val add1 = FreeArrow.lift((i: Int) => i + 1)
+    val add1 = FreeArrow.lift((_: Int) + 1)
 
     val run = List.fill(100000)(add1).reduce(_ andThen _).fold[Function1].apply(0)
 
