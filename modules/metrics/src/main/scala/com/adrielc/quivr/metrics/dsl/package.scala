@@ -20,7 +20,7 @@ import eu.timepit.refined.cats._
 
 /**
  *
- * Information Retrieval Evaluation Microlibrary
+ * * * * Information Retrieval Evaluation Microlibrary
  *
  * Any datatype can be evaluated with this library, as long as represents a
  * sorted result set paired with a map of resultIds and engagement counts for any engagement type of your choosing
@@ -32,28 +32,38 @@ import eu.timepit.refined.cats._
  * - debuggable results (i.e. metrics won't silently fail if zero results or labels are found),
  * - needs to be reusable/modular (i.e. same evaluation pipeline used for different datatypes)
  *
- * Quick Example:
+ * * * * Short Example:
  *
- * sealed trait Eng
+ * {{{
+ *
+ * sealed trait Eng // user defined engagement domain
  * case object Clicks extends Eng
- * case object Purchases extends Eng
- * case object Reviews extends Eng
  *
- * type MyResults = (NonEmptyList[ResultId], Map[ResultId, Map[Eng, Int])
+ * type MyResults = (NonEmptyList[ResultId], Map[ResultId, Map[Eng, Int]]) // user defined results type
  *
- * val results: MyResults = (NonEmptyList.of(1L, 2L, 3L), Map(1L -> Map(Clicks -> 1))
+ * val results: MyResults = (
+ *   NonEmptyList.of(1L, 2L to 59L:_*), // results
+ *   Map(2L -> Map((Clicks: Eng) -> 1)) // engagement counts
+ * )
  *
- * val eval = label.count.of(Purchases).from[MyResults] >>> atK(10, 30, 60) >>> (eval.ndcg <+> eval.reciprocalRank)
+ * import dsl._
  *
- * eval.run(results) // returns Option
+ * val evaluation =
+ *   label.count.of(Clicks: Eng).from[MyResults] >>> // count clicks to determine relevance labels
+ *     atK(10, 60) >++                               // compute downstream metrics for each K
+ *     (eval.ndcg, eval.reciprocalRank)              // compute each metric
+ *
+ * val metrics = evaluation.run(results)
+ *
+ * metrics == NonEmptyMap.of(
+ *   "label(clicks).mrr.@10" -> Right(0.5),
+ *   "label(clicks).ndcg.@10" -> Right(0.6309297535714574),
+ *   "label(clicks).@60" -> Left(KGreaterThanMax: EvalErr) // metric key stops building on error so Errors aren't repeated for all downstream metric combinations
+ * )
+ * }}}
  *
  *
- *
- *
- *
- *
- *
- * Example
+ * * * * Walkthrough
  * {{{
  *
  * // your own class
