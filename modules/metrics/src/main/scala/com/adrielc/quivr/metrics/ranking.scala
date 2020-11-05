@@ -4,7 +4,7 @@ import cats.Contravariant
 import cats.data.NonEmptyList
 import com.adrielc.quivr.metrics.retrieval.TruePositiveCount
 import com.adrielc.quivr.metrics.data.{Gain, Label, Rank, Ranked}
-import com.adrielc.quivr.metrics.result.{Qrels, ResultLabels, Results}
+import com.adrielc.quivr.metrics.result.{GroundTruth, ResultLabels, Results}
 import simulacrum.{op, typeclass}
 import cats.implicits._
 import com.adrielc.quivr.metrics.ranking.Relevancies.identityLabelledSet
@@ -31,10 +31,10 @@ object ranking {
         .map(nel => Ranked(nel.toNem, labs.k))
     }
 
-    def ndcgK(a: A, k: Rank, g: GainFn = gain.pow2, d: Discount = discount.log2): Option[Double] =
+    def ndcgK(a: A, k: Rank, g: GainFn = gain.pow2, d: DiscountFn = discount.log2): Option[Double] =
       gains(a).atK(k).flatMap(calcNdcgK(_: Ranked[Gain], g, d))
 
-    def dcgK(a: A, k: Rank, g: GainFn = gain.pow2, d: Discount = discount.log2): Option[Double] =
+    def dcgK(a: A, k: Rank, g: GainFn = gain.pow2, d: DiscountFn = discount.log2): Option[Double] =
       gains(a).atK(k).flatMap(calcNdcgK(_: Ranked[Gain], g, d))
 
     @op("avgPrec", alias = true)
@@ -107,10 +107,10 @@ object ranking {
 
     def relevancies(a: A): NonEmptyList[Rel]
 
-    final def dcg(a: A, g: GainFn = gain.pow2, d: Discount = discount.log2): Double =
+    final def dcg(a: A, g: GainFn = gain.pow2, d: DiscountFn = discount.log2): Double =
       calcDcg(gains(a), g, d)
 
-    final def ndcg(a: A, g: GainFn = gain.pow2, d: Discount = discount.log2): Option[Double] =
+    final def ndcg(a: A, g: GainFn = gain.pow2, d: DiscountFn = discount.log2): Option[Double] =
       calcNdcg(gains(a), g, d)
 
     def precisionAtK(a: A, k: Rank): Option[Double] =
@@ -152,16 +152,20 @@ object ranking {
   }
   object Relevancies extends Relevancies0 {
     type Aux[A, R] = Relevancies[A] { type Rel = R }
-    implicit def identityLabelledSet[R: Relevancy]: Relevancies.Aux[NonEmptyList[R], R] = new Relevancies[NonEmptyList[R]] {
-      type Rel = R
+
+    def instance[A, R: Relevancy](rels: A => NonEmptyList[R]): Relevancies.Aux[A, R] = new Relevancies[A] {
+      override type Rel = R
       override val rel: Relevancy[R] = Relevancy[R]
-      def relevancies(a: NonEmptyList[R]): NonEmptyList[Rel] = a
+      override def relevancies(a: A): NonEmptyList[Rel] = rels(a)
     }
-    implicit def binaryJudgementsFromGroundTruth[S: Results: Qrels : ResultLabels]: Relevancies.Aux[S, Option[Label]] = new Relevancies[S] {
+
+    implicit def identityLabelledSet[R: Relevancy]: Relevancies.Aux[NonEmptyList[R], R] = instance(identity)
+
+    implicit def binaryJudgementsFromGroundTruth[S: Results: GroundTruth : ResultLabels]: Relevancies.Aux[S, Option[Label]] = new Relevancies[S] {
       type Rel = Option[Label]
       override val rel: Relevancy[Option[Label]] = Relevancy[Option[Label]]
       def relevancies(a: S): NonEmptyList[Rel] = a.labelWith(a.resultLabels)
-      override def truePositiveCount(a: S): Int = a.results.count(a.qrels.set.contains).toInt
+      override def truePositiveCount(a: S): Int = a.results.count(a.groundTruth.set.contains).toInt
     }
 
     implicit def contravariantRels[R]: Contravariant[Relevancies.Aux[*, R]] = new Contravariant[Relevancies.Aux[*, R]] {
@@ -177,7 +181,7 @@ object ranking {
       Relevancies.contravariantRels.contramap(identityLabelledSet[Option[Label]])(r => r.labelWith(r.resultLabels))
   }
   trait Relevancies1 {
-    implicit def binarySetFromResultsInstance[S: Results: Qrels]: Relevancies.Aux[S, Boolean] =
-      Relevancies.contravariantRels.contramap(identityLabelledSet[Boolean])(r => r.judgeWith(r.qrels.set))
+    implicit def binarySetFromResultsInstance[S: Results: GroundTruth]: Relevancies.Aux[S, Boolean] =
+      Relevancies.contravariantRels.contramap(identityLabelledSet[Boolean])(r => r.judgeWith(r.groundTruth.set))
   }
 }

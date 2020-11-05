@@ -2,7 +2,6 @@ package com.adrielc.quivr
 package metrics
 
 import com.adrielc.quivr.free.{FA, FAP, FreeArrow}
-import cats.implicits._
 import FreeArrow.liftK
 import cats.Order
 import cats.data.{NonEmptyMap => Nem}
@@ -14,6 +13,8 @@ import com.adrielc.quivr.metrics.dsl.key.SummarizeOps
 import com.adrielc.quivr.metrics.ranking.{PartialRelevancies, Relevancies}
 import com.adrielc.quivr.metrics.result.{AtK, Engagements, Results}
 import com.adrielc.quivr.metrics.retrieval.{RelevanceCounts, TruePositiveCount}
+
+import cats.implicits._
 
 /**
  *
@@ -117,12 +118,12 @@ package object dsl extends Syntax {
       def from[A: Engagements[*, E] : Results]: A >> ResultRels =
         FA.liftK[EvalOp, A, ResultRels](EngagementToLabel[A, E](exp))
 
-      def runMap[A: Engagements[*, E]](a: A): Map[ResultId, Option[Double]] = {
+      def engsToLabels[A: Engagements[*, E]](a: A): Map[ResultId, Option[Double]] = {
         val f = interpreter.engagemement.label.labelerCompiler(exp)
         a.engagementCounts.mapValues(f.run)
       }
 
-      def run[A: Engagements[*, E]: Results](a: A): Option[ResultRels] =
+      def labelResults[A: Engagements[*, E]: Results](a: A): Option[ResultRels] =
         from[A].run(a).toOption
     }
 

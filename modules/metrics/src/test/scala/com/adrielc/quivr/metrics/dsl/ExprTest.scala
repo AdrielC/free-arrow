@@ -25,7 +25,7 @@ class ExprTest extends FlatSpec with Matchers {
 
     val labeler = clicks + cartAdds + purchases
 
-    val r = labeler.run(results).exists(_.res.toNem.lookup(1L).exists(_.gainOrZero.value == 3.0))
+    val r = labeler.labelResults(results).exists(_.res.toNem.lookup(1L).exists(_.gainOrZero.value == 3.0))
 
     assert(r)
   }
@@ -36,10 +36,10 @@ class ExprTest extends FlatSpec with Matchers {
 
     val labeler2 = clicks + cartAdds*5 + purchases*25
 
-    val r = labeler.run(results).exists(_.res.toNem.lookup(1L).exists(_.gainOrZero.value == 31.0))
+    val r = labeler.labelResults(results).exists(_.res.toNem.lookup(1L).exists(_.gainOrZero.value == 31.0))
 
     assert(r)
-    assert(labeler.run(results) == labeler2.run(results))
+    assert(labeler.labelResults(results) == labeler2.labelResults(results))
   }
 
 
@@ -54,7 +54,7 @@ class ExprTest extends FlatSpec with Matchers {
 
   "Judgements" should "exclude any result with either only clicks or nothing" in {
 
-    assert((cartAdds | purchases).run(results).flatMap(_.res.toList.filter(_._2.isJudged).toNel.map(_.toNem.keys))
+    assert((cartAdds | purchases).labelResults(results).flatMap(_.res.toList.filter(_._2.isJudged).toNel.map(_.toNem.keys))
       .contains(NonEmptySet.of(1L, 2L, 3L, 4L, 8L, 9L)))
 
     assert((anyCartAdds | anyPurchases).run(results).flatMap(_.res.toList.filter(_._2.isJudged).toNel.map(_.toNem.keys))
@@ -74,7 +74,7 @@ class ExprTest extends FlatSpec with Matchers {
     ).mapValues(_.toMap)
 
 
-    assert((cartAdds + purchases).runMap(engagements) == Map(
+    assert((cartAdds + purchases).engsToLabels(engagements) == Map(
       1L -> 6.0.some,
       4L -> 5.0.some,
       10L -> 8.0.some,
@@ -110,7 +110,7 @@ class ExprTest extends FlatSpec with Matchers {
 
     assert(evaluator.run(res) == Right(0.7544045426339389))
 
-    assert(a.run(res).foldMapK(_.res.toNem.toSortedMap.toList.mapFilter{case (k, v) => v.gain.map(k -> _.value)}).toMap == Map(
+    assert(a.labelResults(res).foldMapK(_.res.toNem.toSortedMap.toList.mapFilter{case (k, v) => v.gain.map(k -> _.value)}).toMap == Map(
       1L -> 500.0,
       4L -> 500.0,
       10L -> 500.0,

@@ -1,15 +1,14 @@
 package com.adrielc.quivr
 
 import cats.data.NonEmptyList
-import com.adrielc.quivr.metrics.retrieval.{RelevanceCounts, TruePositiveCount}
 import com.adrielc.quivr.metrics.data.{Label, Rank, Ranked}
-import com.adrielc.quivr.metrics.ranking.{PartialRelevancies, Relevancies}
-import com.adrielc.quivr.metrics.result.{AtK, Engagements, Qrels, ResultLabels, Results}
-import eu.timepit.refined.cats._
-import eu.timepit.refined.numeric._
 import eu.timepit.refined.auto._
+import eu.timepit.refined.cats._
 import cats.implicits._
+import com.adrielc.quivr.metrics.ranking.{PartialRelevancies, Relevancies}
 import com.adrielc.quivr.metrics.relevancy.Relevancy
+import com.adrielc.quivr.metrics.result.{AtK, Engagements, GroundTruth, ResultLabels, Results}
+import com.adrielc.quivr.metrics.retrieval.{RelevanceCounts, TruePositiveCount}
 
 import scala.math.{log, pow}
 
@@ -36,12 +35,11 @@ package object metrics extends AtK.ToAtKOps
   with Engagements.ToEngagementsOps
   with TruePositiveCount.ToTruePositiveCountOps
   with Relevancies.ToRelevanciesOps
-  with Qrels.ToQrelsOps
+  with GroundTruth.ToGroundTruthOps
   with Relevancy.ToRelevancyOps
   with RelevanceCounts.ToRelevanceCountsOps
   with ResultLabels.ToResultLabelsOps {
-
-
+  import function._
 
   /**
    * IDCG is only calculated to the indexes available in `labels`.
@@ -51,10 +49,10 @@ package object metrics extends AtK.ToAtKOps
    * Also possible to use
    *
     */
-  private[metrics] def calcNdcgK(labels: Ranked[Label], g: GainFn, d: Discount): Option[Double] = {
+  private[metrics] def calcNdcgK(labels: Ranked[Label], g: GainFn, d: DiscountFn): Option[Double] = {
     val ideal = labels.copy(indexes = labels.indexes.toNel.sortBy(-_._2.value).mapWithIndex { case ((k, l), i) =>
       val r = Rank.fromIndex(i)
-      val ll = if(k > labels.k) Label(0.0) else l
+      val ll = if(k > labels.k) Label(0.0) else l // disregard gain from results above rank K
       r -> ll
     }.toNem)
     safeDiv(
@@ -62,13 +60,13 @@ package object metrics extends AtK.ToAtKOps
       calcDcgK(ideal, g, d)
     )
   }
-  private[metrics] def calcDcgK(ranked: Ranked[Label], g: GainFn, d: Discount): Double =
+  private[metrics] def calcDcgK(ranked: Ranked[Label], g: GainFn, d: DiscountFn): Double =
     ranked.indexes.toNel.foldMap { case (r, label) => if(r > ranked.k) 0.0 else g(label.value) / d(r) }
 
-  private[metrics] def calcDcg(labels: NonEmptyList[Label], g: GainFn, d: Discount): Double =
+  private[metrics] def calcDcg(labels: NonEmptyList[Label], g: GainFn, d: DiscountFn): Double =
     labels.foldLeft((0.0, 1)) { case ((s, idx), label) => (s + (g(label.value) / d(idx)), idx + 1) }._1
 
-  private[metrics] def calcNdcg(labels: NonEmptyList[Label], g: GainFn, d: Discount): Option[Double] = {
+  private[metrics] def calcNdcg(labels: NonEmptyList[Label], g: GainFn, d: DiscountFn): Option[Double] = {
     val ideal = labels.sortBy(-_.value)
     safeDiv(
       calcDcg(labels, g, d),

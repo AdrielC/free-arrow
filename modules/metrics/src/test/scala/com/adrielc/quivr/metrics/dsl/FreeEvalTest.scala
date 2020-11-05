@@ -8,41 +8,33 @@ import com.adrielc.quivr.metrics.data._
 import org.scalatest.{FlatSpec, Matchers}
 import eu.timepit.refined.auto._
 import MyEngagement._
-import com.adrielc.quivr.metrics.dsl.evaluation.{KGreaterThanMax, NoValidJudgements}
+import com.adrielc.quivr.metrics.dsl.evaluation.KGreaterThanMax
 
 
 class FreeEvalTest extends FlatSpec with Matchers {
 
   "Eval" should "run getting started" in {
 
-    sealed trait Eng // user defined engagement domain
-    case object Clicks extends Eng
-    val clicks = label.of(Clicks: Eng)
-    val anyClicks = judge.any(Clicks: Eng)
+    case object Clicks // user defined engagement domain
+    type Results = (NonEmptyList[ResultId], Map[ResultId, Map[Clicks.type, Int]]) // user defined results type
 
-    type Res = (NonEmptyList[ResultId], Map[ResultId, Map[Eng, Int]]) // user defined results type
-
-    val results: Res = (
+    val results: Results = (
       NonEmptyList.of(1L, 2L to 59L:_*), // results
-      Map(2L -> Map((Clicks: Eng) -> 1))        // engagement counts
+      Map(2L -> Map(Clicks -> 1))               // engagement counts
     )
 
     val evaluation =
-      (judge.from[Res](anyClicks, clicks > 10) <+> clicks.from[Res]) >>>  // create continuous labels from click counts and binary judgements if has any clicks
-        atK(10, 60) >++                                                   // compute downstream metrics for each K
-        (eval.ndcg, eval.reciprocalRank)                                  // compute each metric
+      label.of(Clicks).from[Results] >>>  // create continuous labels from click counts
+        atK(10, 60) >++                   // compute downstream metrics for each K
+        (eval.ndcg, eval.reciprocalRank)  // compute each metric
 
     val metrics = evaluation.run(results)
 
     assert(metrics ==
       NonEmptyMap.of(
-        "judge((clicks>0)).mrr.@10" -> Right(0.5),
-        "judge((clicks>0)).ndcg.@10" -> Right(0.6309297535714574),
         "label(clicks).mrr.@10" -> Right(0.5),
         "label(clicks).ndcg.@10" -> Right(0.6309297535714574),
-        "judge((clicks>10))" -> Left(NoValidJudgements),
-        "label(clicks).@60" -> Left(KGreaterThanMax), // metric key stops building on error so Errors aren't repeated for all downstream combinations
-        "judge((clicks>0)).@60" -> Left(KGreaterThanMax)
+        "label(clicks).@60" -> Left(KGreaterThanMax) // metric key stops building on error so Errors aren't repeated for all downstream combinations
       )
     )
   }

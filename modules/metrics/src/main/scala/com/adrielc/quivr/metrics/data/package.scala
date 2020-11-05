@@ -2,7 +2,7 @@ package com.adrielc.quivr.metrics
 
 import cats.data.NonEmptyList
 import eu.timepit.refined.api.RefinedTypeOps
-import eu.timepit.refined.types.numeric.{NonNegDouble, PosDouble, PosInt}
+import eu.timepit.refined.types.numeric.{NonNegDouble, PosInt}
 
 
 package object data {
@@ -17,10 +17,6 @@ package object data {
 
   type Label = NonNegDouble
   object Label extends RefinedTypeOps.Numeric[NonNegDouble, Double]
-
-  // A non-zero gain value
-  type RelGain = PosDouble
-  object RelGain extends RefinedTypeOps.Numeric[PosDouble, Double]
 
   type Gain = NonNegDouble
   object Gain extends RefinedTypeOps.Numeric[NonNegDouble, Double] {

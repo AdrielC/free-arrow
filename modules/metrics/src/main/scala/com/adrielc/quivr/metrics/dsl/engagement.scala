@@ -18,8 +18,6 @@ object engagement {
     def times[E](e1: Labeler[E], e2: Labeler[E])  : Labeler[E] = Fix(Mult(e1, e2))
     def div[E](e1: Labeler[E], e2: Labeler[E])    : Labeler[E] = Fix(Div(e1, e2))
     def ifThen[E](i: Judge[E], t: Labeler[E])     : Labeler[E] = Fix(IfThen(i, t))
-
-    // label filters
     def and[E](e1: Labeler[E], e2: Labeler[E])    : Labeler[E] = Fix(And(e1, e2))
     def or[E](e1: Labeler[E], e2: Labeler[E])     : Labeler[E] = Fix(Or(e1, e2))
     def isEq[E](e: Labeler[E], v: Labeler[E])     : Labeler[E] = Fix(Equiv(double.===, e, v): LabelerF[E, Labeler[E]])
@@ -70,7 +68,7 @@ object engagement {
 
   private[dsl] object JudgeF {
 
-    case class Equiv[E, A](eq: Eq[Double], a: Labeler[E], b: Labeler[E]) extends JudgeF[E, A]
+    case class Equiv[E, A](eq: function.Eq[Double], a: Labeler[E], b: Labeler[E]) extends JudgeF[E, A]
     case class Or[E, A](e1: A, e2: A) extends JudgeF[E, A]
     case class And[E, A](e1: A, e2: A) extends JudgeF[E, A]
 

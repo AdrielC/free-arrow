@@ -25,7 +25,7 @@ object engagemement {
             case Sum(e1, e2)      => e1 |+| e2
             case Mult(e1, e2)     => combWith(e1, e2)(_ * _)
             case Div(num, den)    => combWith(num, den)(safeDiv(_, _).getOrElse(0.0))
-            case i: IfThen[A, FromEngs[A, Double]] => judge.judgeCompiler(i.i).flatMap(b => if(b) i.t else Kleisli((_: Map[A, Int]) => none[Double]))
+            case i: IfThen[A, FromEngs[A, Double]] => judge.judgeCompiler(i.i).flatMap(b => if(b) i.t else Kleisli(_ => none[Double]))
             case Or(e1, e2)       => e1 <+> e2
             case And(e1, e2)      => Kleisli(e => e1(e).flatMap(a => e2(e).map(b => a + b)))
             case eqv: Equiv[A, Double] @unchecked => for {
@@ -71,9 +71,6 @@ object engagemement {
     private val orElseZeroCompiler: Labeler ~> FromEngs[*, Double] =
       λ[engagement.Labeler ~> FromEngs[*, Double]](fa => label.labelerCompiler(fa) <+> Kleisli.pure(0.0))
   }
-
-
-
 
   private def combWith[E, A](ka: FromEngs[E, A], kb: FromEngs[E, A])(f: (A, A) => A): FromEngs[E, A] =
     Kleisli(e => ka.run(e).foldMapK(a => kb.run(e).map(b => f(a, b))))

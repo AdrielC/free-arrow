@@ -5,9 +5,10 @@ import cats.data.{NonEmptyList, NonEmptyMap, NonEmptySet}
 import cats.implicits.none
 import com.adrielc.quivr.metrics.retrieval.{GroundTruthCount, ResultCount}
 import com.adrielc.quivr.metrics.data.{Label, Rank, ResultId}
+import simulacrum.{op, typeclass}
+
 import cats.implicits._
 import eu.timepit.refined.auto._
-import simulacrum.{op, typeclass}
 
 
 object result {
@@ -43,10 +44,10 @@ object result {
   }
   object Results {
     implicit val resultSetIdentityInstance: Results[NonEmptyList[ResultId]] = identity
+    implicit def resultsLeftTuple[A: Results, B]: Results[(A, B)] = _._1.results
     implicit val contravariantResultSet: Contravariant[Results] = new Contravariant[Results] {
       def contramap[A, B](fa: Results[A])(f: B => A): Results[B] = a => fa.results(f(a))
     }
-    implicit def resultsLeftTuple[A: Results, B]: Results[(A, B)] = _._1.results
   }
 
 
@@ -63,10 +64,10 @@ object result {
       def engagementCounts[E](implicit E: Engagements[A, E]): Map[ResultId, Map[E, Int]] = E.engagements(a)
     }
     implicit def engagementsIdentityInstance[E]: Engagements[Map[ResultId, Map[E, Int]], E] = identity
+    implicit def engagementsRightTuple[A, B: Engagements[*, E], E]: Engagements[(A, B), E] = _._2.engagementCounts
     implicit def contravariantEngagements[E]: Contravariant[Engagements[*, E]] = new Contravariant[Engagements[*, E]] {
       def contramap[A, B](fa: Engagements[A, E])(f: B => A): Engagements[B, E] = a => fa.engagements(f(a))
     }
-    implicit def engagementsRightTuple[A, B: Engagements[*, E], E]: Engagements[(A, B), E] = _._2.engagementCounts
   }
 
   trait EngagedResults[A, E] extends Results[A] with Engagements[A, E]
@@ -90,20 +91,20 @@ object result {
   }
 
 
-  @typeclass trait Qrels[A] extends GroundTruthCount[A] {
+  @typeclass trait GroundTruth[A] extends GroundTruthCount[A] {
 
-    def qrels(a: A): Qrels.QrelSet
+    def groundTruth(a: A): GroundTruth.RelSet
 
     override def groundTruthCount(a: A): Int =
-      qrels(a).nRel
+      groundTruth(a).nRel
   }
-  object Qrels {
-    implicit val contravariantGroundTruthSet: Contravariant[Qrels] = new Contravariant[Qrels] {
-      def contramap[A, B](fa: Qrels[A])(f: B => A): Qrels[B] = a => fa.qrels(f(a))
+  object GroundTruth {
+    implicit val contravariantGroundTruthSet: Contravariant[GroundTruth] = new Contravariant[GroundTruth] {
+      def contramap[A, B](fa: GroundTruth[A])(f: B => A): GroundTruth[B] = a => fa.groundTruth(f(a))
     }
 
     // relevant document set
-    case class QrelSet(set: NonEmptySet[ResultId]) {
+    case class RelSet(set: NonEmptySet[ResultId]) {
 
       lazy val nRel: Int = set.length
     }

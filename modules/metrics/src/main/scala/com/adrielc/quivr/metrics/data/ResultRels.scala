@@ -1,4 +1,5 @@
-package com.adrielc.quivr.metrics.data
+package com.adrielc.quivr.metrics
+package data
 
 import cats.data.NonEmptyList
 import com.adrielc.quivr.metrics.data.relevance.Relevance
