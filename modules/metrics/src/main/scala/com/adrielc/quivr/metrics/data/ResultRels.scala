@@ -14,10 +14,13 @@ case class ResultRels private[metrics] (res: NonEmptyList[(ResultId, Relevance)]
 }
 object ResultRels {
 
-  // requires at least one judged and one relevant result
-  def apply(res: NonEmptyList[(ResultId, Relevance)], relCount: Int): Option[ResultRels] =
-    (NonZeroCount.from(res.count(_._2.isJudged).toInt) *> NonZeroCount.from(relCount))
-      .map(r => new ResultRels(res, Rank.unsafeFrom(res.size), r)).toOption
+  // guarantees that if a list of relevancies is returned then there is at least one judged result
+  def apply[V](res: NonEmptyList[ResultId], labels: Map[ResultId, V], judgeLabel: V => Relevance): Option[ResultRels] = {
+    val rels = labels.mapValues(judgeLabel)
+    val results = res.map(id => id -> rels.getOrElse(id, Relevance.unjudged))
+    (NonZeroCount.from(results.count(_._2.isJudged).toInt) *> NonZeroCount.from(rels.count(_._2.isRel)))
+      .map(r => new ResultRels(results, Rank.unsafeFrom(results.size), r)).toOption
+  }
 
   implicit val resultRelsRelevanciesInstance: Relevancies.Aux[ResultRels, (ResultId, Relevance)] with RelevanceCounts[ResultRels] =
     new Relevancies[ResultRels] with RelevanceCounts[ResultRels] {

@@ -1,7 +1,5 @@
 package com.adrielc.quivr.metrics.data
 
-import com.adrielc.quivr.metrics.result.Results
-
 object relevance {
 
   sealed trait Relevance {
@@ -25,16 +23,6 @@ object relevance {
     private final case class BinaryJudgement(isRelevant: Boolean) extends Relevance
     private case object Irrelevant                                extends Relevance
     private case object Unjudged                                  extends Relevance
-
-
-
-    // guarantees that if a list of relevancies is returned then there is at least one judged result
-    def fromLabelsToRel[A: Results, V](a: A, labels: Map[ResultId, V], judgeLabel: V => Relevance): Option[ResultRels] = {
-      val rels = labels.mapValues(judgeLabel)
-      val results = Results[A].results(a).map(id => id -> rels.getOrElse(id, Relevance.unjudged))
-
-      ResultRels(results, rels.count(_._2.isRel))
-    }
   }
 
 

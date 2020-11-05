@@ -69,6 +69,14 @@ object result {
     implicit def engagementsRightTuple[A, B: Engagements[*, E], E]: Engagements[(A, B), E] = _._2.engagementCounts
   }
 
+  trait EngagedResults[A, E] extends Results[A] with Engagements[A, E]
+  object EngagedResults {
+    implicit def fromResEng[A, E](implicit E: Engagements[A, E], R: Results[A]): EngagedResults[A, E] = new EngagedResults[A, E] {
+      override def results(a: A): NonEmptyList[ResultId] = R.results(a)
+      override def engagements(a: A): Map[ResultId, Map[E, Int]] = E.engagements(a)
+    }
+  }
+
   @typeclass trait ResultLabels[A] extends Serializable {
 
     @op("resultLabels")

@@ -28,16 +28,14 @@ class MetricBuilderSpec extends FlatSpec with Matchers {
 
   "combine" should "build" in {
 
-    val labeler = label.count.from[Res](
+    val labeler = label.from[Res](
       purchases,
       clicks && (purchases.filter === 100) // is not valid, none have 100 clicks therefore should be missing from metrics
     )
 
-    val metrics = labeler >>> atK(50) >>> (eval.recall[ResultRels].tapIn(println) &&& eval.precision)
+    val metrics = labeler >>> atK(50) >>> (eval.recall[ResultRels] &&& eval.precision)
 
     val res = metrics.run(results)
-
-    println(res)
 
     assert(res.length == 2)
     assert(res.lookup("label(purchase).(recall,prec).@50").exists(_.contains((0.8, 0.08))))
@@ -46,13 +44,11 @@ class MetricBuilderSpec extends FlatSpec with Matchers {
 
   "ranking metrics" should "be applied" in {
 
-    val levels = atK[Res](10, 20) >>> label.count.from[Res](clicks, cartAdds, purchases)  >>> eval.ndcg
-    val binary = atK[Res](30, 40) >>> judge.count.from[Res](anyClicks)                    >>> eval.averagePrecision
+    val levels = atK[Res](10, 20) >>> label.from[Res](clicks, cartAdds, purchases)  >>> eval.ndcg
+    val binary = atK[Res](30, 40) >>> judge.from[Res](anyClicks)                    >>> eval.averagePrecision
     val dups = levels <+> binary
 
     val res = dups.run(results)
-
-    println(res)
 
     assert(res.toSortedMap == Map(
       "judge((click>0)).ap.@30"   -> Right(0.4000000000000001),

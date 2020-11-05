@@ -8,7 +8,7 @@ import com.adrielc.quivr.metrics.data._
 import org.scalatest.{FlatSpec, Matchers}
 import eu.timepit.refined.auto._
 import MyEngagement._
-import com.adrielc.quivr.metrics.dsl.evaluation.EvalOp.{EvalErr, KGreaterThanMax}
+import com.adrielc.quivr.metrics.dsl.evaluation.{KGreaterThanMax, NoValidJudgements}
 
 
 class FreeEvalTest extends FlatSpec with Matchers {
@@ -17,26 +17,32 @@ class FreeEvalTest extends FlatSpec with Matchers {
 
     sealed trait Eng // user defined engagement domain
     case object Clicks extends Eng
+    val clicks = label.of(Clicks: Eng)
+    val anyClicks = judge.any(Clicks: Eng)
 
-    type MyResults = (NonEmptyList[ResultId], Map[ResultId, Map[Eng, Int]]) // user defined results type
+    type Res = (NonEmptyList[ResultId], Map[ResultId, Map[Eng, Int]]) // user defined results type
 
-    val results: MyResults = (
+    val results: Res = (
       NonEmptyList.of(1L, 2L to 59L:_*), // results
       Map(2L -> Map((Clicks: Eng) -> 1))        // engagement counts
     )
 
     val evaluation =
-      label.count.of(Clicks: Eng).from[MyResults] >>> // count clicks to create determine relevance labels
-        atK(10, 60) >++                               // compute downstream metrics for each K
-        (eval.ndcg, eval.reciprocalRank)              // compute each metric
+      (judge.from[Res](anyClicks, clicks > 10) <+> clicks.from[Res]) >>>  // create continuous labels from click counts and binary judgements if has any clicks
+        atK(10, 60) >++                                                   // compute downstream metrics for each K
+        (eval.ndcg, eval.reciprocalRank)                                  // compute each metric
 
     val metrics = evaluation.run(results)
 
     assert(metrics ==
       NonEmptyMap.of(
+        "judge((clicks>0)).mrr.@10" -> Right(0.5),
+        "judge((clicks>0)).ndcg.@10" -> Right(0.6309297535714574),
         "label(clicks).mrr.@10" -> Right(0.5),
         "label(clicks).ndcg.@10" -> Right(0.6309297535714574),
-        "label(clicks).@60" -> Left(KGreaterThanMax: EvalErr) // metric key stops building on error so Errors aren't repeated for all downstream combinations
+        "judge((clicks>10))" -> Left(NoValidJudgements),
+        "label(clicks).@60" -> Left(KGreaterThanMax), // metric key stops building on error so Errors aren't repeated for all downstream combinations
+        "judge((clicks>0)).@60" -> Left(KGreaterThanMax)
       )
     )
   }
@@ -53,7 +59,7 @@ class FreeEvalTest extends FlatSpec with Matchers {
   "Free Eval" should "evaluate correctly" in {
 
     val metrics =
-      label.count.from[ResultEngs](cartAdds, clicks, purchases, purchases | clicks) >>> atK(10, 20) >>> eval.ndcg
+      label.from[ResultEngs](cartAdds, clicks, purchases, purchases | clicks) >>> atK(10, 20) >>> eval.ndcg
 
     val results = EngagedResults(
       NonEmptyList.of(1L, 2L to 10L:_*),
@@ -102,7 +108,7 @@ class FreeEvalTest extends FlatSpec with Matchers {
     )
 
     val metrics =
-      label.count.from[ResultEngs](clicks, cartAdds, purchases) >>>
+      label.from[ResultEngs](clicks, cartAdds, purchases) >>>
         atK(10, 20, 30, 40, 50, 60) >++
         (ndcg, precision, recall, rPrecision)
 
@@ -127,8 +133,8 @@ class FreeEvalTest extends FlatSpec with Matchers {
       )
     )
 
-    val labelers = label.count.from[ResultEngs](clicks, cartAdds, purchases)
-    val judgements = judge.count.from[ResultEngs](anyClicks, anyCartAdds, anyPurchases)
+    val labelers = label.from[ResultEngs](clicks, cartAdds, purchases)
+    val judgements = judge.from[ResultEngs](anyClicks, anyCartAdds, anyPurchases)
 
     val metrics =
       (labelers <+> judgements) >>>

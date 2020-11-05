@@ -6,8 +6,6 @@ import matryoshka.implicits._
 
 object key {
   import dsl.evaluation.EvalOp
-  import dsl.evaluation.EvalOp.MetricOp._
-  import dsl.evaluation.EvalOp.EngagementOp._
   import dsl.evaluation.EvalOp._
   import dsl.engagement.{LabelerF, JudgeF}, LabelerF._, JudgeF._
   import dsl.key.SummarizeOps

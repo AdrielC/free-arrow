@@ -11,12 +11,12 @@ object MyEngagement {
   import dsl._
   type ResultEngs = EngagedResults[MyEngagement]
 
-  val clicks    : engagement.Labeler[MyEngagement] = label.count.of(Click: MyEngagement)
-  val cartAdds  : engagement.Labeler[MyEngagement] = label.count.of(CartAdd: MyEngagement)
-  val purchases : engagement.Labeler[MyEngagement] = label.count.of(Purchase: MyEngagement)
-  val anyClicks    : engagement.Judge[MyEngagement] = judge.count.any(Click: MyEngagement)
-  val anyCartAdds  : engagement.Judge[MyEngagement] = judge.count.any(CartAdd: MyEngagement)
-  val anyPurchases : engagement.Judge[MyEngagement] = judge.count.any(Purchase: MyEngagement)
+  val clicks    : engagement.Labeler[MyEngagement] = label.of(Click: MyEngagement)
+  val cartAdds  : engagement.Labeler[MyEngagement] = label.of(CartAdd: MyEngagement)
+  val purchases : engagement.Labeler[MyEngagement] = label.of(Purchase: MyEngagement)
+  val anyClicks    : engagement.Judge[MyEngagement] = judge.any(Click: MyEngagement)
+  val anyCartAdds  : engagement.Judge[MyEngagement] = judge.any(CartAdd: MyEngagement)
+  val anyPurchases : engagement.Judge[MyEngagement] = judge.any(Purchase: MyEngagement)
 
 
   type EngagementCounts = KeyCounts[MyEngagement]
