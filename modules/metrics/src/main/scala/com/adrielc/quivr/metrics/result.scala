@@ -35,8 +35,8 @@ object result {
     def judgeWith(a: A, groundTruth: NonEmptySet[ResultId]): NonEmptyList[Boolean] =
       results(a).map(groundTruth.contains)
 
-    def labelWith(a: A, labels: NonEmptyMap[ResultId, Label]): NonEmptyList[Double] =
-      results(a).map(labels.lookup(_).getOrElse(0.0))
+    def labelWith(a: A, labels: NonEmptyMap[ResultId, Label]): NonEmptyList[Option[Label]] =
+      results(a).map(labels.lookup)
 
     override def resultCount(a: A): Int =
       results(a).size

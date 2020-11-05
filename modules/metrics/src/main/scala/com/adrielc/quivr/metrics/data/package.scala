@@ -1,33 +1,33 @@
 package com.adrielc.quivr.metrics
 
-import cats.data.{NonEmptyList, NonEmptyMap, NonEmptySet}
-import com.adrielc.quivr.metrics.data.Judged.{WithGroundTruth, WithLabels}
-import eu.timepit.refined.types.numeric.PosInt
-import eu.timepit.refined.auto._
+import cats.data.NonEmptyList
+import eu.timepit.refined.api.RefinedTypeOps
+import eu.timepit.refined.types.numeric.{NonNegDouble, PosDouble, PosInt}
+
 
 package object data {
 
-  type Rank             = PosInt
-  object Rank {
-    def apply(c: Int): Either[String, Rank] = PosInt.from(c)
-    private[metrics] def fromIndex(c: Int): Rank = PosInt.unsafeFrom(c + 1)
-    private[metrics] def unsafe(c: Int): Rank = PosInt.unsafeFrom(c)
-  }
-  type NonZeroCount = PosInt
-  object NonZeroCount {
-    def apply(c: Int): Either[String, NonZeroCount] = PosInt.from(c)
-  }
   type ResultId         = Long
-  type Label            = Double
-  type Relevance        = Boolean
-
-  type TruthSet         = NonEmptySet[ResultId]
-  type Labels           = NonEmptyMap[ResultId, Label]
-
   type ResultSet        = NonEmptyList[ResultId]
-  type LabelledResults  = NonEmptyList[Label]
-  type JudgedResults    = NonEmptyList[Relevance]
 
-  type SetRelevance     = WithGroundTruth[ResultSet]
-  type SetLabels        = WithLabels[ResultSet]
+  type Rank = PosInt
+  object Rank extends RefinedTypeOps.Numeric[PosInt, Int] {
+    private[metrics] def fromIndex(c: Int): Rank = PosInt.unsafeFrom(c + 1)
+  }
+
+  type Label = NonNegDouble
+  object Label extends RefinedTypeOps.Numeric[NonNegDouble, Double]
+
+  // A non-zero gain value
+  type RelGain = PosDouble
+  object RelGain extends RefinedTypeOps.Numeric[PosDouble, Double]
+
+  type Gain = NonNegDouble
+  object Gain extends RefinedTypeOps.Numeric[NonNegDouble, Double] {
+    val one: Gain = NonNegDouble.unsafeFrom(1.0)
+    val zero: Gain = NonNegDouble.unsafeFrom(0.0)
+  }
+
+  type NonZeroCount = PosInt
+  object NonZeroCount extends RefinedTypeOps.Numeric[PosInt, Int]
 }

@@ -4,8 +4,8 @@ package data
 import cats.{Functor, SemigroupK}
 import cats.data.{NonEmptyMap, NonEmptySet}
 import cats.implicits._
-import com.adrielc.quivr.metrics.ranking.GradedRelevance
 import com.adrielc.quivr.metrics.result.{AtK, Engagements, Qrels, ResultLabels, Results}
+import eu.timepit.refined.cats._
 
 sealed trait Judged[+A] {
   import Judged.{WithLabels, WithGroundTruth}
@@ -37,7 +37,6 @@ object Judged {
     implicit def withRelGroundTruthSet[A]: Qrels[WithGroundTruth[A]] = a => Qrels.QrelSet(a.groundTruth)
     implicit def resultsWithRelevant[A: AtK]: AtK[WithGroundTruth[A]] = (a, k) => a.results.atK(k).map(WithGroundTruth(_, a.groundTruth))
     implicit def withRelResultSet[A: Results]: Results[WithGroundTruth[A]] = _.results.results
-    implicit def withLabelled[A: GradedRelevance]: GradedRelevance[WithGroundTruth[A]] = _.results.relevanceLabels
     implicit def withRelEngagements[A: Engagements[*, E], E]: Engagements[WithGroundTruth[A], E] = _.results.engagementCounts
 
     implicit val semigroupKWithGroundTruth: SemigroupK[WithGroundTruth] = new SemigroupK[WithGroundTruth] {

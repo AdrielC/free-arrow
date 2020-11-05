@@ -25,7 +25,7 @@ class ExprTest extends FlatSpec with Matchers {
 
     val labeler = clicks + cartAdds + purchases
 
-    assert(labeler.run(results).get(1L).contains(3.0))
+    assert(labeler.runMap(results).get(1L).contains(3.0))
   }
 
   "Labeler" should "sum weighted engagements" in {
@@ -34,9 +34,9 @@ class ExprTest extends FlatSpec with Matchers {
 
     val labeler2 = clicks + cartAdds*5 + purchases*25
 
-    assert(labeler.run(results).get(1L).contains(31.0))
+    assert(labeler.runMap(results).get(1L).contains(31.0))
 
-    assert(labeler.run(results).get(1L) == labeler2.run(results).get(1L))
+    assert(labeler.runMap(results).get(1L) == labeler2.runMap(results).get(1L))
   }
 
 
@@ -44,9 +44,9 @@ class ExprTest extends FlatSpec with Matchers {
 
     val weighted  = ((anyClicks ->> 1) + (anyCartAdds ->> 5) + (anyPurchases ->> 25)).from[ResultEngs]
 
-    val expected = NonEmptyMap.of(1L -> 31.0, 2L -> 31.0, 3L -> 31.0, 4L -> 31.0, 8L -> 5.0, 9L -> 25.0, 10L -> 1.0)
+    val expected = NonEmptyList.of(1L -> 31.0, 2L -> 31.0, 3L -> 31.0, 4L -> 31.0, 8L -> 5.0, 9L -> 25.0, 10L -> 1.0)
 
-    assert(weighted.run(results).exists(_.labels == expected))
+    assert(weighted.run(results).contains(expected))
   }
 
   "Judgements" should "exclude any result with either only clicks or nothing" in {
@@ -67,13 +67,13 @@ class ExprTest extends FlatSpec with Matchers {
     ).mapValues(_.toMap)
 
 
-    assert((cartAdds + purchases).run(engagements) == Map(
-      1L -> 6.0,
-      4L -> 5.0,
-      10L -> 8.0,
-      25L -> 15.0,
-      49L -> 3.0,
-      70L -> 2.0
+    assert((cartAdds + purchases).runMap(engagements) == Map(
+      1L -> 6.0.some,
+      4L -> 5.0.some,
+      10L -> 8.0.some,
+      25L -> 15.0.some,
+      49L -> 3.0.some,
+      70L -> 2.0.some
     ))
   }
 
@@ -96,7 +96,7 @@ class ExprTest extends FlatSpec with Matchers {
 
     val a  = negativeIfTwoTimesMoreClicks | ((standardWeightedEngs < 50) ->> 30) | 500
 
-    assert(a.run(engagements) == Map(
+    assert(a.runMap(engagements) == Map(
       1L -> 500.0,
       4L -> 500.0,
       10L -> 500.0,

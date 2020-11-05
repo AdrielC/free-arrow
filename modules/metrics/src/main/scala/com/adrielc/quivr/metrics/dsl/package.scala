@@ -4,17 +4,16 @@ package metrics
 import com.adrielc.quivr.free.{FA, FAP, FreeArrow}
 import cats.implicits._
 import FreeArrow.liftK
-import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem, NonEmptySet => Nes}
-import com.adrielc.quivr.metrics.data.Judged.{WithGroundTruth, WithLabels}
-import com.adrielc.quivr.metrics.data.{Rank, ResultId}
+import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem}
+import com.adrielc.quivr.metrics.data.{Rank, ResultId, ResultRels}
 import com.adrielc.quivr.metrics.dsl.engagement.{Judge, Labeler}
 import com.adrielc.quivr.metrics.dsl.evaluation.EvalOp.EngagementOp.{EngagementToJudgement, EngagementToLabel}
 import com.adrielc.quivr.metrics.dsl.evaluation.EvalOp
 import com.adrielc.quivr.metrics.dsl.evaluation.EvalOp.MetricOp.{AveragePrecision, FScore, Ndcg, Precision, QMeasure, RPrecision, Recall, ReciprocalRank}
-import com.adrielc.quivr.metrics.dsl.evaluation.EvalOp.{BinaryRels, EvalErr}
+import com.adrielc.quivr.metrics.dsl.evaluation.EvalOp.EvalErr
 import com.adrielc.quivr.metrics.dsl.interpreter.key.MetricKeyBuilder
-import com.adrielc.quivr.metrics.ranking.{BinaryRelevance, GradedRelevance, PartialRelevancy}
-import com.adrielc.quivr.metrics.result.{AtK, Engagements, ResultLabels}
+import com.adrielc.quivr.metrics.ranking.{PartialRelevancies, Relevancies}
+import com.adrielc.quivr.metrics.result.{AtK, Engagements, Results}
 import com.adrielc.quivr.metrics.retrieval.{RelevanceCounts, TruePositiveCount}
 import eu.timepit.refined.cats._
 
@@ -207,11 +206,16 @@ package object dsl extends Syntax {
          *
          * same as [[count.from]] except it is for individual labelers
          */
-        def from[A: Engagements[*, E]]: A >> WithLabels[A] =
-          FA.liftK[EvalOp, A, WithLabels[A]](EngagementToLabel[A, E](exp))
+        def from[A: Engagements[*, E] : Results]: A >> ResultRels =
+          FA.liftK[EvalOp, A, ResultRels](EngagementToLabel[A, E](exp))
 
-        def run[A: Engagements[*, E]](a: A): Map[ResultId, Double] =
-          from[A].run(a).toOption.map(_.labels).foldMapK(_.toSortedMap.toMap)
+        def runMap[A: Engagements[*, E]](a: A): Map[ResultId, Option[Double]] = {
+          val f = interpreter.engagemement.label.labelerCompiler(exp)
+          a.engagementCounts.mapValues(f.run)
+        }
+
+        def run[A: Engagements[*, E]: Results](a: A): Option[ResultRels] =
+          from[A].run(a).toOption
       }
 
       class LabelerFilterOps[E](private val exp: Labeler[E]) extends AnyVal {
@@ -248,27 +252,12 @@ package object dsl extends Syntax {
         /**
          * interpret this Expression as a function from Engagements of type [[E]] to a ground truth set for [[A]]
          */
-        def from[A: Engagements[*, E]]: A >> WithGroundTruth[A] =
-          FA.liftK[EvalOp, A, WithGroundTruth[A]](EngagementToJudgement[A, E](exp))
+        def from[A: Engagements[*, E] : Results]: A >> ResultRels =
+          FA.liftK[EvalOp, A, ResultRels](EngagementToJudgement[A, E](exp))
 
-        def run[A: Engagements[*, E]](a: A): Option[Nes[ResultId]] =
-          from[A].run(a).toOption.map(_.groundTruth)
+        def run[A: Engagements[*, E]: Results](a: A): Option[ResultRels] =
+          from[A].run(a).toOption
       }
-    }
-
-
-    /**
-     * adds binary relevance judgements to a type that has continuous/graded levels
-      */
-    object label {
-
-      def aboveThreshold[A: ResultLabels](t: Int): A >> WithGroundTruth[A] =
-        liftK(BinaryRels[A](t))
-
-      def aboveThresholds[A] = new LabelJudgementsBuilder[A]
-
-      def isPositive[A: ResultLabels]: A >> WithGroundTruth[A] =
-        liftK(BinaryRels[A](0))
     }
   }
 
@@ -289,17 +278,18 @@ package object dsl extends Syntax {
 
   // compute metric
   object eval {
+    import function._
 
     def apply[A](m: A +> Double, ms: A +> Double*): A +> Double =
       FA.plus(m, ms:_*)
 
-    def ndcg[A: GradedRelevance]: A >> Double =
+    def ndcg[A: Relevancies]: A >> Double =
       ndcgWithGain(gain.pow2)
 
-    def qMeasure[A: PartialRelevancy](b: Double): A >> Double =
+    def qMeasure[A: PartialRelevancies](b: Double): A >> Double =
       FA.liftK(QMeasure(b))
 
-    def ndcgWithGain[A: GradedRelevance](g: Gain): A >> Double =
+    def ndcgWithGain[A: Relevancies](g: GainFn): A >> Double =
       FA.liftK(Ndcg(g, discount.log2))
 
     def fScore[A: RelevanceCounts]: A >> Double =
@@ -311,13 +301,13 @@ package object dsl extends Syntax {
     def precision[A: TruePositiveCount]: A >> Double =
       FA.liftK(Precision[A])
 
-    def averagePrecision[A: PartialRelevancy]: A >> Double =
+    def averagePrecision[A: PartialRelevancies]: A >> Double =
       FA.liftK(AveragePrecision[A])
 
-    def reciprocalRank[A: PartialRelevancy]: A >> Double =
+    def reciprocalRank[A: PartialRelevancies]: A >> Double =
       FA.liftK(ReciprocalRank[A])
 
-    def rPrecision[A: BinaryRelevance]: A >> Double =
+    def rPrecision[A: Relevancies]: A >> Double =
       FA.liftK(RPrecision[A])
   }
 
@@ -363,17 +353,13 @@ package dsl {
   trait PartiallyAppliedArrowBuilder[F[_, _], M[_]] {
     def apply[A]: ArrowFactory[F, A, M[A]]
   }
-  class EngagementJudgeBuilder[A] private[dsl] extends ArrowFactory[EvalOp, A, WithGroundTruth[A]] {
-    type G[a] = Judge[a]; type TC[a] = Engagements[A, a]
-    def create[E](e: Judge[E])(implicit E: Engagements[A, E]): EvalOp[A, WithGroundTruth[A]] = EngagementToJudgement(e)
+  class EngagementJudgeBuilder[A] private[dsl] extends ArrowFactory[EvalOp, A, ResultRels] {
+    type G[a] = Judge[a]; type TC[a] = Engagements[A, a] with Results[A]
+    def create[E](e: Judge[E])(implicit E: Engagements[A, E] with Results[A]): EvalOp[A, ResultRels] = EngagementToJudgement(e)
   }
-  class EngagementLabelBuilder[A] private[dsl] extends ArrowFactory[EvalOp, A, WithLabels[A]] {
-    type G[a] = Labeler[a]; type TC[a] = Engagements[A, a]
-    def create[E](e: Labeler[E])(implicit E: Engagements[A, E]): EvalOp[A, WithLabels[A]] = EngagementToLabel(e)
-  }
-  class LabelJudgementsBuilder[A] private[dsl] extends ArrowFactory[EvalOp, A, WithGroundTruth[A]] {
-    type G[a] = Int; type TC[a] = ResultLabels[A]
-    override def create[E](threshold: Int)(implicit E: ResultLabels[A]): EvalOp[A, WithGroundTruth[A]] = BinaryRels(threshold)
+  class EngagementLabelBuilder[A] private[dsl] extends ArrowFactory[EvalOp, A, ResultRels] {
+    type G[a] = Labeler[a]; type TC[a] = Engagements[A, a] with Results[A]
+    def create[E](e: Labeler[E])(implicit E: Engagements[A, E] with Results[A]): EvalOp[A, ResultRels] = EngagementToLabel(e)
   }
   class AtKBuilder[A] private[dsl] extends ArrowFactory[EvalOp, A, A] {
     type G[a] = Rank; type TC[a] = AtK[A]

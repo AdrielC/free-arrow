@@ -7,6 +7,7 @@ import scalaz.Functor
 object engagement {
   import LabelerF._
   import JudgeF._
+  import function.double
 
   /** Expression used to define mapping of result engagements [[E]] to a relevance label (continuous) **/
   type Labeler[E] = Fix[LabelerF[E, *]]

@@ -3,10 +3,10 @@ package dsl
 
 import cats.implicits._
 import cats.kernel.Order
-import com.adrielc.quivr.metrics.data.Judged.{WithGroundTruth, WithLabels}
 import com.adrielc.quivr.metrics.data._
-import com.adrielc.quivr.metrics.ranking.{BinaryRelevance, GradedRelevance, PartialRelevancy}
-import com.adrielc.quivr.metrics.result.{AtK, Engagements, ResultLabels}
+import com.adrielc.quivr.metrics.data.relevance.Relevance
+import com.adrielc.quivr.metrics.ranking.{PartialRelevancies, Relevancies}
+import com.adrielc.quivr.metrics.result.{AtK, Engagements, Results}
 import com.adrielc.quivr.metrics.retrieval.{RelevanceCounts, TruePositiveCount}
 
 object evaluation {
@@ -18,11 +18,11 @@ object evaluation {
 
     sealed abstract class MetricOp[A, B](f: A => Option[B], e: EvalErr) extends EvalOp[A, B] { final def apply(a: A): EvalResult[B] = f(a).toRight(e) }
     object MetricOp {
-      case class Ndcg[A: GradedRelevance](g: Gain, d: Discount) extends MetricOp[A, Double](_.ndcg(g, d),       ZeroIDCG)
-      case class QMeasure[A: PartialRelevancy](b: Double)       extends MetricOp[A, Double](_.qMeasure(b),      ZeroResults)
-      case class AveragePrecision[A: PartialRelevancy]()        extends MetricOp[A, Double](_.averagePrecision, ZeroResults)
-      case class ReciprocalRank[A: PartialRelevancy]()          extends MetricOp[A, Double](_.reciprocalRank,   NoResults)
-      case class RPrecision[A: BinaryRelevance]()               extends MetricOp[A, Double](_.rPrecision,       NoResults)
+      case class Ndcg[A: Relevancies](g: GainFn, d: Discount)   extends MetricOp[A, Double](_.ndcg(g, d),       ZeroIDCG)
+      case class QMeasure[A: PartialRelevancies](b: Double)     extends MetricOp[A, Double](_.qMeasure(b),      ZeroResults)
+      case class AveragePrecision[A: PartialRelevancies]()      extends MetricOp[A, Double](_.averagePrecision, ZeroResults)
+      case class ReciprocalRank[A: PartialRelevancies]()        extends MetricOp[A, Double](_.reciprocalRank,   NoResults)
+      case class RPrecision[A: Relevancies]()                   extends MetricOp[A, Double](_.rPrecision,       NoResults)
       case class FScore[A: RelevanceCounts]()                   extends MetricOp[A, Double](_.fScore,           NoResults)
       case class Recall[A: RelevanceCounts]()                   extends MetricOp[A, Double](_.recall,           NoResults)
       case class Precision[A: TruePositiveCount]()              extends MetricOp[A, Double](_.precision,        ZeroResults)
@@ -30,30 +30,23 @@ object evaluation {
 
     case class K[A: AtK](k: Rank) extends EvalOp[A, A] { def apply(a: A): EvalResult[A] = a.atK(k).toRight(KGreaterThanMax) }
 
-    case class BinaryRels[A: ResultLabels](threshold: Int) extends EvalOp[A, WithGroundTruth[A]] {
-
-      def apply(a: A): EvalResult[WithGroundTruth[A]] =
-        WithGroundTruth.fromResultLabels(a, _ >= threshold).toRight(NoLabelsGtEqRelevanceThreshold)
-    }
-
-
     sealed trait EngagementOp[A, B] extends EvalOp[A, B]
     object EngagementOp {
 
-      case class EngagementToJudgement[A: Engagements[*, E], E](e: engagement.Judge[E]) extends EngagementOp[A, WithGroundTruth[A]] {
+      case class EngagementToJudgement[A: Engagements[*, E] : Results, E](e: engagement.Judge[E]) extends EngagementOp[A, ResultRels] {
 
-        final def apply(a: A): EvalResult[WithGroundTruth[A]] =
-          WithGroundTruth.fromLabels(a, a.engagementCounts, f).toRight(NoValidEngagements)
+        final def apply(a: A): EvalResult[ResultRels] =
+          Relevance.fromLabelsToRel(a, a.engagementCounts, f).toRight(NoValidEngagements)
 
-        private lazy val f = interpreter.engagemement.judgeCompiler(e).run.rmap(_.getOrElse(false))
+        private lazy val f = interpreter.engagemement.judge.judgementCompilerToRelevance(e).run.rmap(_.getOrElse(Relevance.unjudged))
       }
 
-      case class EngagementToLabel[A: Engagements[*, E], E](e: engagement.Labeler[E]) extends EngagementOp[A, WithLabels[A]] {
+      case class EngagementToLabel[A: Engagements[*, E] : Results, E](e: engagement.Labeler[E]) extends EngagementOp[A, ResultRels] {
 
-        final def apply(a: A): EvalResult[WithLabels[A]] =
-          WithLabels.fromLabels(a, a.engagementCounts, f).toRight(NoValidEngagements)
+        final def apply(a: A): EvalResult[ResultRels] =
+          Relevance.fromLabelsToRel(a, a.engagementCounts, f).toRight(NoValidEngagements)
 
-        private lazy val f = interpreter.engagemement.labelerCompiler(e).run
+        private lazy val f = interpreter.engagemement.label.labelerToRelevanceCompiler(e).run.rmap(_.getOrElse(Relevance.unjudged))
       }
     }
 

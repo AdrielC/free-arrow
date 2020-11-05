@@ -72,6 +72,20 @@ class FreeEvalTest extends FlatSpec with Matchers {
     assert(result.lookup("label(cartadd).ndcg.@10").exists(_.contains(0.6020905207089401)))
   }
 
+  "NDCG" should "compute accurately" in {
+
+    val rankedLabels = Ranked.at(
+      Rank(1) -> Label(1.0),
+      Rank(4) -> Label(1.0),
+      Rank(10) -> Label(1.0),
+      Rank(25) -> Label(1.0),
+      Rank(49) -> Label(1.0),
+      Rank(70) -> Label(1.0)
+    )
+
+    assert(rankedLabels.ndcgK(50).contains(0.7155165369503295))
+  }
+
   "Free Eval" should "combine" in {
     import eval._
 
@@ -89,16 +103,40 @@ class FreeEvalTest extends FlatSpec with Matchers {
 
     val metrics =
       label.count.from[ResultEngs](clicks, cartAdds, purchases) >>>
-        judge.label.isPositive >>>
         atK(10, 20, 30, 40, 50, 60) >++
         (ndcg, precision, recall, rPrecision)
 
     val result = metrics.run(results)
-
-    println(result)
-
     assert(result.length == 72)
-    assert(result.lookup("label(click).judge(>=0).ndcg.@50").exists(_.contains(0.31792843661581627)))
+    assert(result.lookup("label(click).ndcg.@50").exists(_.contains(0.31792843661581627)))
+  }
+
+
+  "Free Eval" should "combine both labelers and judgements" in {
+    import eval._
+
+    val results = EngagedResults(
+      NonEmptyList.fromListUnsafe((1L to 60L).toList),
+      NonEmptyMap.of(
+        1L -> (10.clicks + 5.cartAdds + 1.purchase),
+        4L -> (20.clicks + 5.cartAdds),
+        10L -> (2.purchases + 6.cartAdds + 23.clicks),
+        25L -> (5.purchases + 10.cartAdds + 1.click),
+        49L -> (3.cartAdds + 6.clicks),
+        70L -> (1.purchase + 1.cartAdd + 1.click)
+      )
+    )
+
+    val labelers = label.count.from[ResultEngs](clicks, cartAdds, purchases)
+    val judgements = judge.count.from[ResultEngs](anyClicks, anyCartAdds, anyPurchases)
+
+    val metrics =
+      (labelers <+> judgements) >>>
+        atK(10, 20, 30, 40, 50, 60) >++
+        (ndcg, precision, recall, rPrecision)
+
+    val result = metrics.run(results)
+    assert(result.length == 144)
   }
 }
 

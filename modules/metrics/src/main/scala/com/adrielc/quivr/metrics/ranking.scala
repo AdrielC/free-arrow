@@ -2,36 +2,40 @@ package com.adrielc.quivr.metrics
 
 import cats.Contravariant
 import cats.data.NonEmptyList
-import com.adrielc.quivr.metrics.retrieval.{ResultCount, TruePositiveCount}
-import com.adrielc.quivr.metrics.data.{Label, Rank, Ranked}
+import com.adrielc.quivr.metrics.retrieval.TruePositiveCount
+import com.adrielc.quivr.metrics.data.{Gain, Label, Rank, Ranked}
 import com.adrielc.quivr.metrics.result.{Qrels, ResultLabels, Results}
 import simulacrum.{op, typeclass}
 import cats.implicits._
+import com.adrielc.quivr.metrics.ranking.Relevancies.identityLabelledSet
 import com.adrielc.quivr.metrics.relevancy.Relevancy
 import eu.timepit.refined.cats._
-import eu.timepit.refined.numeric._
 import eu.timepit.refined.auto._
 
 object ranking {
+  import function._
 
-  @typeclass trait PartialRelevancy[A] extends Serializable {
+  @typeclass trait PartialRelevancies[A] extends Serializable {
 
     type Rel
+
     implicit def rel: Relevancy[Rel]
+
     def partialRelevanceLabels(a: A): Ranked[Rel]
 
-    def condensedList(a: A): Option[Ranked[Rel]] = {
+    // Return a list of all relevant ranks with their associated non-zero gain value
+    def condensedList(a: A): Option[Ranked[(Rel, Gain)]] = {
       val labs = partialRelevanceLabels(a)
       partialRelevanceLabels(a).indexes.toNel.toList
-        .mapFilter { case (r, res) => res.isJudged.guard[Option].as(r -> res) }.toNel
+        .mapFilter { case (r, res) => res.gainValue.map(g => (r, (res, g))) }.toNel
         .map(nel => Ranked(nel.toNem, labs.k))
     }
 
-    def ndcgK(a: A, k: Rank, g: Gain = gain.pow2, d: Discount = discount.log2): Option[Double] =
-      gains(a).atK(k).flatMap(calcNdcgK(_: Ranked[Double], g, d))
+    def ndcgK(a: A, k: Rank, g: GainFn = gain.pow2, d: Discount = discount.log2): Option[Double] =
+      gains(a).atK(k).flatMap(calcNdcgK(_: Ranked[Gain], g, d))
 
-    def dcgK(a: A, k: Rank, g: Gain = gain.pow2, d: Discount = discount.log2): Option[Double] =
-      gains(a).atK(k).flatMap(calcNdcgK(_: Ranked[Double], g, d))
+    def dcgK(a: A, k: Rank, g: GainFn = gain.pow2, d: Discount = discount.log2): Option[Double] =
+      gains(a).atK(k).flatMap(calcNdcgK(_: Ranked[Gain], g, d))
 
     @op("avgPrec", alias = true)
     def averagePrecision(a: A): Option[Double] = {
@@ -82,63 +86,41 @@ object ranking {
         .find { case (_, r) => r.isRel }
         .map { case (k, _) => 1 / k.toDouble }
 
-    private def gains(a: A): Ranked[Double] =
+    private def gains(a: A): Ranked[Gain] =
       partialRelevanceLabels(a).map(_.gainOrZero)
   }
-  object PartialRelevancy extends PartialRelevancy0 {
-    type Aux[R, A] = PartialRelevancy[R] { type Rel = A }
-    implicit def fromGradedRel[A: GradedRelevance]: PartialRelevancy.Aux[A, Double] = GradedRelevance[A]
-  }
-  trait PartialRelevancy0 {
-    implicit def fromBinaryRel[A: BinaryRelevance]: PartialRelevancy.Aux[A, Boolean] = BinaryRelevance[A]
-  }
-
-  @typeclass trait GradedRelevance[A] extends PartialRelevancy[A] with ResultCount[A] { self =>
-
-    def relevanceLabels(a: A): NonEmptyList[Double]
-
-    final def dcg(a: A, g: Gain = gain.pow2, d: Discount = discount.log2): Double =
-      calcDcg(relevanceLabels(a), g, d)
-
-    final def ndcg(a: A, g: Gain = gain.pow2, d: Discount = discount.log2): Option[Double] =
-      calcNdcg(relevanceLabels(a), g, d)
-
-    override def resultCount(a: A): Int =
-      relevanceLabels(a).length
-
-    def asRelevanceJudgements(f: Label => Boolean): BinaryRelevance[A] =
-      relevanceLabels(_).map(f)
-
-    override type Rel = Double
-    def rel: Relevancy[Double] = Relevancy[Double]
-    override def partialRelevanceLabels(a: A): Ranked[Label] =
-      Ranked(relevanceLabels(a))
-  }
-  object GradedRelevance {
-    implicit val identityLabelledSet: GradedRelevance[NonEmptyList[Label]] = identity
-    implicit def labelledSetFromResultsInstance[S: Results: ResultLabels]: GradedRelevance[S] = r => r.labelWith(r.resultLabels)
-    implicit val contravariantForLabelledSet: Contravariant[GradedRelevance] = new Contravariant[GradedRelevance] {
-      def contramap[A, B](fa: GradedRelevance[A])(f: B => A): GradedRelevance[B] = a => fa.relevanceLabels(f(a))
-    }
+  object PartialRelevancies {
+    type Aux[A, R] = PartialRelevancies[A] { type Rel = R }
+    implicit def fromRelevancies[A: Relevancies]: PartialRelevancies[A] = Relevancies[A]
   }
 
 
+  /**
+   *
+   * @tparam A A complete list of results with their associated relevancies
+   *           Their position in the list
+   *
+   */
+  @typeclass trait Relevancies[A] extends PartialRelevancies[A] with TruePositiveCount[A] {
 
-  @typeclass trait BinaryRelevance[A] extends PartialRelevancy[A] with TruePositiveCount[A] { self =>
+    type Rel
 
-    def relevanceJudgements(a: A): NonEmptyList[Boolean]
+    def relevancies(a: A): NonEmptyList[Rel]
 
-    final def binaryNdcg(a: A, g: Gain = gain.pow2, d: Discount = discount.log2): Option[Double] =
-      calcNdcg(binaryLabels(a), g, d)
+    final def dcg(a: A, g: GainFn = gain.pow2, d: Discount = discount.log2): Double =
+      calcDcg(gains(a), g, d)
+
+    final def ndcg(a: A, g: GainFn = gain.pow2, d: Discount = discount.log2): Option[Double] =
+      calcNdcg(gains(a), g, d)
 
     def precisionAtK(a: A, k: Rank): Option[Double] =
-      relevanceJudgements(a).atK(k).flatMap(_.precision)
+      relevancies(a).atK(k).flatMap(_.precision)
 
     def recallAtK(a: A, k: Rank): Option[Double] = {
-      val rel = relevanceJudgements(a)
-      val countRel = rel.count(identity)
-      relevanceJudgements(a).atK(k).flatMap { rel =>
-        safeDiv(rel.toList.count(identity).toDouble, countRel.toDouble)
+      val rels = relevancies(a)
+      val countRel = rels.count(_.isRel)
+      relevancies(a).atK(k).flatMap { rels =>
+        safeDiv(rels.toList.count(_.isRel).toDouble, countRel.toDouble)
       }
     }
 
@@ -151,27 +133,51 @@ object ranking {
       } yield (2 * (r * p)) / plus
 
     def rPrecision(a: A): Option[Double] = {
-      val judgements = relevanceJudgements(a)
-      val nRel = judgements.toList.count(identity)
+      val judgements = relevancies(a)
+      val nRel = judgements.toList.count(_.isRel)
       judgements.toList.take(nRel).toNel.flatMap(_.precision)
     }
 
-    def asBinaryLabels(relevanceToLabel: Boolean => Label): GradedRelevance[A] =
-      relevanceJudgements(_).map(relevanceToLabel)
+    override def resultCount(a: A): Int =
+      relevancies(a).length
 
-    override def resultCount(a: A): Int = relevanceJudgements(a).length
-    override def truePositiveCount(a: A): Int = relevanceJudgements(a).toList.count(identity)
-    private def binaryLabels(a: A): NonEmptyList[Double] = relevanceJudgements(a).map(if(_) 1.0 else 0.0)
-    override type Rel = Boolean
-    override val rel: Relevancy[Boolean] = Relevancy[Boolean]
     override def partialRelevanceLabels(a: A): Ranked[Rel] =
-      Ranked(relevanceJudgements(a))
+      Ranked(relevancies(a))
+
+    private def gains(a: A): NonEmptyList[Gain] =
+      relevancies(a).map(_.gainOrZero)
+
+    override def truePositiveCount(a: A): Int =
+      relevancies(a).count(_.isRel).toInt
   }
-  object BinaryRelevance extends PartialRelevancy.ToPartialRelevancyOps {
-    implicit val identityRelevanceJudgements: BinaryRelevance[NonEmptyList[Boolean]] = identity
-    implicit def resultsWithRelInstance[A: Results : Qrels]: BinaryRelevance[A] = a => a.judgeWith(a.qrels.set)
-    implicit val contravariantForRelevanceJudgements: Contravariant[BinaryRelevance] = new Contravariant[BinaryRelevance] {
-      def contramap[A, B](fa: BinaryRelevance[A])(f: B => A): BinaryRelevance[B] = a => fa.relevanceJudgements(f(a))
+  object Relevancies extends Relevancies0 {
+    type Aux[A, R] = Relevancies[A] { type Rel = R }
+    implicit def identityLabelledSet[R: Relevancy]: Relevancies.Aux[NonEmptyList[R], R] = new Relevancies[NonEmptyList[R]] {
+      type Rel = R
+      override val rel: Relevancy[R] = Relevancy[R]
+      def relevancies(a: NonEmptyList[R]): NonEmptyList[Rel] = a
     }
+    implicit def binaryJudgementsFromGroundTruth[S: Results: Qrels : ResultLabels]: Relevancies.Aux[S, Option[Label]] = new Relevancies[S] {
+      type Rel = Option[Label]
+      override val rel: Relevancy[Option[Label]] = Relevancy[Option[Label]]
+      def relevancies(a: S): NonEmptyList[Rel] = a.labelWith(a.resultLabels)
+      override def truePositiveCount(a: S): Int = a.results.count(a.qrels.set.contains).toInt
+    }
+
+    implicit def contravariantRels[R]: Contravariant[Relevancies.Aux[*, R]] = new Contravariant[Relevancies.Aux[*, R]] {
+      def contramap[A, B](fa: Relevancies.Aux[A, R])(f: B => A): Relevancies.Aux[B, R] = new Relevancies[B] {
+        override type Rel = R
+        override val rel: Relevancy[R] = fa.rel
+        def relevancies(a: B): NonEmptyList[Rel] = fa.relevancies(f(a))
+      }
+    }
+  }
+  trait Relevancies0 extends Relevancies1 {
+    implicit def labelledSetFromResultsInstance[S: Results: ResultLabels]: Relevancies.Aux[S, Option[Label]] =
+      Relevancies.contravariantRels.contramap(identityLabelledSet[Option[Label]])(r => r.labelWith(r.resultLabels))
+  }
+  trait Relevancies1 {
+    implicit def binarySetFromResultsInstance[S: Results: Qrels]: Relevancies.Aux[S, Boolean] =
+      Relevancies.contravariantRels.contramap(identityLabelledSet[Boolean])(r => r.judgeWith(r.qrels.set))
   }
 }

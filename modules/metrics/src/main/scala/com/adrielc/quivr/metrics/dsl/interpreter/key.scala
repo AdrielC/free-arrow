@@ -11,6 +11,7 @@ object key {
   import dsl.evaluation.EvalOp._
   import dsl.engagement.{LabelerF, JudgeF}, LabelerF._, JudgeF._
   import dsl.key.SummarizeOps
+  import function.gain
 
   type MetricKeyBuilder   = SummarizeOps[EvalOp, String]
 
@@ -46,7 +47,6 @@ object key {
         case FScore()                 => "f1"
         case AveragePrecision()       => "ap"
         case ReciprocalRank()         => "mrr"
-        case b: BinaryRels[_]         => s"judge(>=${b.threshold})"
         case EngagementToLabel(e)     => s"label(${labelerToKey(e)})"
         case EngagementToJudgement(e) => s"judge(${judgeToKey(e)})"
         case k: K[_]                  => s"@${k.k}"
@@ -55,9 +55,8 @@ object key {
     new (EvalOp ~>| Int) {
       def apply[A, B](fab: EvalOp[A, B]): Int = fab match {
         case _: EngagementOp[_, _]  => 1
-        case BinaryRels(_)          => 2
-        case _: MetricOp[_, _]      => 3
-        case K(_)                   => 4
+        case _: MetricOp[_, _]      => 2
+        case K(_)                   => 3
       }
     },
     buildKeyGroups = "("-:",":-")",

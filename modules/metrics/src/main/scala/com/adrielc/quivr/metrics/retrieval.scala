@@ -1,7 +1,7 @@
 package com.adrielc.quivr.metrics
 
 import com.adrielc.quivr.metrics.data.Judged.WithGroundTruth
-import com.adrielc.quivr.metrics.ranking.BinaryRelevance
+import com.adrielc.quivr.metrics.ranking.Relevancies
 import com.adrielc.quivr.metrics.result.{Qrels, Results}
 import simulacrum.{op, typeclass}
 import cats.implicits._
@@ -40,7 +40,7 @@ object retrieval {
      */
   }
   object TruePositiveCount {
-    implicit def relevantResultInstance[A](implicit R: BinaryRelevance[A]): TruePositiveCount[A] = R
+    implicit def relevantResultInstance[A](implicit R: Relevancies[A]): TruePositiveCount[A] = R
   }
 
   @typeclass trait RelevanceCounts[A] extends TruePositiveCount[A] {
@@ -74,7 +74,7 @@ object retrieval {
     implicit def relevanceK[A: Results : Qrels]: RelevanceCounts[A] = new RelevanceCounts[A] {
       final def groundTruthCount(a: A): Int = Qrels[A].groundTruthCount(a)
       final def resultCount(a: A): Int = Results[A].resultCount(a)
-      final def truePositiveCount(a: A): Int = BinaryRelevance[A].truePositiveCount(a)
+      final def truePositiveCount(a: A): Int = a.results.count(a.qrels.set.contains).toInt
     }
   }
 }

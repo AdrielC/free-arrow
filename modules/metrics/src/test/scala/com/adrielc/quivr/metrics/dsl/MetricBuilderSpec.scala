@@ -5,7 +5,7 @@ import com.adrielc.quivr.metrics.MyEngagement
 import com.adrielc.quivr.metrics.data.Judged.{WithGroundTruth, WithLabels}
 import org.scalatest.{FlatSpec, Matchers}
 import eu.timepit.refined.auto._
-import com.adrielc.quivr.metrics.data.EngagedResults
+import com.adrielc.quivr.metrics.data.{EngagedResults, ResultRels}
 
 class MetricBuilderSpec extends FlatSpec with Matchers {
   import MyEngagement._
@@ -22,7 +22,7 @@ class MetricBuilderSpec extends FlatSpec with Matchers {
       20L -> (2.clicks + 2.cartAdds + 2.purchases),
       30L -> (3.clicks + 3.cartAdds + 3.purchases),
       40L -> (4.clicks + 4.cartAdds + 4.purchases),
-      70L -> (7.clicks + 7.cartAdds + 7.purchases)
+      60L -> (7.clicks + 7.cartAdds + 7.purchases)
     )
   )
 
@@ -33,12 +33,14 @@ class MetricBuilderSpec extends FlatSpec with Matchers {
       clicks && (purchases.filter === 100) // is not valid, none have 100 clicks therefore should be missing from metrics
     )
 
-    val metrics = labeler >>> judge.label.isPositive >>> atK(50) >>> (eval.recall[ResTruth] &&& eval.precision)
+    val metrics = labeler >>> atK(50) >>> (eval.recall[ResultRels].tapIn(println) &&& eval.precision)
 
     val res = metrics.run(results)
 
+    println(res)
+
     assert(res.length == 2)
-    assert(res.lookup("label(purchase).judge(>=0).(recall,prec).@50").exists(_.contains((0.8, 0.08))))
+    assert(res.lookup("label(purchase).(recall,prec).@50").exists(_.contains((0.8, 0.08))))
     assert(res.lookup("label((click&filter(purchase=100))").exists(_.isLeft))
   }
 
