@@ -85,6 +85,7 @@ object result {
   }
   object ResultLabels {
     implicit val resultLabelsIdentityInstance: ResultLabels[NonEmptyMap[ResultId, Label]] = identity
+    implicit def resultLabelsRTuple[A, B: ResultLabels]: ResultLabels[(A, B)] = _._2.resultLabels
     implicit val contravariantResultLabels: Contravariant[ResultLabels] = new Contravariant[ResultLabels] {
       def contramap[A, B](fa: ResultLabels[A])(f: B => A): ResultLabels[B] = a => fa.resultLabels(f(a))
     }

@@ -28,10 +28,10 @@ class FreeEvalTest extends FlatSpec with Matchers {
         atK(10, 60) >++                   // compute downstream metrics for each K
         (eval.ndcg, eval.reciprocalRank)  // compute each metric
 
-    val metrics = evaluation.run(results)
+    val metrics = evaluation.run(results).toSortedMap
 
     assert(metrics ==
-      NonEmptyMap.of(
+      Map(
         "label(clicks).mrr.@10" -> Right(0.5),
         "label(clicks).ndcg.@10" -> Right(0.6309297535714574),
         "label(clicks).@60" -> Left(KGreaterThanMax) // metric key stops building on error so Errors aren't repeated for all downstream combinations
@@ -50,9 +50,6 @@ class FreeEvalTest extends FlatSpec with Matchers {
 
   "Free Eval" should "evaluate correctly" in {
 
-    val metrics =
-      label.from[ResultEngs](cartAdds, clicks, purchases, purchases | clicks) >>> atK(10, 20) >>> eval.ndcg
-
     val results = EngagedResults(
       NonEmptyList.of(1L, 2L to 10L:_*),
       NonEmptyMap.of(
@@ -63,25 +60,12 @@ class FreeEvalTest extends FlatSpec with Matchers {
       )
     )
 
+    val metrics =
+      label[ResultEngs](cartAdds, clicks, purchases, purchases | clicks) >>> atK(10, 20) >>> eval.ndcg
+
     val result = metrics.run(results)
 
-    println(result)
-
     assert(result.lookup("label(cartadd).ndcg.@10").exists(_.contains(0.6020905207089401)))
-  }
-
-  "NDCG" should "compute accurately" in {
-
-    val rankedLabels = Ranked.at(
-      Rank(1) -> Label(1.0),
-      Rank(4) -> Label(1.0),
-      Rank(10) -> Label(1.0),
-      Rank(25) -> Label(1.0),
-      Rank(49) -> Label(1.0),
-      Rank(70) -> Label(1.0)
-    )
-
-    assert(rankedLabels.ndcgK(50).contains(0.7155165369503295))
   }
 
   "Free Eval" should "combine" in {
@@ -100,7 +84,7 @@ class FreeEvalTest extends FlatSpec with Matchers {
     )
 
     val metrics =
-      label.from[ResultEngs](clicks, cartAdds, purchases) >>>
+      label[ResultEngs](clicks, cartAdds, purchases) >>>
         atK(10, 20, 30, 40, 50, 60) >++
         (ndcg, precision, recall, rPrecision)
 
@@ -125,8 +109,8 @@ class FreeEvalTest extends FlatSpec with Matchers {
       )
     )
 
-    val labelers = label.from[ResultEngs](clicks, cartAdds, purchases)
-    val judgements = judge.from[ResultEngs](anyClicks, anyCartAdds, anyPurchases)
+    val labelers = label[ResultEngs](clicks, cartAdds, purchases)
+    val judgements = judge[ResultEngs](anyClicks, anyCartAdds, anyPurchases)
 
     val metrics =
       (labelers <+> judgements) >>>
@@ -135,6 +119,39 @@ class FreeEvalTest extends FlatSpec with Matchers {
 
     val result = metrics.run(results)
     assert(result.length == 144)
+  }
+
+  "Filter" should "filter out result sets" in {
+
+    val results = EngagedResults(
+      NonEmptyList.fromListUnsafe((1L to 60L).toList),
+      NonEmptyMap.of(
+        1L -> (10.clicks + 5.cartAdds + 1.purchase),
+        4L -> (20.clicks + 5.cartAdds),
+        10L -> (2.purchases + 6.cartAdds + 23.clicks),
+        25L -> (5.purchases + 10.cartAdds + 1.click),
+        49L -> (3.cartAdds + 6.clicks),
+        70L -> (1.purchase + 1.cartAdd + 1.click)
+      )
+    )
+
+    val evaluation =
+      ^[ResultEngs] >>>
+        filter.nResult.===(60) >>>
+        clicks.from >>>
+        atK(60) >>>
+        eval.qMeasure(1)
+
+    assert(evaluation.run(results).contains(0.9317013470520544))
+
+    val evaluation2 =
+      ^[ResultEngs] >>>
+        filter.nResult.>(61) >>>
+        clicks.from >>>
+        atK(60) >>>
+        eval.qMeasure(1)
+
+    assert(evaluation2.run(results).isEmpty)
   }
 }
 

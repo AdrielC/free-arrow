@@ -7,13 +7,12 @@ import cats.Order
 import cats.data.{NonEmptyMap => Nem}
 import com.adrielc.quivr.metrics.data.{Rank, ResultId, ResultRels}
 import com.adrielc.quivr.metrics.dsl.engagement.{Judge, Labeler}
-import com.adrielc.quivr.metrics.dsl.evaluation.EvalOp.{EngagementToJudgement, EngagementToLabel}
+import com.adrielc.quivr.metrics.dsl.evaluation.EvalOp.{EngagementToJudgement, EngagementToLabel, ResultCountEq}
 import com.adrielc.quivr.metrics.dsl.evaluation.{EvalError, EvalOp}
 import com.adrielc.quivr.metrics.dsl.key.SummarizeOps
 import com.adrielc.quivr.metrics.ranking.{PartialRelevancies, Relevancies}
 import com.adrielc.quivr.metrics.result.{AtK, Engagements, Results}
-import com.adrielc.quivr.metrics.retrieval.{RelevanceCounts, TruePositiveCount}
-
+import com.adrielc.quivr.metrics.retrieval.{RelevanceCounts, ResultCount, TruePositiveCount}
 import cats.implicits._
 
 /**
@@ -53,6 +52,25 @@ package object dsl extends Syntax {
 
   type EvalResult[+A] = Either[EvalError, A]
 
+  def ^[A]: A >> A = FA[A]
+
+  object filter {
+
+    /**
+     * filter result set [[A]] by it's result count
+     */
+    def nResult[A]: FilterKPartiallyApplied[A] = new FilterKPartiallyApplied[A]
+    
+    class FilterKPartiallyApplied[A] private[dsl] {
+      
+      def >(k: Rank)(implicit R: ResultCount[A]): A >> A = FA.liftK(ResultCountEq(function.int.>, k))
+      def >=(k: Rank)(implicit R: ResultCount[A]): A >> A = FA.liftK(ResultCountEq(function.int.>=, k))
+      def <=(k: Rank)(implicit R: ResultCount[A]): A >> A = FA.liftK(ResultCountEq(function.int.<=, k))
+      def <(k: Rank)(implicit R: ResultCount[A]): A >> A = FA.liftK(ResultCountEq(function.int.<, k))
+      def ===(k: Rank)(implicit R: ResultCount[A]): A >> A = FA.liftK(ResultCountEq(function.int.===, k))
+    }
+  }
+
   object label {
 
     import engagement._
@@ -60,7 +78,7 @@ package object dsl extends Syntax {
     /**
      * derive continuous relevance labels from result engagenments pertaining to [[A]]
      * **/
-    def from[A]: EngagementLabelBuilder[A] = new EngagementLabelBuilder[A]
+    def apply[A]: EngagementLabelBuilder[A] = new EngagementLabelBuilder[A]
 
     /**
      * Count the number of engagements of type [[E]]
@@ -113,7 +131,7 @@ package object dsl extends Syntax {
       /**
        * interpret this expression as a transformation of result engagements of type [[E]] to result labels of type [[A]]
        *
-       * same as [[label.from]] except it is for individual labelers
+       * same as [[dsl.label.apply]] except it is for individual labelers
        */
       def from[A: Engagements[*, E] : Results]: A >> ResultRels =
         FA.liftK[EvalOp, A, ResultRels](EngagementToLabel[A, E](exp))
@@ -139,7 +157,7 @@ package object dsl extends Syntax {
   object judge {
 
     /** derive binary relevance judgements from result engagenments pertaining to [[A]] **/
-    def from[A]: EngagementJudgeBuilder[A] = new EngagementJudgeBuilder[A]
+    def apply[A]: EngagementJudgeBuilder[A] = new EngagementJudgeBuilder[A]
 
     def any[E](e: E): Judge[E] =
       engagement.Judge.gt(Labeler.countOf(e), Labeler.value(0))
@@ -240,7 +258,7 @@ package object dsl extends Syntax {
 package dsl {
 
   import cats.data.NonEmptyList
-  import com.adrielc.quivr.metrics.dsl.evaluation.EvalOp.{EngagementToJudgement, EngagementToLabel}
+  import com.adrielc.quivr.metrics.dsl.evaluation.EvalOp.{EngagementToJudgement, EngagementToLabel, ResultCountEq}
   import com.adrielc.quivr.metrics.result.EngagedResults
 
   private[dsl] sealed trait ArrowFactory[F[_, _],  A, B] {
@@ -262,6 +280,10 @@ package dsl {
   class EngagementLabelBuilder[A] private[dsl] extends ArrowFactory[EvalOp, A, ResultRels] {
     type G[a] = Labeler[a]; type TC[a] = EngagedResults[A, a]
     def create[E](e: Labeler[E])(implicit E: EngagedResults[A, E]): EvalOp[A, ResultRels] = EngagementToLabel(e)
+  }
+  class FilterBuilder[A] private[dsl] extends ArrowFactory[EvalOp, A, A] {
+    type G[a] = (function.Eq[Int], Rank); type TC[a] = Results[A]
+    def create[E](e: (function.Eq[Int], Rank))(implicit E: Results[A]): EvalOp[A, A] = ResultCountEq(e._1, e._2)
   }
   private[dsl] trait Syntax extends ExprSyntax0 with key.KeyBuilderSyntax {
     implicit def toRecOps[A](a: A): engagement.RecOps[A] = new engagement.RecOps(a)

@@ -55,7 +55,7 @@ object BiFunctionK {
   def apply[F[_, _], G[_, _]](implicit B: F ~~> G): F ~~> G = B
 
 
-  implicit class ToFunctionOps[F[_, _]](private val fk: ToFunction[F]) extends AnyVal {
+  implicit class ToFunctionOps[F[_, _]](private val fk: Pure[F]) extends AnyVal {
 
     def kleisli[M[_]: Applicative]: F ~~> Kleisli[M, *, *] = fk.andThen(BiFunctionK.kleisli[M])
   }
@@ -65,9 +65,9 @@ object BiFunctionK {
 
   def collect[F[_, _]]: F ~>| List[F[_, _]] = BiFunctionK.id[F].pureOutK[List, F]
 
-  def pure[M[_]: Applicative] = new Pure[M]
+  def pure[M[_]: Applicative] = new PureOps[M]
 
-  final class Pure[M[_]] private[BiFunctionK] (implicit A: Applicative[M]) {
+  final class PureOps[M[_]] private[BiFunctionK] (implicit A: Applicative[M]) {
     def self[F[_, _]]: F ~~> λ[(α, β) => M[F[α, β]]] = new (F ~~> λ[(α, β) => M[F[α, β]]]) {
       def apply[A, B](fab: F[A, B]): M[F[A, B]] = A.pure(fab)
     }

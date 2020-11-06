@@ -5,7 +5,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import akka.NotUsed
 import akka.stream.scaladsl.{Flow, Source}
 import com.adrielc.quivr.free.FreeArrow.liftK
-import com.adrielc.quivr.{ToFunction, ~~>}
+import com.adrielc.quivr.{Pure, ~~>}
 
 import scala.util.Random
 
@@ -85,7 +85,7 @@ object Recs {
       }
     }
 
-    val pure = new ToFunction[Recs] {
+    val pure = new Pure[Recs] {
       def apply[A, B](fab: Recs[A, B]): A => B = fab match {
         case GetUserInfo => (u: User) => userInfo(u.id)
         case GetRecommendations => (u: User) => {

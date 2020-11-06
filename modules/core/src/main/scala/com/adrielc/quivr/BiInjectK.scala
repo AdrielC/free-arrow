@@ -15,14 +15,14 @@ abstract class BiInjectK[F[_, _], G[_, _]] {
 }
 
 sealed abstract private[quivr] class BiInjectKInstances {
-  implicit def catsReflexiveInjectKInstance[F[_, _]]: BiInjectK[F, F] =
+  implicit def reflexiveBiInjectKInstance[F[_, _]]: BiInjectK[F, F] =
     new BiInjectK[F, F] {
       val inj = BiFunctionK.id
 
       val prj = BiFunctionK.id[F].pureOutK
     }
 
-  implicit def catsLeftInjectKInstance[F[_, _], G[_, _]]: BiInjectK[F, BiEitherK[F, G, *, *]] =
+  implicit def leftBiInjectKInstance[F[_, _], G[_, _]]: BiInjectK[F, BiEitherK[F, G, *, *]] =
     new BiInjectK[F, BiEitherK[F, G, *, *]] {
       val inj = BiEitherK.leftK
 
@@ -31,7 +31,7 @@ sealed abstract private[quivr] class BiInjectKInstances {
       }
     }
 
-  implicit def catsRightInjectKInstance[F[_, _], G[_, _], H[_, _]](implicit I: BiInjectK[F, G]): BiInjectK[F, BiEitherK[H, G, *, *]] =
+  implicit def rightBiInjectKInstance[F[_, _], G[_, _], H[_, _]](implicit I: BiInjectK[F, G]): BiInjectK[F, BiEitherK[H, G, *, *]] =
     new BiInjectK[F, BiEitherK[H, G, *, *]] {
       val inj = BiEitherK.rightK.compose(I.inj)
 

@@ -23,6 +23,9 @@ object evaluation {
   val runEvalWithError: EvalOp ~~> EvalFn = new (EvalOp ~~> EvalFn) {
     override def apply[A, B](fab: EvalOp[A, B]): EvalFn[A, B] = fab match {
 
+      case res: ResultCountEq[A] => a =>
+        res.eq(res.R.resultCount(a), res.k.value).guard[Option].as(a).toRight(ResultSizeFiltered(res.eq, res.k): EvalError)
+
       case eng: EvalOp.EngagementToJudgement[A, e] =>
         val f = judgeF[e](eng.e)
         a: A => ResultRels(eng.R.results(a), eng.E.engagements(a), f).toRight(NoValidJudgements: EvalError)

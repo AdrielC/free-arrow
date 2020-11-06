@@ -5,13 +5,16 @@ import com.adrielc.quivr.metrics.data._
 import com.adrielc.quivr.metrics.dsl.engagement.{Judge, Labeler}
 import com.adrielc.quivr.metrics.ranking.{PartialRelevancies, Relevancies}
 import com.adrielc.quivr.metrics.result.{AtK, Engagements, Results}
-import com.adrielc.quivr.metrics.retrieval.{RelevanceCounts, TruePositiveCount}
+import com.adrielc.quivr.metrics.retrieval.{RelevanceCounts, ResultCount, TruePositiveCount}
 import function._
 
 object evaluation {
 
   sealed trait EvalOp[A, B]
   object EvalOp {
+
+    sealed trait FilterOp[A] extends EvalOp[A, A]
+    final case class ResultCountEq[A](eq: function.Eq[Int], k: Rank)(implicit val R: ResultCount[A]) extends FilterOp[A]
 
     sealed trait EngagementOp[A, B] extends EvalOp[A, B]
     final case class EngagementToJudgement[A, E](e: Judge[E]) (implicit val E: Engagements[A, E], val R: Results[A]) extends EngagementOp[A, ResultRels]
@@ -35,4 +38,5 @@ object evaluation {
   case object NoValidJudgements extends EvalError
   case object NoValidLabels     extends EvalError
   case object NoRelevant        extends EvalError
+  case class ResultSizeFiltered(eq: function.Eq[Int], k: Rank) extends EvalError
 }

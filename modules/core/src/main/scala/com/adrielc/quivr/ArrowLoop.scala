@@ -13,7 +13,7 @@ object ArrowLoop {
 
   def apply[F[_, _]](implicit A: ArrowLoop[F]): ArrowLoop[F] = A
 
-  implicit val functionArrowLoop: ArrowLoop[Function1] = new ComposedArrowInstance[Function1] with ArrowLoop[Function1] {
+  implicit val functionArrowLoop: ArrowLoop[Function1] = new instances.ComposedArrowInstance[Function1] with ArrowLoop[Function1] {
 
     val A: Arrow[Function1] = catsStdInstancesForFunction1
 

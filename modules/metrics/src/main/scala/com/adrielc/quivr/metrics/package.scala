@@ -49,7 +49,7 @@ package object metrics extends AtK.ToAtKOps
    * Also possible to use
    *
     */
-  private[metrics] def calcNdcgK(labels: Ranked[Label], g: GainFn, d: DiscountFn): Option[Double] = {
+  def calcNdcgK(labels: Ranked[Label], g: GainFn, d: DiscountFn): Option[Double] = {
     val ideal = labels.copy(indexes = labels.indexes.toNel.sortBy(-_._2.value).mapWithIndex { case ((k, l), i) =>
       val r = Rank.fromIndex(i)
       val ll = if(k > labels.k) Label(0.0) else l // disregard gain from results above rank K
@@ -60,13 +60,13 @@ package object metrics extends AtK.ToAtKOps
       calcDcgK(ideal, g, d)
     )
   }
-  private[metrics] def calcDcgK(ranked: Ranked[Label], g: GainFn, d: DiscountFn): Double =
+  def calcDcgK(ranked: Ranked[Label], g: GainFn, d: DiscountFn): Double =
     ranked.indexes.toNel.foldMap { case (r, label) => if(r > ranked.k) 0.0 else g(label.value) / d(r) }
 
-  private[metrics] def calcDcg(labels: NonEmptyList[Label], g: GainFn, d: DiscountFn): Double =
+  def calcDcg(labels: NonEmptyList[Label], g: GainFn, d: DiscountFn): Double =
     labels.foldLeft((0.0, 1)) { case ((s, idx), label) => (s + (g(label.value) / d(idx)), idx + 1) }._1
 
-  private[metrics] def calcNdcg(labels: NonEmptyList[Label], g: GainFn, d: DiscountFn): Option[Double] = {
+  def calcNdcg(labels: NonEmptyList[Label], g: GainFn, d: DiscountFn): Option[Double] = {
     val ideal = labels.sortBy(-_.value)
     safeDiv(
       calcDcg(labels, g, d),
