@@ -65,7 +65,7 @@ metrics == NonEmptyMap.of(
 
  val singleLabeler: MyClass >> WithLabels[MyClass]  = countClicks.from[MyClass]   // for one labeler
 
- val manyLabelers: MyClass +> WithLabels[MyClass]   = label.count.from[MyClass](  // or for many labelers
+ val manyLabelers: MyClass +> WithLabels[MyClass]   = label[MyClass](  // or for many labelers
   countClicks,
   countPurchases,
   countClicks + (countPurchases 5)
