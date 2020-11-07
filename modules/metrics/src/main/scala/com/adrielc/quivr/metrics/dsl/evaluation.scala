@@ -22,14 +22,14 @@ object evaluation {
     final case class K[A](k: Rank)(implicit val A: AtK[A]) extends EvalOp[A, A]
 
     sealed trait MetricOp[A, B] extends EvalOp[A, B]
-    final case class Ndcg[A](g: GainFn, d: DiscountFn)(implicit val R: ResultRelevancies[A])        extends MetricOp[A, Double]
-    final case class RPrecision[A]()                  (implicit val R: ResultRelevancies[A])        extends MetricOp[A, Double]
+    final case class Ndcg[A](g: GainFn, d: DiscountFn)(implicit val R: ResultRelevancies[A]) extends MetricOp[A, Double]
+    final case class RPrecision[A]()                  (implicit val R: ResultRelevancies[A]) extends MetricOp[A, Double]
     final case class QMeasure[A](b: Double)           (implicit val P: RankedRelevancies[A]) extends MetricOp[A, Double]
     final case class AveragePrecision[A]()            (implicit val P: RankedRelevancies[A]) extends MetricOp[A, Double]
     final case class ReciprocalRank[A]()              (implicit val P: RankedRelevancies[A]) extends MetricOp[A, Double]
     final case class FScore[A]()                      (implicit val R: RelevanceCount[A])    extends MetricOp[A, Double]
     final case class Recall[A]()                      (implicit val R: RelevanceCount[A])    extends MetricOp[A, Double]
-    final case class Precision[A]()                   (implicit val T: TruePositiveCount[A])  extends MetricOp[A, Double]
+    final case class Precision[A]()                   (implicit val T: TruePositiveCount[A]) extends MetricOp[A, Double]
   }
 
   sealed trait EvalError
