@@ -3,7 +3,7 @@ package com.adrielc.quivr.metrics
 import cats.Order
 import cats.data.NonEmptyMap
 import cats.implicits._
-import com.adrielc.quivr.metrics.data.{EngagedResults, KeyCounts, NonZeroCount}
+import com.adrielc.quivr.metrics.data.{EngagedResults, KeyCounts}
 import eu.timepit.refined.types.numeric.PosInt
 
 sealed abstract class MyEngagement extends Product with Serializable

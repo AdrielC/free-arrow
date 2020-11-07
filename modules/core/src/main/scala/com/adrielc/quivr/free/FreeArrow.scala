@@ -190,33 +190,33 @@ sealed abstract class FreeArrow[-R[f[_, _]] <: Arrow[f], +Flow[_, _], In, Out] {
     self.rmap(_._2)
 
   /** Return a tuple with output [[Out]] first and input [[In]] second  */
-  def *->* : FreeArrow[R, Flow, In, (Out, In)] =
+  def ->* : FreeArrow[R, Flow, In, (Out, In)] =
     self.merge(id)
 
   def >*^[C](f: (Out, In) => C): FreeArrow[R, Flow, In, C] =
-    self.*->*.rmap(f.tupled)
+    self.->*.rmap(f.tupled)
 
   /** Return a tuple with input [[In]] first and output [[Out]] second  */
-  def *-*> : FreeArrow[R, Flow, In, (In, Out)] =
+  def -*> : FreeArrow[R, Flow, In, (In, Out)] =
     id.merge(self)
 
   /** Dead end. Discard the output [[Out]] and Return the input [[In]] */
-  def *-* : FreeArrow[R, Flow, In, In] =
-    self.*->*._2
+  def -* : FreeArrow[R, Flow, In, In] =
+    self.->*._2
 
   /** Feed input [[In]] to two copies of this arrow and tuple the outputs */
-  def *=>> : FreeArrow[R, Flow, In, (Out, Out)] =
+  def =>> : FreeArrow[R, Flow, In, (Out, Out)] =
     self.merge(self)
 
   /** duplicate the output [[Out]] */
-  def *->> : FreeArrow[R, Flow, In, (Out, Out)] =
+  def ->> : FreeArrow[R, Flow, In, (Out, Out)] =
     self.rmap(o => (o, o))
 
   /** feed [[Out]] to a dead end arrow, ignoring its output and returning the [[Out]] */
   def >>|[RR[f[_, _]] <: R[f], FF[a, b] >: Flow[a, b]](
     deadEnd: FreeArrow[RR, FF, Out, Unit]
   ): FreeArrow[RR, FF, In, Out] =
-    self.andThen(deadEnd.*-*)
+    self.andThen(deadEnd.-*)
 
   /** feed [[Monoid.empty]] to the input of [[mergeR]], and thread it's output tupled right of [[Out]] */
   def >>/[RR[f[_, _]] >: AR[f] <: R[f], FF[a, b] >: Flow[a, b], I: Monoid, A](

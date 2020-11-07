@@ -8,7 +8,7 @@ import com.adrielc.quivr.free.FreeArrow
 import cats.implicits._
 import cats.kernel.Order
 import com.adrielc.quivr.data.AccumMap
-import com.adrielc.quivr.metrics.data.ResultRels
+import com.adrielc.quivr.metrics.data.RankedResults
 import com.adrielc.quivr.metrics.data.relevance.Relevance
 import com.adrielc.quivr.metrics.dsl.engagement.{Judge, Labeler}
 import com.adrielc.quivr.metrics.dsl.evaluation.EvalOp._
@@ -27,15 +27,15 @@ object evaluation {
         res.eq(res.R.resultCount(a), res.k.value).guard[Option].as(a).toRight(ResultSizeFiltered(res.eq, res.k): EvalError)
 
       case eng: EvalOp.EngagementToJudgement[A, e] =>
-        val f = judgeF[e](eng.e)
-        a: A => ResultRels(eng.R.results(a), eng.E.engagements(a), f).toRight(NoValidJudgements: EvalError)
+        val f = judgeF[e](eng.e); implicit val e = eng.E; implicit val r = eng.R
+        a: A => RankedResults[A, e, Relevance](a, f).toRight(NoValidJudgements: EvalError)
 
       case eng: EvalOp.EngagementToLabel[A, e] =>
-        val f = labelF[e](eng.e)
-        a: A => ResultRels(eng.R.results(a), eng.E.engagements(a), f).toRight(NoValidLabels: EvalError)
+        val f = labelF[e](eng.e); implicit val e = eng.E; implicit val r = eng.R
+        a: A => RankedResults[A, e, Relevance](a, f).toRight(NoValidLabels: EvalError)
 
       case at: EvalOp.K[A] =>
-        a: A => at.A.atK(a, at.k).toRight(KGreaterThanMax: EvalError)
+        a: A => at.A.atK(a, at.k.value).toRight(KGreaterThanMax: EvalError)
 
       case op: EvalOp.MetricOp[A, Double] @unchecked => op match {
         case m@Ndcg(g, d)         => a => m.R.ndcg(a, g, d).toRight(NoRelevant: EvalError)
@@ -56,14 +56,15 @@ object evaluation {
       engagemement.label.labelerToRelevanceCompiler(l).run.rmap(_.getOrElse(Relevance.unjudged))
   }
 
-
-  def compileManyMetrics[A, B, M: Order](fab: FreeArrow[ACP, EvalOp, A, B], describe: SummarizeOps[EvalOp, M]): A => NonEmptyMap[M, Either[EvalError, B]] =
+  def compileManyMetrics[A, B, M: Order](fab: FreeArrow[ACP, EvalOp, A, B], describe: SummarizeOps[EvalOp, M]): A => NonEmptyMap[M, Either[EvalError, B]] = {
+    implicit def evalOpOrder: Order[EvalOp[_, _]] = Order.by(_.hashCode())
     fab.foldMap[EvalOpMap](new (EvalOp ~~> EvalOpMap) {
       def apply[C, D](fab: EvalOp[C, D]): EvalOpMap[C, D] = {
         val f = runEvalWithError(fab)
         Kleisli(a => AccumMap.either(fab.pure[List], f(a)))
       }
-    }).run.rmap(_.sortedMap.toNel.map { case (k, v) => describe.summarize(k) -> v }.toNem)
+    }).run.rmap(_.nem.toNel.map { case (k, v) => describe.summarize(k) -> v }.toNem)
+  }
 
   def compileSingleMetric[A, B, M](fab: FreeArrow[AC, EvalOp, A, B], describe: SummarizeOps[EvalOp, M]): A => (M, EvalResult[B]) = {
     val descr = describe.summarize(fab.analyze(BiFunctionK.collect[EvalOp]))
@@ -74,6 +75,4 @@ object evaluation {
       }
     }).run.rmap(descr -> _)
   }
-
-  implicit def evalOpOrder: Order[EvalOp[_, _]] = Order.by(_.hashCode())
 }

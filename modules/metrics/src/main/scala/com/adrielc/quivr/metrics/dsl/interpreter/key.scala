@@ -8,7 +8,7 @@ object key {
   import dsl.evaluation.EvalOp
   import dsl.evaluation.EvalOp._
   import dsl.engagement.{LabelerF, JudgeF}, LabelerF._, JudgeF._
-  import dsl.key.SummarizeOps
+  import dsl.key._
   import function.gain
 
   type MetricKeyBuilder   = SummarizeOps[EvalOp, String]
@@ -30,7 +30,10 @@ object key {
     e.cata[String] {
       case Or(e1, e2)       => s"($e1|$e2)"
       case And(e1, e2)      => s"($e1&$e2)"
-      case Equiv(e, e1, e2) => s"(${labelerToKey(e1)}$e${labelerToKey(e2)})"
+      case Equiv(e, e1, e2) => (e, e2.unFix) match {
+        case (function.double.>, Value(0)) => s"binary${labelerToKey(e1).capitalize}" // handle special binary case
+        case _ => s"(${labelerToKey(e1)}$e${labelerToKey(e2)})"
+      }
     }
 
   val defaultKeyBuilder: MetricKeyBuilder = SummarizeOps(
@@ -46,8 +49,8 @@ object key {
         case FScore() => "f1"
         case AveragePrecision() => "ap"
         case ReciprocalRank() => "mrr"
-        case EngagementToLabel(e) => s"label(${labelerToKey(e)})"
-        case EngagementToJudgement(e) => s"judge(${judgeToKey(e)})"
+        case EngagementToLabel(e) => labelerToKey(e)
+        case EngagementToJudgement(e) => judgeToKey(e)
         case k: K[_] => s"@${k.k}"
       }
     },

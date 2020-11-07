@@ -2,18 +2,15 @@ package com.adrielc.quivr
 package metrics
 
 import com.adrielc.quivr.free.{FA, FAP, FreeArrow}
-import FreeArrow.liftK
 import cats.Order
-import cats.data.{NonEmptyMap => Nem}
-import com.adrielc.quivr.metrics.data.{Rank, ResultId, ResultRels}
-import com.adrielc.quivr.metrics.dsl.engagement.{Judge, Labeler}
+import cats.data.{NonEmptyList, NonEmptyMap => Nem}
 import com.adrielc.quivr.metrics.dsl.evaluation.EvalOp.{EngagementToJudgement, EngagementToLabel, ResultCountEq}
 import com.adrielc.quivr.metrics.dsl.evaluation.{EvalError, EvalOp}
 import com.adrielc.quivr.metrics.dsl.key.SummarizeOps
-import com.adrielc.quivr.metrics.ranking.{PartialRelevancies, Relevancies}
-import com.adrielc.quivr.metrics.result.{AtK, Engagements, Results}
-import com.adrielc.quivr.metrics.retrieval.{RelevanceCounts, ResultCount, TruePositiveCount}
 import cats.implicits._
+import com.adrielc.quivr.metrics.dsl.label.LabelerFilterOps
+import com.adrielc.quivr.metrics.result.{AtK, Engagements, Results}
+import com.adrielc.quivr.metrics.retrieval.ResultCount
 
 /**
  *
@@ -30,7 +27,8 @@ import cats.implicits._
  * - needs to be reusable/modular (i.e. same evaluation pipeline used for different datatypes)
  *
  */
-package object dsl extends Syntax {
+package object dsl {
+  import engagement._
 
   /**
    * Sequential arrow composition
@@ -52,7 +50,14 @@ package object dsl extends Syntax {
 
   type EvalResult[+A] = Either[EvalError, A]
 
+
+  /**
+   * Identity eval arrow
+   * Helpful when creating arrows where the types can be
+   * better inferred when specifying an input
+   */
   def ^[A]: A >> A = FA[A]
+
 
   object filter {
 
@@ -60,9 +65,8 @@ package object dsl extends Syntax {
      * filter result set [[A]] by it's result count
      */
     def nResult[A]: FilterKPartiallyApplied[A] = new FilterKPartiallyApplied[A]
-    
+
     class FilterKPartiallyApplied[A] private[dsl] {
-      
       def >(k: Rank)(implicit R: ResultCount[A]): A >> A = FA.liftK(ResultCountEq(function.int.>, k))
       def >=(k: Rank)(implicit R: ResultCount[A]): A >> A = FA.liftK(ResultCountEq(function.int.>=, k))
       def <=(k: Rank)(implicit R: ResultCount[A]): A >> A = FA.liftK(ResultCountEq(function.int.<=, k))
@@ -73,12 +77,19 @@ package object dsl extends Syntax {
 
   object label {
 
-    import engagement._
-
     /**
      * derive continuous relevance labels from result engagenments pertaining to [[A]]
      * **/
-    def apply[A]: EngagementLabelBuilder[A] = new EngagementLabelBuilder[A]
+    def apply[A]: PartiallyAppliedLabeler[A] = new PartiallyAppliedLabeler[A]
+
+    final class PartiallyAppliedLabeler[A] private[dsl] {
+
+      def apply[E](e: Labeler[E])(implicit R: Results[A], E: Engagements[A, E]): A >> ResultRels =
+        FA.liftK(EngagementToLabel(e): EvalOp[A, ResultRels])
+
+      def apply[E](e: Labeler[E], es: Labeler[E]*)(implicit R: Results[A], E: Engagements[A, E]): A +> ResultRels =
+        FA.plus(NonEmptyList(apply(e), es.map(apply(_)).toList))
+    }
 
     /**
      * Count the number of engagements of type [[E]]
@@ -101,88 +112,102 @@ package object dsl extends Syntax {
                          (implicit E: A LabelFor E): Labeler[E] =
       sum(w._1 * w._2, ws.map { case (e, w) => e * w}:_*)
 
-    /**
-     * Implicitly available on any [[Labeler]]
-     */
-    class LabelerOps[E](private val exp: Labeler[E]) extends AnyVal {
-      // compose with other Expressions
-
-      // arithmetic
-      def +[B: LabelFor[*, E]](other: B) : Labeler[E] = Labeler.sum(exp, other.labeler)
-      def *[B: LabelFor[*, E]](other: B) : Labeler[E] = Labeler.times(exp, other.labeler)
-      def /[B: LabelFor[*, E]](other: B) : Labeler[E] = Labeler.div(exp, other.labeler)
-
-      // returns a labeler that must satisfy the expression
-      def filter: LabelerFilterOps[E] = new LabelerFilterOps(exp)
-
-      // convert to a judgement if the label satisfies the predicates below
-      def <=[B: LabelFor[*, E]](other: B)   : Judge[E] = Judge.ltEq(exp, other.labeler)
-      def >=[B: LabelFor[*, E]](other: B)   : Judge[E] = Judge.gtEq(exp, other.labeler)
-      def >[B: LabelFor[*, E]](other: B)    : Judge[E] = Judge.gt(exp, other.labeler)
-      def <[B: LabelFor[*, E]](other: B)    : Judge[E] = Judge.lt(exp, other.labeler)
-      def ===[B: LabelFor[*, E]](other: B)  : Judge[E] = Judge.isEq(exp, other.labeler)
-
-      // fall back on other labeler if no valid labels can be found
-      def |[B: LabelFor[*, E]](other: B)  : Labeler[E] = Labeler.or(exp, other.labeler)
-
-      // makes this labeler dependent on the successful labeling on an other, then add the labels
-      def &&[B: LabelFor[*, E]](other: B) : Labeler[E] = Labeler.and(exp, other.labeler)
-
-      /**
-       * interpret this expression as a transformation of result engagements of type [[E]] to result labels of type [[A]]
-       *
-       * same as [[dsl.label.apply]] except it is for individual labelers
-       */
-      def from[A: Engagements[*, E] : Results]: A >> ResultRels =
-        FA.liftK[EvalOp, A, ResultRels](EngagementToLabel[A, E](exp))
-
-      def engsToLabels[A: Engagements[*, E]](a: A): Map[ResultId, Option[Double]] = {
-        val f = interpreter.engagemement.label.labelerCompiler(exp)
-        a.engagementCounts.mapValues(f.run)
-      }
-
-      def labelResults[A: Engagements[*, E]: Results](a: A): Option[ResultRels] =
-        from[A].run(a).toOption
-    }
-
     class LabelerFilterOps[E](private val exp: Labeler[E]) extends AnyVal {
-      def <=[B: LabelFor[*, E]](other: B) : Labeler[E] = Labeler.ltEq(exp, other.labeler)
-      def >=[B: LabelFor[*, E]](other: B) : Labeler[E] = Labeler.gtEq(exp, other.labeler)
-      def >[B: LabelFor[*, E]](other: B)  : Labeler[E] = Labeler.gt(exp, other.labeler)
-      def <[B: LabelFor[*, E]](other: B)  : Labeler[E] = Labeler.lt(exp, other.labeler)
-      def ===[B: LabelFor[*, E]](other: B): Labeler[E] = Labeler.isEq(exp, other.labeler)
+      def <=[B: LabelFor[*, E]](other: B) : Labeler[E] = Labeler.equiv(function.double.<=, exp, other.labeler)
+      def >=[B: LabelFor[*, E]](other: B) : Labeler[E] = Labeler.equiv(function.double.>=, exp, other.labeler)
+      def >[B: LabelFor[*, E]](other: B)  : Labeler[E] = Labeler.equiv(function.double.>, exp, other.labeler)
+      def <[B: LabelFor[*, E]](other: B)  : Labeler[E] = Labeler.equiv(function.double.<, exp, other.labeler)
+      def ===[B: LabelFor[*, E]](other: B): Labeler[E] = Labeler.equiv(function.double.===, exp, other.labeler)
     }
+  }
+
+  // compose with other Expressions
+  implicit class LabelerOps[E](private val lab: Labeler[E]) extends AnyVal {
+
+    // arithmetic
+    def +[B: LabelFor[*, E]](other: B) : Labeler[E] = Labeler.sum(lab, other.labeler)
+    def *[B: LabelFor[*, E]](other: B) : Labeler[E] = Labeler.times(lab, other.labeler)
+    def /[B: LabelFor[*, E]](other: B) : Labeler[E] = Labeler.div(lab, other.labeler)
+
+    // returns a labeler that must satisfy the expression
+    def filter: LabelerFilterOps[E] = new label.LabelerFilterOps(lab)
+
+    // convert to a judgement if the label satisfies the predicates below
+    def <=[B: LabelFor[*, E]](other: B)   : Judge[E] = Judge.equiv(function.double.<=, lab, other.labeler)
+    def >=[B: LabelFor[*, E]](other: B)   : Judge[E] = Judge.equiv(function.double.>=, lab, other.labeler)
+    def >[B: LabelFor[*, E]](other: B)    : Judge[E] = Judge.equiv(function.double.>, lab, other.labeler)
+    def <[B: LabelFor[*, E]](other: B)    : Judge[E] = Judge.equiv(function.double.<, lab, other.labeler)
+    def ===[B: LabelFor[*, E]](other: B)  : Judge[E] = Judge.equiv(function.double.===, lab, other.labeler)
+
+    // fall back on other labeler if no valid labels can be found
+    def |[B: LabelFor[*, E]](other: B)  : Labeler[E] = Labeler.or(lab, other.labeler)
+
+    // makes this labeler dependent on the successful labeling on an other, then add the labels
+    def &&[B: LabelFor[*, E]](other: B) : Labeler[E] = Labeler.and(lab, other.labeler)
+
+    /**
+     * interpret this expression as a transformation of result engagements of type [[E]] to result labels of type [[A]]
+     *
+     * same as [[dsl.label.apply]] except it is for individual labelers
+     */
+    def from[A: Engagements[*, E] : Results]: A >> ResultRels =
+      FA.liftK[EvalOp, A, ResultRels](EngagementToLabel[A, E](lab))
+
+    def engsToLabels[A](a: A)(implicit E: Engagements[A, E]): Map[ResultId, Option[Double]] = {
+      val f = interpreter.engagemement.label.labelerCompiler(lab)
+      E.engagements(a).mapValues(f.run)
+    }
+
+    def labelResults[A: Engagements[*, E]: Results](a: A): Option[ResultRels] =
+      from[A].run(a).toOption
   }
 
   object judge {
 
-    /** derive binary relevance judgements from result engagenments pertaining to [[A]] **/
+    /**
+     *
+     * derive binary relevance judgements from result engagenments pertaining to [[A]]
+     *
+     * {{{
+     * val clicks = label.count(Click)
+     * val single: MyResults >> ResultRels = judge[MyResults](clicks > 0)
+     * val multiple: MyResults +> ResultRels = judge[MyResults](clicks > 0, clicks > 5, clicks > 10)
+     * }}}
+     *
+     * @tparam A The type from which to extract engagements of type [[E]]
+     * @return an arrow with [[A]] as input and [[ResultRels]] as output
+     */
     def apply[A]: EngagementJudgeBuilder[A] = new EngagementJudgeBuilder[A]
 
-    def any[E](e: E): Judge[E] =
-      engagement.Judge.gt(Labeler.countOf(e), Labeler.value(0))
+    final class EngagementJudgeBuilder[A] private[dsl] {
+
+      def apply[E](e: Judge[E])(implicit R: Results[A], E: Engagements[A, E]): A >> ResultRels =
+        FA.liftK(EngagementToJudgement(e): EvalOp[A, ResultRels])
+
+      def apply[E](e: Judge[E], es: Judge[E]*)(implicit R: Results[A], E: Engagements[A, E]): A +> ResultRels =
+        FA.plus(NonEmptyList(apply(e), es.map(apply(_)).toList))
+    }
+
+    def any[E](e: E): Judge[E] = Labeler.countOf(e) > 0
+  }
+
+  implicit class JudgementOps[E](private val exp: Judge[E]) extends AnyVal {
+
+    def |(other: Judge[E])  : Judge[E] = Judge.or(exp, other)
+
+    def &&(other: Judge[E]) : Judge[E] = Judge.and(exp, other)
+
+    // convert to labeler that runs if this predicate succeeds
+    def ->>[B:engagement. LabelFor[*, E]](b: B): Labeler[E] = Labeler.ifThen(exp, b.labeler)
 
     /**
-     * Implicitly available on any [[Labeler]], [[Int]], and [[Double]]
+     * interpret this Expression as a function from Engagements of type [[E]] to a ground truth set for [[A]]
      */
-    class JudgementOps[E](private val exp: Judge[E]) extends AnyVal {
+    def lift[A: Engagements[*, E] : Results]: A >> ResultRels =
+      FA.liftK[EvalOp, A, ResultRels](EngagementToJudgement[A, E](exp))
 
-      def |(other: Judge[E])  : Judge[E] = Judge.or(exp, other)
-
-      def &&(other: Judge[E]) : Judge[E] = Judge.and(exp, other)
-
-      // convert to labeler that runs if this predicate succeeds
-      def ->>[B:engagement. LabelFor[*, E]](b: B): Labeler[E] = Labeler.ifThen(exp, b.labeler)
-
-      /**
-       * interpret this Expression as a function from Engagements of type [[E]] to a ground truth set for [[A]]
-       */
-      def from[A: Engagements[*, E] : Results]: A >> ResultRels =
-        FA.liftK[EvalOp, A, ResultRels](EngagementToJudgement[A, E](exp))
-
-      def run[A: Engagements[*, E]: Results](a: A): Option[ResultRels] =
-        from[A].run(a).toOption
-    }
+    def run[A: Engagements[*, E]: Results](a: A): Option[ResultRels] =
+      lift[A].run(a).toOption
   }
 
 
@@ -190,10 +215,10 @@ package object dsl extends Syntax {
   object atK {
 
     def apply[A: AtK](k: Rank): A >> A =
-      liftK(EvalOp.K[A](k))
+      FA.liftK(EvalOp.K[A](k))
 
     def apply[A: AtK](k: Rank, ks: Rank*): A +> A =
-      FreeArrow.plus(dsl.atK[A](k), ks.map(k => dsl.atK[A](k)):_*)
+      FA.plus(dsl.atK[A](k), ks.map(k => dsl.atK[A](k)):_*)
   }
 
 
@@ -201,35 +226,37 @@ package object dsl extends Syntax {
   object eval {
     import EvalOp.{Ndcg, QMeasure, FScore, Precision, AveragePrecision, ReciprocalRank, RPrecision, Recall}
     import function._
+    import ranking._
+    import retrieval._
 
     def apply[A](m: A +> Double, ms: A +> Double*): A +> Double =
       FA.plus(m, ms:_*)
 
-    def ndcg[A: Relevancies]: A >> Double =
+    def ndcg[A: ResultRelevancies]: A >> Double =
       ndcgWithGain(gain.pow2)
 
-    def qMeasure[A: PartialRelevancies](b: Double): A >> Double =
+    def qMeasure[A: RankedRelevancies](b: Double): A >> Double =
       FA.liftK(QMeasure(b))
 
-    def ndcgWithGain[A: Relevancies](g: GainFn): A >> Double =
+    def ndcgWithGain[A: ResultRelevancies](g: GainFn): A >> Double =
       FA.liftK(Ndcg(g, discount.log2))
 
-    def fScore[A: RelevanceCounts]: A >> Double =
+    def fScore[A: RelevanceCount]: A >> Double =
       FA.liftK(FScore[A])
 
-    def recall[A: RelevanceCounts]: A >> Double =
+    def recall[A: RelevanceCount]: A >> Double =
       FA.liftK(Recall[A])
 
     def precision[A: TruePositiveCount]: A >> Double =
       FA.liftK(Precision[A])
 
-    def averagePrecision[A: PartialRelevancies]: A >> Double =
+    def averagePrecision[A: RankedRelevancies]: A >> Double =
       FA.liftK(AveragePrecision[A])
 
-    def reciprocalRank[A: PartialRelevancies]: A >> Double =
+    def reciprocalRank[A: RankedRelevancies]: A >> Double =
       FA.liftK(ReciprocalRank[A])
 
-    def rPrecision[A: Relevancies]: A >> Double =
+    def rPrecision[A: ResultRelevancies]: A >> Double =
       FA.liftK(RPrecision[A])
   }
 
@@ -252,45 +279,5 @@ package object dsl extends Syntax {
 
     def compile[M: Order](describeOps: SummarizeOps[EvalOp, M]): A => Nem[M, EvalResult[B]] =
       interpreter.evaluation.compileManyMetrics(fab, describeOps)
-  }
-}
-
-package dsl {
-
-  import cats.data.NonEmptyList
-  import com.adrielc.quivr.metrics.dsl.evaluation.EvalOp.{EngagementToJudgement, EngagementToLabel, ResultCountEq}
-  import com.adrielc.quivr.metrics.result.EngagedResults
-
-  private[dsl] sealed trait ArrowFactory[F[_, _],  A, B] {
-    type G[_]
-    type TC[_]
-
-    final def apply[E](e: G[E])(implicit E: TC[E]): FA[F, A, B] =
-      FA.liftK(create(e))
-
-    final def apply[E](e: G[E], es: G[E]*)(implicit E: TC[E]): FAP[F, A, B] =
-      FA.plus(NonEmptyList(apply(e), es.map(apply(_)).toList))
-
-    def create[E](e: G[E])(implicit E: TC[E]): F[A, B]
-  }
-  class EngagementJudgeBuilder[A] private[dsl] extends ArrowFactory[EvalOp, A, ResultRels] {
-    type G[a] = Judge[a]; type TC[a] = EngagedResults[A, a]
-    def create[E](e: Judge[E])(implicit E: EngagedResults[A, E]): EvalOp[A, ResultRels] = EngagementToJudgement(e)
-  }
-  class EngagementLabelBuilder[A] private[dsl] extends ArrowFactory[EvalOp, A, ResultRels] {
-    type G[a] = Labeler[a]; type TC[a] = EngagedResults[A, a]
-    def create[E](e: Labeler[E])(implicit E: EngagedResults[A, E]): EvalOp[A, ResultRels] = EngagementToLabel(e)
-  }
-  class FilterBuilder[A] private[dsl] extends ArrowFactory[EvalOp, A, A] {
-    type G[a] = (function.Eq[Int], Rank); type TC[a] = Results[A]
-    def create[E](e: (function.Eq[Int], Rank))(implicit E: Results[A]): EvalOp[A, A] = ResultCountEq(e._1, e._2)
-  }
-  private[dsl] trait Syntax extends ExprSyntax0 with key.KeyBuilderSyntax {
-    implicit def toRecOps[A](a: A): engagement.RecOps[A] = new engagement.RecOps(a)
-    implicit def toJudgeOps[A](a: Judge[A]): dsl.judge.JudgementOps[A] = new judge.JudgementOps(a)
-    implicit def toLabelerOps[A](a: Labeler[A]): dsl.label.LabelerOps[A] = new label.LabelerOps(a)
-  }
-  private[dsl] trait ExprSyntax0 {
-    implicit def liftToLabelerOps[A](a: A)(implicit E: engagement.LabelFor[A, A]): label.LabelerOps[A] = new label.LabelerOps(a.labeler)
   }
 }

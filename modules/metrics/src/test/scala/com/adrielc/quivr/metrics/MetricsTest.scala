@@ -1,34 +1,34 @@
 package com.adrielc.quivr.metrics
 
-import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem, NonEmptySet => Nes}
+import cats.data.{NonEmptyMap => Nem, NonEmptySet => Nes, NonEmptyVector => Nev}
 import cats.implicits._
-import com.adrielc.quivr.metrics.data.{Label, ResultId}
 import com.adrielc.quivr.metrics.function.gain
-import com.adrielc.quivr.metrics.result.{GroundTruth, ResultLabels, Results}
+import com.adrielc.quivr.metrics.result._
 import eu.timepit.refined.auto._
 import eu.timepit.refined.types.numeric.PosInt
 import org.scalatest.{FlatSpec, Matchers}
 
-case class ResultsWithRelevant(results: Nel[Long], relevant: Nes[Long], labels: Nem[Long, Label])
+case class ResultsWithRelevant(results: Nev[Long], relevant: Nes[Long], labels: Nem[Long, Label])
 object ResultsWithRelevant {
   implicit val relevanciesInstance: Results[ResultsWithRelevant] with GroundTruth[ResultsWithRelevant] with ResultLabels[ResultsWithRelevant] =
     new Results[ResultsWithRelevant] with GroundTruth[ResultsWithRelevant] with ResultLabels[ResultsWithRelevant] {
       override def groundTruth(a: ResultsWithRelevant): GroundTruth.RelSet = GroundTruth.RelSet(a.relevant)
-      override def results(a: ResultsWithRelevant): Nel[ResultId] = a.results
+      override def results(a: ResultsWithRelevant): Nev[ResultId] = a.results
       override def resultLabels(a: ResultsWithRelevant): Nem[ResultId, Label] = a.labels
   }
 }
 
 
 class MetricsTest extends FlatSpec with Matchers {
+  import implicits._
 
-  val results = ResultsWithRelevant(
-    Nel.of(1L, 2L, 3L, 4L),
+  val results: ResultsWithRelevant = ResultsWithRelevant(
+    Nev.of(1L, 2L, 3L, 4L),
     Nes.of(1L, 2L, 3L, 4L),
     Nem.of(1L -> 1d, 2L -> 2d, 3L -> 3d, 4L -> 4d)
   )
 
-  val relevanceJudgements: cats.data.NonEmptyList[Boolean] = Nel.of(true, false, true, true, false, true, false, false)
+  val relevanceJudgements = Nev.of(true, false, true, true, false, true, false, false)
 
   "Ndcg" should "accurately compute" in {
 
@@ -66,7 +66,7 @@ class MetricsTest extends FlatSpec with Matchers {
 //    7	01	0.24	Not Relevant (0.0)	0.73
 //    8	07	0.16	Not Relevant (0.0)	0.66
 
-    val expected = Nel.of(
+    val expected = Nev.of(
       0.40,
       0.3333333333333333,
       0.5714285714285715,
@@ -95,7 +95,10 @@ class MetricsTest extends FlatSpec with Matchers {
   "MRR" should "accurately compute" in {
 
     assert(relevanceJudgements.reciprocalRank.contains(1.0))
-    assert(Nel.of(false, false, true, true, false, true, false, false).reciprocalRank.contains(0.3333333333333333))
+
+    val judged = Nev.of(false, false, true, true, false, true, false, false)
+
+    assert(judged.reciprocalRank.contains(0.3333333333333333))
   }
 
   "RPrecision" should "accurately compute" in {

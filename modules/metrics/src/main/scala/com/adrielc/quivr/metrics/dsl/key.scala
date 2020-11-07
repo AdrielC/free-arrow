@@ -49,7 +49,7 @@ object key {
     implicit def toKeyBuilderOps[A](a: A): KeyBuilderOps[A] = new KeyBuilderOps(a)
   }
 
-  class KeyBuilderOps[A](private val delim: A) extends AnyVal {
+  implicit class KeyBuilderOps[A](private val delim: A) extends AnyVal {
     def -:(p: A)(implicit S: Semigroup[A]): KeyBuilder[A] = KeyBuilder(delim).addPrefix(p)
     def :-(s: A)(implicit S: Semigroup[A]): KeyBuilder[A] = KeyBuilder(delim).addSuffix(s)
   }

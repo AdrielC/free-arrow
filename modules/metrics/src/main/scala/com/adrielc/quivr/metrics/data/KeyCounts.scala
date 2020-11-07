@@ -1,4 +1,5 @@
-package com.adrielc.quivr.metrics.data
+package com.adrielc.quivr.metrics
+package data
 
 import cats.data.NonEmptyMap
 import cats.kernel.{CommutativeSemigroup, Order}
@@ -11,7 +12,7 @@ case class KeyCounts[K](counts: NonEmptyMap[K, NonZeroCount]) {
   def +(other: KeyCounts[K])(implicit O: Order[K]): KeyCounts[K] =
     KeyCounts(NonEmptyMap.fromMapUnsafe(counts.toSortedMap |+| other.counts.toSortedMap))
 
-  def toMap: Map[K, Int] = counts.toSortedMap.mapValues(_.toInt)
+  def toMap: Map[K, Int] = counts.toSortedMap.mapValues(_.value)
 
   def binarize: KeyCounts[K] =
     copy(counts = counts.map(_ => 1))

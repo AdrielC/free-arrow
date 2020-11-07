@@ -69,7 +69,7 @@ object FreeCompose {
   final private case class LiftK[F[_, _], A, B](f: F[A, B]) extends FreeCompose[F, A, B]
   final private case class AndThen[F[_, _], A, B, C](f: FreeCompose[F, A, B], g: FreeCompose[F, B, C]) extends FreeCompose[F, A, C]
 
-  implicit def category[F[_, _]]: Compose[FreeCompose[F, *, *]] = new Compose[FreeCompose[F, *, *]] {
+  implicit def freeComposeComposeInstance[F[_, _]]: Compose[FreeCompose[F, *, *]] = new Compose[FreeCompose[F, *, *]] {
 
     def compose[A, B, C](f: FreeCompose[F, B, C], g: FreeCompose[F, A, B]): FreeCompose[F, A, C] = AndThen(g, f)
   }

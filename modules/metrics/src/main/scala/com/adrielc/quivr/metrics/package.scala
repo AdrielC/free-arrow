@@ -1,14 +1,14 @@
 package com.adrielc.quivr
 
-import cats.data.NonEmptyList
-import com.adrielc.quivr.metrics.data.{Label, Rank, Ranked}
+import cats.data.{NonEmptyMap, NonEmptyVector}
+import com.adrielc.quivr.metrics.data.{Ranked, RankedResults}
 import eu.timepit.refined.auto._
 import eu.timepit.refined.cats._
 import cats.implicits._
-import com.adrielc.quivr.metrics.ranking.{PartialRelevancies, Relevancies}
-import com.adrielc.quivr.metrics.relevancy.Relevancy
-import com.adrielc.quivr.metrics.result.{AtK, Engagements, GroundTruth, ResultLabels, Results}
-import com.adrielc.quivr.metrics.retrieval.{RelevanceCounts, TruePositiveCount}
+import com.adrielc.quivr.metrics.data.relevance.Relevance
+import com.adrielc.quivr.metrics.ranking.Relevancy
+import eu.timepit.refined.api.RefinedTypeOps
+import eu.timepit.refined.types.numeric.{NonNegInt, PosInt}
 
 import scala.math.{log, pow}
 
@@ -29,17 +29,25 @@ import scala.math.{log, pow}
  *
  */
 
-package object metrics extends AtK.ToAtKOps
-  with PartialRelevancies.ToPartialRelevanciesOps
-  with Results.ToResultsOps
-  with Engagements.ToEngagementsOps
-  with TruePositiveCount.ToTruePositiveCountOps
-  with Relevancies.ToRelevanciesOps
-  with GroundTruth.ToGroundTruthOps
-  with Relevancy.ToRelevancyOps
-  with RelevanceCounts.ToRelevanceCountsOps
-  with ResultLabels.ToResultLabelsOps {
+package object metrics {
   import function._
+
+  type Label = Double
+  type Gain = Double
+
+  type ResultId = Long
+  type ResultRels = RankedResults[Relevance]
+
+  type Rank = PosInt
+  object Rank extends RefinedTypeOps.Numeric[PosInt, Int] {
+    private[metrics] def fromIndex(c: Int): Rank = PosInt.unsafeFrom(c + 1)
+  }
+
+  type Count = NonNegInt
+  object Count extends RefinedTypeOps.Numeric[NonNegInt, Int]
+
+  type NonZeroCount = PosInt
+  object NonZeroCount extends RefinedTypeOps.Numeric[PosInt, Int]
 
   /**
    * IDCG is only calculated to the indexes available in `labels`.
@@ -49,10 +57,10 @@ package object metrics extends AtK.ToAtKOps
    * Also possible to use
    *
     */
-  def calcNdcgK(labels: Ranked[Label], g: GainFn, d: DiscountFn): Option[Double] = {
-    val ideal = labels.copy(indexes = labels.indexes.toNel.sortBy(-_._2.value).mapWithIndex { case ((k, l), i) =>
+  def calcNdcgK(labels: Ranked[Double], g: GainFn, d: DiscountFn): Option[Double] = {
+    val ideal = labels.copy(rankings = labels.rankings.toNel.sortBy(-_._2).mapWithIndex { case ((k, l), i) =>
       val r = Rank.fromIndex(i)
-      val ll = if(k > labels.k) Label(0.0) else l // disregard gain from results above rank K
+      val ll = if(k > labels.k) 0.0 else l // disregard gain from results above rank K
       r -> ll
     }.toNem)
     safeDiv(
@@ -60,19 +68,54 @@ package object metrics extends AtK.ToAtKOps
       calcDcgK(ideal, g, d)
     )
   }
-  def calcDcgK(ranked: Ranked[Label], g: GainFn, d: DiscountFn): Double =
-    ranked.indexes.toNel.foldMap { case (r, label) => if(r > ranked.k) 0.0 else g(label.value) / d(r) }
+  def calcDcgK(ranked: Ranked[Double], g: GainFn, d: DiscountFn): Double =
+    ranked.rankings.toNel.foldMap { case (r, label) => if(r > ranked.k) 0.0 else g(label) / d(r) }
 
-  def calcDcg(labels: NonEmptyList[Label], g: GainFn, d: DiscountFn): Double =
-    labels.foldLeft((0.0, 1)) { case ((s, idx), label) => (s + (g(label.value) / d(idx)), idx + 1) }._1
+  def calcDcg(labels: NonEmptyVector[Double], g: GainFn, d: DiscountFn): Double =
+    labels.foldLeft((0.0, 1)) { case ((s, idx), label) => (s + (g(label) / d(idx)), idx + 1) }._1
 
-  def calcNdcg(labels: NonEmptyList[Label], g: GainFn, d: DiscountFn): Option[Double] = {
-    val ideal = labels.sortBy(-_.value)
+  def calcNdcg(labels: NonEmptyVector[Double], g: GainFn, d: DiscountFn): Option[Double] = {
+    val ideal = labels.sortBy(-_)
     safeDiv(
       calcDcg(labels, g, d),
       calcDcg(ideal, g, d)
     )
   }
+
+  def calcAP[R: Relevancy](rnk: Ranked[R]): Option[Double] = {
+    import ranking.Relevancy.ops._
+    val (correct, sum) = rnk.rankings.toNel.foldLeft((0, 0.0)) { case ((c, s), (i, r)) =>
+      if (r.isRel) {
+        val correct = c + 1
+        val sum = s + (correct / i.toDouble)
+        (correct, sum)
+      } else (c, s)
+    }
+    safeDiv(sum.toDouble, correct.toDouble)
+  }
+
+  def calcQ[R: Relevancy](rnk: Ranked[R], b: Double): Option[Double] = {
+    import Relevancy.ops._
+    val labs = rnk.rankings.toNel
+    val ideal = labs.sortBy(-_._2.gainOrZero)
+    val withIdeal = labs.zipWith(ideal)((a, b) => (Rank.fromIndex(a._1), a._2, b._2))
+    val (_, _, correct, sum) = withIdeal.foldLeft((0.0, 0.0, 0, 0.0)) {
+      case (prev @ (cg, cgI, c, s), (k, r, rIdeal)) =>
+        if(r.isRel) {
+          val cG      = cg + r.gainOrZero
+          val cGI     = cgI + rIdeal.gainOrZero
+          val correct = c + 1
+          val sum     = s + ((b*cG + correct) / (b*cGI + k.toDouble))
+          (cG, cGI, correct, sum)
+        } else prev
+    }
+    safeDiv(sum.toDouble, correct.toDouble)
+  }
+
+  def calcReciprocalRank[R: Relevancy](rnk: NonEmptyMap[Rank, R]): Option[Double] =
+    rnk.toNel
+      .find { case (_, r) => Relevancy[R].isRel(r) }
+      .map { case (k, _) => 1 / k.toDouble }
 
   private[metrics] val log2 = (d: Int) => log(d + 1.0) / log(2.0)
   private[metrics] val powOf: Double => Double => Double = e => i => pow(e, i) - 1.0

@@ -1,15 +1,17 @@
-package com.adrielc.quivr.metrics.dsl
+package com.adrielc.quivr.metrics
+package dsl
 
-import cats.data.{NonEmptyList, NonEmptyMap, NonEmptySet}
-import com.adrielc.quivr.metrics.data.EngagedResults
+import cats.data.{NonEmptyList, NonEmptyMap, NonEmptySet, NonEmptyVector}
 import org.scalatest.{FlatSpec, Matchers}
 import cats.implicits._
+import com.adrielc.quivr.metrics.data.EngagedResults
+import implicits._
 
 class ExprTest extends FlatSpec with Matchers {
   import com.adrielc.quivr.metrics.MyEngagement._
 
   val results = EngagedResults(
-    NonEmptyList.of(1L, 2L to 10L:_*),
+    NonEmptyVector.of(1L, 2L to 10L:_*),
     NonEmptyMap.of(
       1L -> (1.click + 1.cartAdd + 1.purchase),
       2L -> (2.click + 2.cartAdd + 2.purchase),
@@ -25,7 +27,7 @@ class ExprTest extends FlatSpec with Matchers {
 
     val labeler = clicks + cartAdds + purchases
 
-    val r = labeler.labelResults(results).exists(_.res.toNem.lookup(1L).exists(_.gainOrZero.value == 3.0))
+    val r = labeler.labelResults(results).exists(_.res.toNem.lookup(1L).exists(_.gainOrZero == 3.0))
 
     assert(r)
   }
@@ -36,7 +38,7 @@ class ExprTest extends FlatSpec with Matchers {
 
     val labeler2 = clicks + cartAdds*5 + purchases*25
 
-    val r = labeler.labelResults(results).exists(_.res.toNem.lookup(1L).exists(_.gainOrZero.value == 31.0))
+    val r = labeler.labelResults(results).exists(_.res.toNem.lookup(1L).exists(_.gainOrZero == 31.0))
 
     assert(r)
     assert(labeler.labelResults(results) == labeler2.labelResults(results))
@@ -49,7 +51,7 @@ class ExprTest extends FlatSpec with Matchers {
 
     val expected = NonEmptyList.of(1L -> 31.0, 2L -> 31.0, 3L -> 31.0, 4L -> 31.0, 8L -> 5.0, 9L -> 25.0, 10L -> 1.0)
 
-    assert(weighted.run(results).map(_.res.toNem.map(_.gain.map(_.value)).toNel.toList.mapFilter(a => a._2.map(a._1 -> _)).toNel.get).right.get == expected)
+    assert(weighted.run(results).map(_.res.toNem.map(_.gain).toNel.toList.mapFilter(a => a._2.map(a._1 -> _)).toNel.get).right.get == expected)
   }
 
   "Judgements" should "exclude any result with either only clicks or nothing" in {
@@ -98,7 +100,7 @@ class ExprTest extends FlatSpec with Matchers {
         70L -> (1.purchase + 1.cartAdd + 200.click)
       )
 
-    val res = EngagedResults(NonEmptyList.of(1L, 2L to 70L:_*), engagements)
+    val res = EngagedResults(NonEmptyVector.of(1L, 2L to 70L:_*), engagements)
 
     val standardWeightedEngs = clicks + cartAdds*5 + purchases*25
 
@@ -110,13 +112,13 @@ class ExprTest extends FlatSpec with Matchers {
 
     assert(evaluator.run(res) == Right(0.7544045426339389))
 
-    assert(a.labelResults(res).foldMapK(_.res.toNem.toSortedMap.toList.mapFilter{case (k, v) => v.gain.map(k -> _.value)}).toMap == Map(
+    assert(a.labelResults(res).foldMapK(_.res.toNem.toSortedMap.toList.mapFilter{case (k, v) => v.gain.map(k -> _)}).toMap == Map(
       1L -> 500.0,
       4L -> 500.0,
       10L -> 500.0,
       25L -> 500.0,
       49L -> 30.0,
-      70L -> 0.0
+      70L -> -1.0
     ))
   }
 }

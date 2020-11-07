@@ -40,7 +40,7 @@ object engagemement {
     val labelerToRelevanceCompiler: Labeler ~> FromEngs[*, Relevance] = {
       new (Labeler ~> FromEngs[*, Relevance]) {
         override def apply[A](fa: Labeler[A]): FromEngs[A, Relevance] =
-          labelerCompiler(fa).map(Relevance.from)
+          labelerCompiler(fa).map(Relevance.label)
       }
     }
   }
@@ -65,7 +65,7 @@ object engagemement {
     val judgementCompilerToRelevance: Judge ~> FromEngs[*, Relevance] =
       new (engagement.Judge ~> FromEngs[*, Relevance]) {
         override def apply[A](fa: Judge[A]): FromEngs[A, Relevance] =
-          judgeCompiler(fa).map(Relevance.binary)
+          judgeCompiler(fa).map(Relevance.judge)
       }
 
     private val orElseZeroCompiler: Labeler ~> FromEngs[*, Double] =

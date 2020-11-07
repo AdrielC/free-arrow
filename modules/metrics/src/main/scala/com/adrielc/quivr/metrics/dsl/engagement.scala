@@ -3,11 +3,11 @@ package dsl
 
 import matryoshka.data.Fix
 import scalaz.Functor
+import Numeric.Implicits._
 
 object engagement {
   import LabelerF._
   import JudgeF._
-  import function.double
 
   /** Expression used to define mapping of result engagements [[E]] to a relevance label (continuous) **/
   type Labeler[E] = Fix[LabelerF[E, *]]
@@ -20,24 +20,16 @@ object engagement {
     def ifThen[E](i: Judge[E], t: Labeler[E])     : Labeler[E] = Fix(IfThen(i, t))
     def and[E](e1: Labeler[E], e2: Labeler[E])    : Labeler[E] = Fix(And(e1, e2))
     def or[E](e1: Labeler[E], e2: Labeler[E])     : Labeler[E] = Fix(Or(e1, e2))
-    def isEq[E](e: Labeler[E], v: Labeler[E])     : Labeler[E] = Fix(Equiv(double.===, e, v): LabelerF[E, Labeler[E]])
-    def ltEq[E](e: Labeler[E], v: Labeler[E])     : Labeler[E] = Fix(Equiv(double.<=, e, v): LabelerF[E, Labeler[E]])
-    def lt[E](e: Labeler[E], v: Labeler[E])       : Labeler[E] = Fix(Equiv(double.<, e, v): LabelerF[E, Labeler[E]])
-    def gtEq[E](e: Labeler[E], v: Labeler[E])     : Labeler[E] = Fix(Equiv(double.>=, e, v): LabelerF[E, Labeler[E]])
-    def gt[E](e: Labeler[E], v: Labeler[E])       : Labeler[E] = Fix(Equiv(double.>, e, v): LabelerF[E, Labeler[E]])
+    def equiv[E](eq: function.Eq[Double], e: Labeler[E], v: Labeler[E]): Labeler[E] = Fix(Equiv(eq, e, v): LabelerF[E, Labeler[E]])
   }
 
 
   /** Expression used to define mapping of result engagements [[E]] to a judgement (binary) **/
   type Judge[E]  = Fix[JudgeF[E, *]]
   object Judge {
-    def isEq[E](e: Labeler[E], v: Labeler[E]) : Judge[E] = Fix(Equiv(double.===, e, v): JudgeF[E, Judge[E]])
-    def ltEq[E](e: Labeler[E], v: Labeler[E]) : Judge[E] = Fix(Equiv(double.<=, e, v): JudgeF[E, Judge[E]])
-    def lt[E](e: Labeler[E], v: Labeler[E])   : Judge[E] = Fix(Equiv(double.<, e, v): JudgeF[E, Judge[E]])
-    def gtEq[E](e: Labeler[E], v: Labeler[E]) : Judge[E] = Fix(Equiv(double.>=, e, v): JudgeF[E, Judge[E]])
-    def gt[E](e: Labeler[E], v: Labeler[E])   : Judge[E] = Fix(Equiv(double.>, e, v): JudgeF[E, Judge[E]])
-    def and[E](e1: Judge[E], e2: Judge[E])    : Judge[E] = Fix(And(e1, e2))
-    def or[E](e1: Judge[E], e2: Judge[E])     : Judge[E] = Fix(Or(e1, e2))
+    def and[E](e1: Judge[E], e2: Judge[E]): Judge[E] = Fix(And(e1, e2))
+    def or[E](e1: Judge[E], e2: Judge[E]): Judge[E] = Fix(Or(e1, e2))
+    def equiv[E](eq: function.Eq[Double], e: Labeler[E], v: Labeler[E]): Judge[E] = Fix(Equiv(eq, e, v): JudgeF[E, Judge[E]])
   }
 
 
@@ -83,13 +75,12 @@ object engagement {
     }
   }
 
-  private[dsl] trait LabelFor[A, E] { def embed(a: A): Labeler[E] }
+  private[dsl] trait LabelFor[A, E] { def labeler(a: A): Labeler[E] }
   private[dsl] object LabelFor {
     implicit def liftFixExpr[E]: Labeler[E] LabelFor E = (a: Labeler[E]) => a
-    implicit def liftInt[E]: Int LabelFor E = a => Fix(Value(a.toDouble): LabelerF[E, Labeler[E]])
-    implicit def liftDouble[E]: Double LabelFor E = a => Fix(Value(a): LabelerF[E, Labeler[E]])
+    implicit def liftNumeric[N: Numeric, E]: N LabelFor E = a => Fix(Value(a.toDouble): LabelerF[E, Labeler[E]])
   }
-  private[dsl] class RecOps[A](private val a: A) extends AnyVal {
-    def labeler[E](implicit R: LabelFor[A, E]): Labeler[E] = R.embed(a)
+  private[dsl] implicit class LabelForOps[A](private val a: A) extends AnyVal {
+    def labeler[E](implicit R: LabelFor[A, E]): Labeler[E] = R.labeler(a)
   }
 }

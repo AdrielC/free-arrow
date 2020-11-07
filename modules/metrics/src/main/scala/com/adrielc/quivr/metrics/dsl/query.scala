@@ -1,9 +1,9 @@
-package com.adrielc.quivr.metrics.dsl
+package com.adrielc.quivr.metrics
+package dsl
 
 import java.time.Instant
 
 import cats.data.{NonEmptyList, NonEmptyMap}
-import com.adrielc.quivr.metrics.data.{Label, ResultId}
 
 object query {
 

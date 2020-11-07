@@ -2,13 +2,14 @@ package com.adrielc.quivr
 package metrics
 package dsl
 
-import cats.data.{NonEmptyList, NonEmptyMap}
+import cats.data.{NonEmptyList, NonEmptyMap, NonEmptyVector}
 import cats.implicits._
 import com.adrielc.quivr.metrics.data._
 import org.scalatest.{FlatSpec, Matchers}
 import eu.timepit.refined.auto._
 import MyEngagement._
 import com.adrielc.quivr.metrics.dsl.evaluation.KGreaterThanMax
+import metrics.implicits._
 
 
 class FreeEvalTest extends FlatSpec with Matchers {
@@ -32,9 +33,9 @@ class FreeEvalTest extends FlatSpec with Matchers {
 
     assert(metrics ==
       Map(
-        "label(clicks).mrr.@10" -> Right(0.5),
-        "label(clicks).ndcg.@10" -> Right(0.6309297535714574),
-        "label(clicks).@60" -> Left(KGreaterThanMax) // metric key stops building on error so Errors aren't repeated for all downstream combinations
+        "clicks.mrr.@10" -> Right(0.5),
+        "clicks.ndcg.@10" -> Right(0.6309297535714574),
+        "clicks.@60" -> Left(KGreaterThanMax) // metric key stops building on error so Errors aren't repeated for all downstream combinations
       )
     )
   }
@@ -44,14 +45,14 @@ class FreeEvalTest extends FlatSpec with Matchers {
     val resAt4 = Ranked.of(1, 2, 3, 4, 5).atK(4)
 
     assert(resAt4.contains(
-      Ranked(Ranked.at((1:Rank) -> 1, (2: Rank) -> 2, (3: Rank) -> 3, (4: Rank) -> 4, (5: Rank) -> 5).indexes, 4)
+      Ranked(Ranked.at((1:Rank) -> 1, (2: Rank) -> 2, (3: Rank) -> 3, (4: Rank) -> 4, (5: Rank) -> 5).rankings, 4)
     ))
   }
 
   "Free Eval" should "evaluate correctly" in {
 
     val results = EngagedResults(
-      NonEmptyList.of(1L, 2L to 10L:_*),
+      NonEmptyVector.of(1L, 2L to 10L:_*),
       NonEmptyMap.of(
         1L -> (1.click + 1.cartAdd + 1.purchase),
         2L -> (2.click + 2.cartAdd + 2.purchase),
@@ -65,14 +66,14 @@ class FreeEvalTest extends FlatSpec with Matchers {
 
     val result = metrics.run(results)
 
-    assert(result.lookup("label(cartadd).ndcg.@10").exists(_.contains(0.6020905207089401)))
+    assert(result.lookup("cartadd.ndcg.@10").exists(_.contains(0.6020905207089401)))
   }
 
   "Free Eval" should "combine" in {
     import eval._
 
     val results = EngagedResults(
-      NonEmptyList.fromListUnsafe((1L to 60L).toList),
+      NonEmptyVector.of(1L, 2L to 60L:_*),
       NonEmptyMap.of(
         1L -> (10.clicks + 5.cartAdds + 1.purchase),
         4L -> (20.clicks + 5.cartAdds),
@@ -90,7 +91,7 @@ class FreeEvalTest extends FlatSpec with Matchers {
 
     val result = metrics.run(results)
     assert(result.length == 72)
-    assert(result.lookup("label(click).ndcg.@50").exists(_.contains(0.31792843661581627)))
+    assert(result.lookup("click.ndcg.@50").exists(_.contains(0.31792843661581627)))
   }
 
 
@@ -98,7 +99,7 @@ class FreeEvalTest extends FlatSpec with Matchers {
     import eval._
 
     val results = EngagedResults(
-      NonEmptyList.fromListUnsafe((1L to 60L).toList),
+      NonEmptyVector.of(1L, 2L to 60L:_*),
       NonEmptyMap.of(
         1L -> (10.clicks + 5.cartAdds + 1.purchase),
         4L -> (20.clicks + 5.cartAdds),
@@ -124,7 +125,7 @@ class FreeEvalTest extends FlatSpec with Matchers {
   "Filter" should "filter out result sets" in {
 
     val results = EngagedResults(
-      NonEmptyList.fromListUnsafe((1L to 60L).toList),
+      NonEmptyVector.of(1L, 2L to 60L:_*),
       NonEmptyMap.of(
         1L -> (10.clicks + 5.cartAdds + 1.purchase),
         4L -> (20.clicks + 5.cartAdds),

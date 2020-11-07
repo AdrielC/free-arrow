@@ -1,9 +1,6 @@
 package com.adrielc.quivr.metrics
 
-import com.adrielc.quivr.metrics.ranking.Relevancies
-import com.adrielc.quivr.metrics.result.{GroundTruth, Results}
 import simulacrum.{op, typeclass}
-import cats.implicits._
 
 object retrieval {
 
@@ -40,10 +37,10 @@ object retrieval {
   }
   object TruePositiveCount {
 
-    implicit def relevantResultInstance[A](implicit R: Relevancies[A]): TruePositiveCount[A] = R
+    implicit def relevantResultInstance[A](implicit R: ranking.ResultRelevancies[A]): TruePositiveCount[A] = R
   }
 
-  @typeclass trait RelevanceCounts[A] extends TruePositiveCount[A] {
+  @typeclass trait RelevanceCount[A] extends TruePositiveCount[A] {
 
     def groundTruthCount(a: A): Int
 
@@ -63,12 +60,12 @@ object retrieval {
     }
   }
 
-  object RelevanceCounts {
+  object RelevanceCount {
 
-    implicit def relevanceK[A: Results : GroundTruth]: RelevanceCounts[A] = new RelevanceCounts[A] {
-      final def groundTruthCount(a: A): Int = GroundTruth[A].groundTruthCount(a)
-      final def resultCount(a: A): Int = Results[A].resultCount(a)
-      final def truePositiveCount(a: A): Int = a.results.count(a.groundTruth.set.contains).toInt
+    implicit def relevanceK[A](implicit R: result.Results[A], G: result.GroundTruth[A]): RelevanceCount[A] = new RelevanceCount[A] {
+      final def groundTruthCount(a: A): Int = G.groundTruthCount(a)
+      final def resultCount(a: A): Int = R.resultCount(a)
+      final def truePositiveCount(a: A): Int = R.results(a).toVector.count(G.groundTruth(a).set.contains)
     }
   }
 }

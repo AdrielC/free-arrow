@@ -1,22 +1,18 @@
 package com.adrielc.quivr.metrics.dsl
 
-import cats.data.{NonEmptyList, NonEmptyMap}
-import com.adrielc.quivr.metrics.MyEngagement
-import com.adrielc.quivr.metrics.data.Judged.{WithGroundTruth, WithLabels}
+import cats.data.{NonEmptyMap, NonEmptyVector}
+import com.adrielc.quivr.metrics.{MyEngagement, ResultRels}
 import org.scalatest.{FlatSpec, Matchers}
 import eu.timepit.refined.auto._
-import com.adrielc.quivr.metrics.data.{EngagedResults, ResultRels}
+import com.adrielc.quivr.metrics.data.EngagedResults
 
 class MetricBuilderSpec extends FlatSpec with Matchers {
   import MyEngagement._
 
-
-  type Labs = WithLabels[EngagedResults[MyEngagement]]
-  type ResTruth = WithGroundTruth[WithLabels[EngagedResults[MyEngagement]]]
   type Res = EngagedResults[MyEngagement]
 
   val results = EngagedResults(
-    NonEmptyList.fromListUnsafe((1L to 60L).toList),
+    NonEmptyVector.fromVectorUnsafe((1L to 60L).toVector),
     NonEmptyMap.of(
       1L -> (1.click + 1.cartAdd + 2.purchases),
       20L -> (2.clicks + 2.cartAdds + 2.purchases),
@@ -28,39 +24,38 @@ class MetricBuilderSpec extends FlatSpec with Matchers {
 
   "combine" should "build" in {
 
-    val labeler = label[Res](
-      purchases,
-      clicks && (purchases.filter === 100) // is not valid, none have 100 clicks therefore should be missing from metrics
-    )
+    val labeler = label[Res](purchases, clicks && (purchases.filter === 100))
 
     val metrics = labeler >>> atK(50) >>> (eval.recall[ResultRels] &&& eval.precision)
 
     val res = metrics.run(results)
 
+    val purchaseKey = "purchase.(recall,prec).@50"
+
     assert(res.length == 2)
-    assert(res.lookup("label(purchase).(recall,prec).@50").exists(_.contains((0.8, 0.08))))
-    assert(res.lookup("label((click&filter(purchase=100))").exists(_.isLeft))
+    assert(res.lookup(purchaseKey).exists(_.contains((0.8, 0.08))))
+    assert(res.-(purchaseKey).headOption.exists(_._2.isLeft))
   }
 
   "ranking metrics" should "be applied" in {
 
-    val levels = atK[Res](10, 20) >>> label[Res](clicks, cartAdds, purchases)  >>> eval.ndcg
-    val binary = atK[Res](30, 40) >>> judge[Res](anyClicks)                    >>> eval.averagePrecision
-    val dups = levels <+> binary
+    val evaluator =
+      (atK[Res](10, 20) >>> label[Res](clicks, cartAdds, purchases) >>> eval.ndcg) <+>
+        (atK[Res](30, 40) >>> judge[Res](anyClicks) >>> eval.averagePrecision)
 
-    val res = dups.run(results)
+    val res = evaluator.run(results)
 
     assert(res.toSortedMap == Map(
-      "judge((click>0)).ap.@30"   -> Right(0.4000000000000001),
-      "judge((click>0)).ap.@40"   -> Right(0.32500000000000007),
-      "label(cartadd).ndcg.@10"   -> Right(1.0),
-      "label(cartadd).ndcg.@20"   -> Right(0.46352060224668756),
-      "label(click).ndcg.@10"     -> Right(1.0),
-      "label(click).ndcg.@20"     -> Right(0.46352060224668756),
-      "label(purchase).ndcg.@10"  -> Right(1.0),
-      "label(purchase).ndcg.@20"  -> Right(0.7527425666302089)
+      "binaryClick.ap.@30" -> Right(0.4000000000000001),
+      "binaryClick.ap.@40" -> Right(0.32500000000000007),
+      "cartadd.ndcg.@10"   -> Right(1.0),
+      "cartadd.ndcg.@20"   -> Right(0.46352060224668756),
+      "click.ndcg.@10"     -> Right(1.0),
+      "click.ndcg.@20"     -> Right(0.46352060224668756),
+      "purchase.ndcg.@10"  -> Right(1.0),
+      "purchase.ndcg.@20"  -> Right(0.7527425666302089)
     ))
-    assert(res.lookup("judge((click>0)).ap.@40").isDefined)
-    assert(res.lookup("judge((click>0)).ap.@40").exists(_.contains(0.32500000000000007)))
+    assert(res.lookup("binaryClick.ap.@40").isDefined)
+    assert(res.lookup("binaryClick.ap.@40").exists(_.contains(0.32500000000000007)))
   }
 }

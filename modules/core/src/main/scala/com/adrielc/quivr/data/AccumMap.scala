@@ -1,46 +1,54 @@
 package com.adrielc.quivr.data
 
-import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem}
+import cats.data.{NonEmptyList => Nel, NonEmptyMap}
 import cats.{Monad, Monoid, Order, Semigroup, SemigroupK}
 import cats.implicits._
 
 import scala.collection.immutable.SortedMap
 
-case class AccumMap[K, +E, +V](sortedMap: Nem[K, Either[E, V]]) {
+/**
+ * A non empty map that represents a store of values with monoidal keys
+ *
+ * @param nem Non empty map
+ * @tparam K
+ * @tparam E
+ * @tparam V
+ */
+case class AccumMap[K, +E, +V](nem: NonEmptyMap[K, Either[E, V]]) {
 
   def map[B](f: V => B): AccumMap[K, E, B] =
-    AccumMap(sortedMap.map(_.map(f)))
+    AccumMap(nem.map(_.map(f)))
 
-  def flatMap[EE >: E, B](f: V => AccumMap[K, EE, B])(implicit M: Monoid[K], O: Order[K]): AccumMap[K, EE, B] =
+  def flatMap[EE >: E, B](f: V => AccumMap[K, EE, B])(implicit S: Semigroup[K], O: Order[K]): AccumMap[K, EE, B] =
     AccumMap(
-      sortedMap.toNel.flatMap { case (k, v) =>
-        v.fold(e => Nel.one(k -> e.asLeft), f(_).sortedMap.toNel.map { case (k1, v1) => (k |+| k1) -> v1 })
+      nem.toNel.flatMap { case (k, v) =>
+        v.fold(e => Nel.one(k -> e.asLeft), f(_).nem.toNel.map { case (k1, v1) => (k |+| k1) -> v1 })
       }.toNem)
 
   def combine[EE >: E, VV >: V: Semigroup](x: AccumMap[K, EE, VV])(implicit O: Order[K]): AccumMap[K, EE, VV] =
-    AccumMap(Nem.fromMapUnsafe(x.sortedMap.toSortedMap |+| sortedMap.toSortedMap))
+    AccumMap(NonEmptyMap.fromMapUnsafe(x.nem.toSortedMap |+| nem.toSortedMap))
 }
 object AccumMap {
 
   def apply[K: Order, V](kv: (K, V), kvs: (K, V)*): AccumMap[K, Nothing, V] =
-    AccumMap(Nem(kv._1 -> kv._2.asRight, SortedMap(kvs.map(kv1 => kv1._1 -> kv1._2.asRight):_*)))
+    AccumMap(NonEmptyMap(kv._1 -> kv._2.asRight, SortedMap(kvs.map(kv1 => kv1._1 -> kv1._2.asRight):_*)))
 
   def value[K]: ValuePartiallyApplied[K] = new ValuePartiallyApplied[K]
 
   class ValuePartiallyApplied[K] private[AccumMap] {
     def apply[V](value: V)(implicit M: Monoid[K], O: Order[K]): AccumMap[K, Nothing, V] =
-      AccumMap(Nem.one(M.empty, value.asRight))
+      AccumMap(NonEmptyMap.one(M.empty, value.asRight))
   }
 
   def either[K: Order, E, A](k: K, e: Either[E, A]): AccumMap[K, E, A] =
-    AccumMap(Nem.one(k, e))
+    AccumMap(NonEmptyMap.one(k, e))
 
 
   implicit def monad[K: Order: Monoid, E]: Monad[AccumMap[K, E, *]] with SemigroupK[AccumMap[K, E, *]] =
     new Monad[AccumMap[K, E, *]] with SemigroupK[AccumMap[K, E, *]] {
 
       override def combineK[A](x: AccumMap[K, E, A], y: AccumMap[K, E, A]): AccumMap[K, E, A] =
-        AccumMap(x.sortedMap ++ y.sortedMap)
+        AccumMap(x.nem ++ y.nem)
 
       override def flatMap[A, B](fa: AccumMap[K, E, A])(f: A => AccumMap[K, E, B]): AccumMap[K, E, B] =
         fa.flatMap(f)
