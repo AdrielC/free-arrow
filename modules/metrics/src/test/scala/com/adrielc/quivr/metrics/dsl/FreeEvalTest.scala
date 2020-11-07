@@ -10,6 +10,7 @@ import eu.timepit.refined.auto._
 import MyEngagement._
 import com.adrielc.quivr.metrics.dsl.evaluation.KGreaterThanMax
 import metrics.implicits._
+import Rankings.Ranked
 
 
 class FreeEvalTest extends FlatSpec with Matchers {

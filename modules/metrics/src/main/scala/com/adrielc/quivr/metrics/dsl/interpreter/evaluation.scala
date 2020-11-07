@@ -8,7 +8,7 @@ import com.adrielc.quivr.free.FreeArrow
 import cats.implicits._
 import cats.kernel.Order
 import com.adrielc.quivr.data.AccumMap
-import com.adrielc.quivr.metrics.data.RankedResults
+import com.adrielc.quivr.metrics.data.Rankings.RankedResults
 import com.adrielc.quivr.metrics.data.relevance.Relevance
 import com.adrielc.quivr.metrics.dsl.engagement.{Judge, Labeler}
 import com.adrielc.quivr.metrics.dsl.evaluation.EvalOp._

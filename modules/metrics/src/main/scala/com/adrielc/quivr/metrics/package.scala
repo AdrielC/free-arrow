@@ -1,10 +1,10 @@
 package com.adrielc.quivr
 
 import cats.data.{NonEmptyMap, NonEmptyVector}
-import com.adrielc.quivr.metrics.data.{Ranked, RankedResults}
 import eu.timepit.refined.auto._
 import eu.timepit.refined.cats._
 import cats.implicits._
+import com.adrielc.quivr.metrics.data.Rankings.{Ranked, RankedResults}
 import com.adrielc.quivr.metrics.data.relevance.Relevance
 import com.adrielc.quivr.metrics.ranking.Relevancy
 import eu.timepit.refined.api.RefinedTypeOps

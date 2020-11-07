@@ -2,7 +2,7 @@ package com.adrielc.quivr.metrics
 
 import cats.Contravariant
 import cats.data.{NonEmptyList, NonEmptyVector}
-import com.adrielc.quivr.metrics.data.Ranked
+import com.adrielc.quivr.metrics.data.Rankings.Ranked
 import simulacrum.{op, typeclass}
 import cats.implicits._
 import eu.timepit.refined.auto._
