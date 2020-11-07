@@ -24,7 +24,7 @@ class MetricBuilderSpec extends FlatSpec with Matchers {
 
   "combine" should "build" in {
 
-    val labeler = label[Res](purchases, clicks && (purchases.filter === 100))
+    val labeler = label.from[Res](purchases, clicks && (purchases.filter === 100))
 
     val metrics = labeler >>> atK(50) >>> (eval.recall[ResultRels] &&& eval.precision)
 
@@ -40,8 +40,8 @@ class MetricBuilderSpec extends FlatSpec with Matchers {
   "ranking metrics" should "be applied" in {
 
     val evaluator =
-      (atK[Res](10, 20) >>> label[Res](clicks, cartAdds, purchases) >>> eval.ndcg) <+>
-        (atK[Res](30, 40) >>> judge[Res](anyClicks) >>> eval.averagePrecision)
+      (atK[Res](10, 20) >>> label(clicks, cartAdds, purchases) >>> eval.ndcg) <+>
+        (atK[Res](30, 40) >>> judge(anyClicks) >>> eval.averagePrecision)
 
     val res = evaluator.run(results)
 

@@ -117,8 +117,20 @@ package object metrics {
       .find { case (_, r) => Relevancy[R].isRel(r) }
       .map { case (k, _) => 1 / k.toDouble }
 
+
+  def calcF1(truePositiveCount: Int, groundTruthCount: Int, resultCount: Int): Option[Double] = {
+    for {
+      r <- safeDivInt(truePositiveCount, groundTruthCount)
+      p <- safeDivInt(truePositiveCount, resultCount)
+      plus = r + p
+      if plus != 0
+    } yield 2 * (r * p / plus)
+  }
+
+
   private[metrics] val log2 = (d: Int) => log(d + 1.0) / log(2.0)
   private[metrics] val powOf: Double => Double => Double = e => i => pow(e, i) - 1.0
   private[metrics] val pow2 = powOf(2.0)
   private[metrics] val safeDiv: (Double, Double) => Option[Double] = (a, b) => if(b == 0) None else Some(a / b)
+  private[metrics] val safeDivInt: (Int, Int) => Option[Double] = (a, b) => safeDiv(a.toDouble, b.toDouble)
 }

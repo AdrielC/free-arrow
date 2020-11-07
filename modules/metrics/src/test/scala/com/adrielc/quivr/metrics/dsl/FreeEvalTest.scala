@@ -63,7 +63,7 @@ class FreeEvalTest extends FlatSpec with Matchers {
     )
 
     val metrics =
-      label[ResultEngs](cartAdds, clicks, purchases, purchases | clicks) >>> atK(10, 20) >>> eval.ndcg
+      label.from[ResultEngs](cartAdds, clicks, purchases, purchases | clicks) >>> atK(10, 20) >>> eval.ndcg
 
     val result = metrics.run(results)
 
@@ -86,7 +86,7 @@ class FreeEvalTest extends FlatSpec with Matchers {
     )
 
     val metrics =
-      label[ResultEngs](clicks, cartAdds, purchases) >>>
+      label.from[ResultEngs](clicks, cartAdds, purchases) >>>
         atK(10, 20, 30, 40, 50, 60) >++
         (ndcg, precision, recall, rPrecision)
 
@@ -111,13 +111,11 @@ class FreeEvalTest extends FlatSpec with Matchers {
       )
     )
 
-    val labelers = label[ResultEngs](clicks, cartAdds, purchases)
-    val judgements = judge[ResultEngs](anyClicks, anyCartAdds, anyPurchases)
-
-    val metrics =
-      (labelers <+> judgements) >>>
-        atK(10, 20, 30, 40, 50, 60) >++
-        (ndcg, precision, recall, rPrecision)
+    val metrics = ^[ResultEngs] >++ (
+      label(clicks, cartAdds, purchases),
+      judge(anyClicks, anyCartAdds, anyPurchases)) >>>
+      atK(10, 20, 30, 40, 50, 60) >++
+      (ndcg, precision, recall, rPrecision)
 
     val result = metrics.run(results)
     assert(result.length == 144)
@@ -140,7 +138,7 @@ class FreeEvalTest extends FlatSpec with Matchers {
     val evaluation =
       ^[ResultEngs] >>>
         filter.nResult.===(60) >>>
-        clicks.from >>>
+        label(clicks) >>>
         atK(60) >>>
         eval.qMeasure(1)
 

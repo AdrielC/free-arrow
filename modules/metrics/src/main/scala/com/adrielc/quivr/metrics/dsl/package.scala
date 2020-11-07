@@ -75,18 +75,24 @@ package object dsl {
 
   object label {
 
+    def apply[A, E](e: Labeler[E])(implicit R: Results[A], E: Engagements[A, E]): A >> ResultRels =
+      FA.liftK(EngagementToLabel(e): EvalOp[A, ResultRels])
+
+    def apply[A, E](e: Labeler[E], es: Labeler[E]*)(implicit R: Results[A], E: Engagements[A, E]): A +> ResultRels =
+      FA.plus(NonEmptyList(apply(e), es.map(apply(_)).toList))
+
     /**
      * derive continuous relevance labels from result engagenments pertaining to [[A]]
      * **/
-    def apply[A]: PartiallyAppliedLabeler[A] = new PartiallyAppliedLabeler[A]
+    def from[A]: PartiallyAppliedLabeler[A] = new PartiallyAppliedLabeler[A]
 
     final class PartiallyAppliedLabeler[A] private[dsl] {
 
       def apply[E](e: Labeler[E])(implicit R: Results[A], E: Engagements[A, E]): A >> ResultRels =
-        FA.liftK(EngagementToLabel(e): EvalOp[A, ResultRels])
+        label(e)
 
       def apply[E](e: Labeler[E], es: Labeler[E]*)(implicit R: Results[A], E: Engagements[A, E]): A +> ResultRels =
-        FA.plus(NonEmptyList(apply(e), es.map(apply(_)).toList))
+        label(e, es:_*)
     }
 
     /**
@@ -162,6 +168,12 @@ package object dsl {
 
   object judge {
 
+    def apply[A, E](e: Judge[E])(implicit R: Results[A], E: Engagements[A, E]): A >> ResultRels =
+      FA.liftK(EngagementToJudgement(e): EvalOp[A, ResultRels])
+
+    def apply[A, E](e: Judge[E], es: Judge[E]*)(implicit R: Results[A], E: Engagements[A, E]): A +> ResultRels =
+      FA.plus(NonEmptyList(apply(e), es.map(apply(_)).toList))
+
     /**
      *
      * derive binary relevance judgements from result engagenments pertaining to [[A]]
@@ -175,15 +187,15 @@ package object dsl {
      * @tparam A The type from which to extract engagements of type [[E]]
      * @return an arrow with [[A]] as input and [[ResultRels]] as output
      */
-    def apply[A]: EngagementJudgeBuilder[A] = new EngagementJudgeBuilder[A]
+    def from[A]: EngagementJudgeBuilder[A] = new EngagementJudgeBuilder[A]
 
     final class EngagementJudgeBuilder[A] private[dsl] {
 
       def apply[E](e: Judge[E])(implicit R: Results[A], E: Engagements[A, E]): A >> ResultRels =
-        FA.liftK(EngagementToJudgement(e): EvalOp[A, ResultRels])
+        judge(e)
 
       def apply[E](e: Judge[E], es: Judge[E]*)(implicit R: Results[A], E: Engagements[A, E]): A +> ResultRels =
-        FA.plus(NonEmptyList(apply(e), es.map(apply(_)).toList))
+        judge(e, es:_*)
     }
 
     def any[E](e: E): Judge[E] = Labeler.countOf(e) > 0

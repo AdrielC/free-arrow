@@ -10,8 +10,6 @@ import function._
 import com.adrielc.quivr.metrics.data.relevance.{Relevance, SABRel}
 import com.adrielc.quivr.metrics.result.{GroundTruth, ResultLabels, Results}
 import com.adrielc.quivr.metrics.retrieval.TruePositiveCount
-import result.AtK.ops._
-import retrieval.TruePositiveCount.ops._
 
 object ranking {
 
@@ -45,6 +43,7 @@ object ranking {
    * @tparam A
    */
   @typeclass trait RankedRelevancies[A] extends Serializable {
+    import implicits._
 
     type Rel
 
@@ -95,6 +94,7 @@ object ranking {
    * @tparam A
    */
   @typeclass trait ResultRelevancies[A] extends RankedRelevancies[A] with TruePositiveCount[A] {
+    import implicits._
 
     type Rel
 
@@ -109,7 +109,7 @@ object ranking {
       calcNdcg(gains(a), g, d)
 
     def precisionAtK(a: A, k: Rank): Option[Double] =
-      resultRelevancies(a).atK(k).flatMap(a => TruePositiveCount[NonEmptyVector[Rel]].precision(a))
+      resultRelevancies(a).atK(k).flatMap(_.precision)
 
     def recallAtK(a: A, k: Rank): Option[Double] = {
       val rels = resultRelevancies(a)
@@ -127,11 +127,9 @@ object ranking {
         if plus != 0
       } yield (2 * (r * p)) / plus
 
-    def rPrecision(a: A): Option[Double] = {
-      val judgements = resultRelevancies(a)
-      val nRel = judgements.toList.count(rel.isRel)
-      judgements.toList.take(nRel).toNel.flatMap(_.precision)
-    }
+    def rPrecision(a: A): Option[Double] =
+      Rank.from(truePositiveCount(a)).toOption
+        .flatMap(precisionAtK(a, _))
 
     override def resultCount(a: A): Int =
       resultRelevancies(a).length
@@ -140,10 +138,10 @@ object ranking {
       Ranked(resultRelevancies(a))
 
     private def gains(a: A): NonEmptyVector[Double] =
-      resultRelevancies(a).map(rel.gainOrZero)
+      resultRelevancies(a).map(_.gainOrZero)
 
     override def truePositiveCount(a: A): Int =
-      resultRelevancies(a).toList.count(rel.isRel)
+      resultRelevancies(a).toList.count(_.isRel)
   }
   object ResultRelevancies {
     type Aux[A, R] = ResultRelevancies[A] { type Rel = R }
