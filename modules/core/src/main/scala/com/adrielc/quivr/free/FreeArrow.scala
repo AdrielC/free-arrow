@@ -58,9 +58,7 @@ sealed abstract class FreeArrow[-R[f[_, _]] <: Arrow[f], +Flow[_, _], In, Out] {
   final def analyze[RR[f[_, _]] <: R[f], M](
     m: Flow ~>| M
   )(implicit R: RR[BiConst[M, *, *]]): M =
-    (self: FreeArrow[RR, Flow, In, Out]).foldMap(new (Flow ~~> BiConst[M, *, *]) {
-      def apply[C, D](f: Flow[C, D]): BiConst[M, C, D] = BiConst(m(f))
-    }).getConst
+    (self: FreeArrow[RR, Flow, In, Out]).foldMap(BiConst.liftK(m)).getConst
 
   /**
    *

@@ -3,7 +3,7 @@ package com.adrielc.quivr.data
 import cats.Monoid
 import cats.kernel.Semigroup
 import cats.syntax.monoid._
-import com.adrielc.quivr.{ArrowChoiceZero, BiDistributes}
+import com.adrielc.quivr.{ArrowChoiceZero, BiDistributes, ~>|, ~~>}
 
 /** Like [[cats.data.Const]] */
 case class BiConst[M, -A, +B](getConst: M) {
@@ -36,4 +36,8 @@ object BiConst {
       def dist[A0, A1, B0, B1](pa: BiConst[S, A0, A1], pb: BiConst[S, B0, B1]): BiConst[S, BiConst[S, A0, B0], BiConst[S, A1, B1]] =
         BiConst(pa.getConst |+| pb.getConst)
     }
+
+  def liftK[F[_, _], M](f: F ~>| M): F ~~> BiConst[M, *, *] = new (F ~~> BiConst[M, *, *]) {
+    def apply[A, B](fab: F[A, B]): BiConst[M, A, B] = BiConst(f(fab))
+  }
 }

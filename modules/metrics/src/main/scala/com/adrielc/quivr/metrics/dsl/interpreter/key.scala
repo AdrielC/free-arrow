@@ -13,10 +13,13 @@ object key {
 
   type MetricKeyBuilder   = SummarizeOps[EvalOp, String]
 
+  def formatDouble(d: Double): String =
+    if (d.isValidInt) d.toInt.toString else d.toString.replace('.', 'p')
+
   def labelerToKey[E](e: engagement.Labeler[E]): String =
     e.cata[String] {
       case Count(e)         => s"${e.toString.toLowerCase}"
-      case Value(d)         => if (d.isValidInt) d.toInt.toString else e.toString.replace('.', 'p')
+      case Value(d)         => formatDouble(d)
       case Mult(e1, e2)     => s"($e1*$e2)"
       case Sum(e1, e2)      => s"($e1+$e2)"
       case Div(e1, e2)      => s"($e1/$e2)"
@@ -41,8 +44,9 @@ object key {
       def apply[A, B](fab: EvalOp[A, B]): String = fab match {
         case ResultCountEq(eq, k) => s"filterK$eq$k"
         case Ndcg(gain.pow2, _) => "ndcg"
-        case QMeasure(b) => s"q-B$b"
+        case QMeasure(1) => "qMeasure"
         case Ndcg(g, _) => s"ndcg-G$g"
+        case QMeasure(b) => s"qMeasure-B${formatDouble(b)}"
         case Precision() => "prec"
         case RPrecision() => "rPrec"
         case Recall() => "recall"

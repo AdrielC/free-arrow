@@ -51,16 +51,16 @@ class ExprTest extends FlatSpec with Matchers {
 
     val expected = NonEmptyList.of(1L -> 31.0, 2L -> 31.0, 3L -> 31.0, 4L -> 31.0, 8L -> 5.0, 9L -> 25.0, 10L -> 1.0)
 
-    assert(weighted.run(results).map(_.res.toNem.map(_.gain).toNel.toList.mapFilter(a => a._2.map(a._1 -> _)).toNel.get).right.get == expected)
+    assert(weighted.run(results)._2.map(_.res.toNem.map(_.gain).toNel.toList.mapFilter(a => a._2.map(a._1 -> _)).toNel.get).get == expected)
   }
 
   "Judgements" should "exclude any result with either only clicks or nothing" in {
 
-    assert((cartAdds | purchases).labelResults(results).flatMap(_.res.toList.filter(_._2.isJudged).toNel.map(_.toNem.keys))
+    assert((cartAdds | purchases).labelResults(results).flatMap(_.res.toList.filter(_._2.isRel).toNel.map(_.toNem.keys))
       .contains(NonEmptySet.of(1L, 2L, 3L, 4L, 8L, 9L)))
 
-    assert((anyCartAdds | anyPurchases).run(results).flatMap(_.res.toList.filter(_._2.isJudged).toNel.map(_.toNem.keys))
-      .contains(NonEmptySet.of(1L, 2L, 3L, 4L, 8L, 9L, 10L)))
+    assert((anyCartAdds | anyPurchases).run(results).flatMap(_.res.toList.filter(_._2.isRel).toNel.map(_.toNem.keys))
+      .contains(NonEmptySet.of(1L, 2L, 3L, 4L, 8L, 9L)))
   }
 
   "Engagements" should "become labels" in {
@@ -110,7 +110,7 @@ class ExprTest extends FlatSpec with Matchers {
 
     val evaluator = a.from[ResultEngs] >>> eval.ndcg
 
-    assert(evaluator.run(res) == Right(0.7544045426339389))
+    assert(evaluator.run(res)._2.contains(0.7544045426339389))
 
     assert(a.labelResults(res).foldMapK(_.res.toNem.toSortedMap.toList.mapFilter{case (k, v) => v.gain.map(k -> _)}).toMap == Map(
       1L -> 500.0,

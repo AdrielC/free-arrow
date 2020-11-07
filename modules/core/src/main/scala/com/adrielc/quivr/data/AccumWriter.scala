@@ -1,9 +1,14 @@
 package com.adrielc.quivr.data
 
+import cats.data.Kleisli
 import cats.implicits._
 import cats.{Monad, Monoid, MonoidK, Semigroup}
+import com.adrielc.quivr.~~>
 
 case class AccumWriter[L, A](l: L, run: Option[A]) {
+
+  def mapLog[LL](f: L => LL): AccumWriter[LL, A] =
+    copy(l = f(l))
 
   def log(b: L)(implicit S: Semigroup[L]): AccumWriter[L, A] =
     AccumWriter(b |+| l, run)
@@ -43,6 +48,13 @@ object AccumWriter {
           case AccumWriter(nextL, Some(Right(b)))    => AccumWriter(nextL, Some(b))
           case AccumWriter(nextL, Some(Left(nextA))) => loop(nextL, nextA)
         }
+      }
+    }
+
+  def toAccumWriterKleisli[F[_, _]](fOpt: F ~~> Kleisli[Option, *, *]): F ~~> Kleisli[AccumWriter[List[F[_, _]], *], *, *] =
+    new (F ~~> Kleisli[AccumWriter[List[F[_, _]], *], *, *]) {
+      override def apply[C, D](fab: F[C, D]): Kleisli[AccumWriter[List[F[_, _]], *], C, D] = {
+        Kleisli(a => AccumWriter(List(fab), fOpt(fab)(a)))
       }
     }
 }

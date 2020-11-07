@@ -1,10 +1,10 @@
 package com.adrielc.quivr.data
 
-import com.adrielc.quivr.ArrowPlus
+import com.adrielc.quivr.ArrowZero
 import com.adrielc.quivr.data.Parser.{DynamicParser, StaticParser}
 
 /**
- * Example of a parser that forms an [[ArrowPlus]] but not an [[cats.arrow.ArrowChoice]]
+ * Example of a parser that forms an [[ArrowZero]] but not an [[cats.arrow.ArrowChoice]]
  */
 case class Parser[S, -A, +B](sp: StaticParser[S], dp: DynamicParser[S, A, B]) {
   import Parser._
@@ -55,7 +55,7 @@ object Parser {
 
   def symbol[S, A](s: S): Parser[S, A, A] = P(SP(empty = false, List(s)), DP((a, l) => (a, l :+ s)))
 
-  implicit def arrowPlus[S]: ArrowPlus[Parser[S, *, *]] = new ArrowPlus[Parser[S, *, *]] {
+  implicit def arrowPlus[S]: ArrowZero[Parser[S, *, *]] = new ArrowZero[Parser[S, *, *]] {
 
     def lift[A, B](f: A => B): Parser[S, A, B] =
       Parser.lift[S](f)

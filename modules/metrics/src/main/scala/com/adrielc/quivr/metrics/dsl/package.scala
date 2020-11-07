@@ -2,11 +2,9 @@ package com.adrielc.quivr
 package metrics
 
 import com.adrielc.quivr.free.{FA, FAP, FreeArrow}
-import cats.Order
 import cats.data.{NonEmptyList, NonEmptyMap => Nem}
 import com.adrielc.quivr.metrics.dsl.evaluation.EvalOp.{EngagementToJudgement, EngagementToLabel, ResultCountEq}
 import com.adrielc.quivr.metrics.dsl.evaluation.{EvalError, EvalOp}
-import com.adrielc.quivr.metrics.dsl.key.SummarizeOps
 import cats.implicits._
 import com.adrielc.quivr.metrics.dsl.label.LabelerFilterOps
 import com.adrielc.quivr.metrics.result.{AtK, Engagements, Results}
@@ -159,7 +157,7 @@ package object dsl {
     }
 
     def labelResults[A: Engagements[*, E]: Results](a: A): Option[ResultRels] =
-      from[A].run(a).toOption
+      from[A].run(a)._2
   }
 
   object judge {
@@ -207,7 +205,7 @@ package object dsl {
       FA.liftK[EvalOp, A, ResultRels](EngagementToJudgement[A, E](exp))
 
     def run[A: Engagements[*, E]: Results](a: A): Option[ResultRels] =
-      lift[A].run(a).toOption
+      lift[A].run(a)._2
   }
 
 
@@ -262,22 +260,12 @@ package object dsl {
 
   implicit class EvalOps[A, B](private val fab: FreeArrow[AR, EvalOp, A, B]) extends AnyVal {
 
-    def run: A => EvalResult[B] =
-      runWithKey.rmap(_._2)
-
-    def runWithKey: A => (String, EvalResult[B]) =
-      compile(interpreter.key.defaultKeyBuilder)
-
-    def compile[M: Order](describeOps: SummarizeOps[EvalOp, M]): A => (M, EvalResult[B]) =
-      interpreter.evaluation.compileSingleMetric(fab, describeOps)
+    def run: A => (String, Option[B]) =
+      interpreter.evaluation.compileSingle(fab, interpreter.key.defaultKeyBuilder)
   }
-
   implicit class EvalPlusOps[A, B](private val fab: FreeArrow[AP, EvalOp, A, B]) extends AnyVal {
 
     def run: A => Nem[String, EvalResult[B]] =
-      compile(interpreter.key.defaultKeyBuilder)
-
-    def compile[M: Order](describeOps: SummarizeOps[EvalOp, M]): A => Nem[M, EvalResult[B]] =
-      interpreter.evaluation.compileManyMetrics(fab, describeOps)
+      interpreter.evaluation.compileManyMetrics(fab, interpreter.key.defaultKeyBuilder)
   }
 }

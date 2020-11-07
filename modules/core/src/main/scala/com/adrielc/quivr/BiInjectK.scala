@@ -19,7 +19,7 @@ sealed abstract private[quivr] class BiInjectKInstances {
     new BiInjectK[F, F] {
       val inj = BiFunctionK.id
 
-      val prj = BiFunctionK.id[F].pureOutK
+      val prj = BiFunctionK.pure.lift
     }
 
   implicit def leftBiInjectKInstance[F[_, _], G[_, _]]: BiInjectK[F, BiEitherK[F, G, *, *]] =

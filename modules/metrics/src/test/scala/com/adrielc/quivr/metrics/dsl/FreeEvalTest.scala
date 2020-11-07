@@ -144,7 +144,7 @@ class FreeEvalTest extends FlatSpec with Matchers {
         atK(60) >>>
         eval.qMeasure(1)
 
-    assert(evaluation.run(results).contains(0.9317013470520544))
+    assert(evaluation.run(results)._2.contains(0.9317013470520544))
 
     val evaluation2 =
       ^[ResultEngs] >>>
@@ -153,7 +153,9 @@ class FreeEvalTest extends FlatSpec with Matchers {
         atK(60) >>>
         eval.qMeasure(1)
 
-    assert(evaluation2.run(results).isEmpty)
+    println(evaluation2.run(results))
+
+    assert(evaluation2.run(results)._2.isEmpty)
   }
 }
 
