@@ -27,6 +27,16 @@ trait BiFunctionK[-F[_, _], +G[_, _]] extends Serializable {
     }
 
   def andThen[H[_, _]](g: G ~~> H): F ~~> H = g.compose(self)
+
+  def and[H[_, _], FF[a, b] <: F[a, b], GG[a, b] >: G[a, b]](other: FF ~~> H): FF ~~> BiTuple2K[GG, H, *, *] =
+    new (FF ~~> BiTuple2K[GG, H, *, *]) {
+      def apply[A, B](f: FF[A, B]): BiTuple2K[GG, H, A, B] = BiTuple2K(self(f), other(f))
+    }
+
+  def or[H[_, _], FF[a, b] <: F[a, b], GG[a, b] >: G[a, b]](h: H ~~> GG): BiEitherK[FF, H, *, *] ~~> GG =
+    new (BiEitherK[FF, H, *, *] ~~> GG) {
+      override def apply[A, B](f: BiEitherK[FF, H, A, B]): GG[A, B] = f.run.fold(self(_), h(_))
+    }
 }
 
 object BiFunctionK {
@@ -50,16 +60,6 @@ object BiFunctionK {
     def mapK[H[_]](f: G ~> H): F ~~> Kleisli[H, *, *] = new (F ~~> Kleisli[H, *, *]) {
       override def apply[A, B](fab: F[A, B]): Kleisli[H, A, B] = fK(fab).mapK(f)
     }
-  }
-  implicit class BiFunctionKOp[F[_, _], G[_, _]](private val fK: F ~~> G) extends AnyVal {
-
-    def and[H[_, _]](other: F ~~> H): F ~~> BiTuple2K[G, H, *, *] =
-      new (F ~~> BiTuple2K[G, H, *, *]) { def apply[A, B](f: F[A, B]): BiTuple2K[G, H, A, B] = BiTuple2K(fK(f), other(f)) }
-
-    def or[H[_, _]](h: H ~~> G): BiEitherK[F, H, *, *] ~~> G =
-      new (BiEitherK[F, H, *, *] ~~> G) {
-        override def apply[A, B](f: BiEitherK[F, H, A, B]): G[A, B] = f.run.fold(fK(_), h(_))
-      }
   }
   implicit class BiFunctionKPureKOp[F[_, _], G[_, _], M[_]](private val fK: F ~~> λ[(α, β) => M[G[α, β]]]) extends AnyVal {
 
