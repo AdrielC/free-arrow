@@ -56,7 +56,9 @@ class ExprTest extends FlatSpec with Matchers {
 
   "Judgements" should "exclude any result with either only clicks or nothing" in {
 
-    assert((cartAdds | purchases).labelResults(results).flatMap(_.res.toList.filter(_._2.isRel).toNel.map(_.toNem.keys))
+    val r = (cartAdds | purchases).from[ResultEngs].run(results)
+
+    assert(r._2.flatMap(_.res.toList.filter(_._2.isRel).toNel.map(_.toNem.keys))
       .contains(NonEmptySet.of(1L, 2L, 3L, 4L, 8L, 9L)))
 
     assert((anyCartAdds | anyPurchases).run(results).flatMap(_.res.toList.filter(_._2.isRel).toNel.map(_.toNem.keys))

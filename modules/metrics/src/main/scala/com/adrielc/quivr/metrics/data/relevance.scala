@@ -17,8 +17,8 @@ object relevance {
 
     def label(label: Double): Relevance = GradedRel(label)
     def judge(isRel: Boolean): Relevance = BinaryRel(isRel)
-    val relevant: Relevance = BinaryRel(true)
     val irrelevant: Relevance = BinaryRel(false)
+    val zero: Relevance = label(0.0)
     val unjudged: Relevance = Unjudged
 
     private case object Unjudged                              extends Relevance

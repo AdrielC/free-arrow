@@ -51,7 +51,7 @@ object evaluation {
       engagemement.judge.judgementCompilerToRelevance(j).run.rmap(_.getOrElse(Relevance.irrelevant))
 
     private def labelF[E](l: Labeler[E]): Map[E, Int] => Relevance =
-      engagemement.label.labelerToRelevanceCompiler(l).run.rmap(_.getOrElse(Relevance.irrelevant))
+      engagemement.label.labelerToRelevanceCompiler(l).run.rmap(_.getOrElse(Relevance.zero))
   }
 
   private val runEvalKleisli = runEvalWithError.andThen(BiFunctionK.functionToKleisli)

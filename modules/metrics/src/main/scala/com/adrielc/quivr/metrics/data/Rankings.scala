@@ -64,7 +64,7 @@ object Rankings {
   final case class RankedResults[+A] private[metrics] (res: NonEmptyVector[(ResultId, A)], k: Rank, nRelevant: Count) extends Rankings[A] {
 
     override def rankings: NonEmptyMap[Rank, A] =
-      res.zipWithIndex.map { case ((_, a), i) => Rank.fromIndex(i) -> a }.toNem
+      res.mapWithIndex { case ((_, a), i) => Rank.fromIndex(i) -> a }.toNem
 
     override def map[B](f: A => B): RankedResults[B] =
       copy(res = res.map { case (id, a) => id -> f(a) })
@@ -88,7 +88,7 @@ object Rankings {
 
       val nRel = Count.from(rels.count(_._2.isRel)).toOption.filter(_ > 0)
 
-      val nJudged = results.toList.exists(!_._2.isEmpty).guard[Option]
+      val nJudged = Some(results.toList.count(_._2.isJudged)).filter(_ > 0)
 
       (nJudged *> nRel).map(new RankedResults(results, Rank.unsafeFrom(results.length), _))
     }
