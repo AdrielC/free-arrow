@@ -1,7 +1,7 @@
 package com.adrielc.quivr
 package free
 
-import cats.{Applicative, ContravariantMonoidal, Eval, Monad, Monoid, MonoidK, SemigroupK}
+import cats.{Applicative, ContravariantMonoidal, Eval, Monoid, MonoidK, SemigroupK}
 import cats.arrow.{Arrow, ArrowChoice, Category, Compose}
 import cats.data.NonEmptyList
 import cats.kernel.Semigroup
@@ -622,6 +622,28 @@ private[free] trait FreeArrowInstances extends FreeArrowInstances0 {
 
 private[free] trait FreeArrowInstances0 {
 
+  implicit def freeArrowSemigroupK[F[_, _], I]: SemigroupK[λ[α => FAP[F, I, α]]] =
+    new FreeArrowSemigroupK[AP, F, I]  { val L: Lub.Aux[AP, AP, AP] = Lub.ap }
+
+  implicit def freeArrowMonoidK[F[_, _], I]: MonoidK[λ[α => FAZ[F, I, α]]] =
+    new FreeArrowMonoidK[AZ, F, I]  { val L: Lub.Aux[AZ, AZ, AZ] = Lub.az }
+
+
+  trait FreeArrowMonoidK[R[f[_, _]] <: AZ[f], F[_, _], I]
+    extends MonoidK[λ[α => FreeArrow[R, F, I, α]]]
+      with FreeArrowSemigroupK[R, F, I] {
+
+    override def empty[A]: FreeArrow[R, F, I, A] = FA.zeroArrow[I, A]
+  }
+
+  trait FreeArrowSemigroupK[R[f[_, _]] <: AP[f], F[_, _], I] extends SemigroupK[λ[α => FreeArrow[R, F, I, α]]] {
+
+    implicit val L: Lub.Aux[R, R, R]
+
+    def combineK[A](x: FreeArrow[R, F, I, A], y: FreeArrow[R, F, I, A]): FreeArrow[R, F, I, A] =
+      x <+> y
+  }
+
   implicit def freeArrowContravariantMonoidal[Arr[f[_, _]] <: AR[f], F[_, _], O: Monoid]: ContravariantMonoidal[FreeArrow[Arr, F, *, O]] =
     new ContravariantMonoidal[FreeArrow[Arr, F, *, O]] {
 
@@ -636,20 +658,18 @@ private[free] trait FreeArrowInstances0 {
     }
 
 
-  implicit def composedArrow[M[_]: Monad]: Arrow[λ[(α, β) => α >>> M[β]]] = new AR[λ[(α, β) => α >>> M[β]]] {
+  implicit def composedFreeArrowWriter[Arr[f[_, _]] <: AR[f], F[_, _], M](
+    implicit M: Monoid[M]
+  ): Arrow[λ[(α, β) => FreeArrow[Arr, F, α, (M, β)]]] = new Arrow[λ[(α, β) => FreeArrow[Arr, F, α, (M, β)]]] {
 
-    import cats.implicits._
+    override def lift[A, B](f: A => B): FreeArrow[Arr, F, A, (M, B)] =
+      FA.lift(a => (M.empty, f(a)))
 
-    def lift[A, B](f: A => B): A >>> M[B] = FreeArrow.lift(a => f(a).pure[M])
+    override def compose[A, B, C](f: FreeArrow[Arr, F, B, (M, C)], g: FreeArrow[Arr, F, A, (M, B)]): FreeArrow[Arr, F, A, (M, C)] =
+      (g >>> f.second[M]).rmap { case (l1, (l2, c)) => (M.combine(l1, l2), c) }
 
-    def compose[A, B, C](f: B >>> M[C], g: A >>> M[B]): A >>> M[C] = {
-      val ff = f.fold[Function1]
-      val gg = g.fold[Function1]
-      FreeArrow.lift(a => gg(a).flatMap(b => ff(b)))
-    }
-
-    def first[A, B, C](fa: A >>> M[B]): (A, C) >>> M[(B, C)] =
-      fa.first[C] >^ ((m: M[B], c: C) => m.map(_ -> c))
+    override def first[A, B, C](fa: FreeArrow[Arr, F, A, (M, B)]): FreeArrow[Arr, F, (A, C), (M, (B, C))] =
+      fa.first[C].rmap(o => (o._1._1, (o._1._2, o._2)))
   }
 }
 

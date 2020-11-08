@@ -24,9 +24,6 @@ object evaluation {
   val runEvalWithError: EvalOp ~~> EvalFn = new (EvalOp ~~> EvalFn) {
     override def apply[A, B](fab: EvalOp[A, B]): EvalFn[A, B] = fab match {
 
-      case res: ResultCountEq[A] => a =>
-        res.eq(res.R.resultCount(a), res.k.value).guard[Option].as(a).toRight(ResultSizeFiltered(res.eq, res.k): EvalError)
-
       case eng: EvalOp.EngagementToJudgement[A, e] =>
         val f = judgeF[e](eng.e); implicit val e = eng.E; implicit val r = eng.R
         a: A => RankedResults[A, e, Relevance](a, f).toRight(NoValidJudgements: EvalError)
@@ -38,7 +35,7 @@ object evaluation {
       case at: EvalOp.K[A] =>
         a: A => at.A.atK(a, at.k.value).toRight(KGreaterThanMax: EvalError)
 
-      case op: EvalOp.MetricOp[A, Double] @unchecked => op match {
+      case op: EvalOp.MetricOp[A] => op match {
         case m@Ndcg(g, d)         => a => m.R.ndcg(a, g, d).toRight(NoRelevant)
         case m@QMeasure(b)        => a => m.P.qMeasure(a, b).toRight(NoRelevant)
         case m@Precision()        => a => m.T.precision(a).toRight(NoRelevant)

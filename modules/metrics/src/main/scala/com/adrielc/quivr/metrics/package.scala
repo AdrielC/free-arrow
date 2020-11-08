@@ -6,7 +6,8 @@ import eu.timepit.refined.cats._
 import cats.implicits._
 import com.adrielc.quivr.metrics.data.Rankings.{Ranked, RankedResults}
 import com.adrielc.quivr.metrics.data.relevance.Relevance
-import com.adrielc.quivr.metrics.ranking.Relevancy
+import com.adrielc.quivr.metrics.function.{DiscountFn, GainFn}
+import com.adrielc.quivr.metrics.result.Relevancy
 import eu.timepit.refined.api.RefinedTypeOps
 import eu.timepit.refined.types.numeric.{NonNegInt, PosInt}
 
@@ -30,11 +31,9 @@ import scala.math.{log, pow}
  */
 
 package object metrics {
-  import function._
 
   type Label = Double
   type Gain = Double
-
   type ResultId = Long
   type ResultRels = RankedResults[Relevance]
 
@@ -83,7 +82,7 @@ package object metrics {
   }
 
   def calcAP[R: Relevancy](rnk: Ranked[R]): Option[Double] = {
-    import ranking.Relevancy.ops._
+    import Relevancy.ops._
     val (correct, sum) = rnk.rankings.toNel.foldLeft((0, 0.0)) { case ((c, s), (i, r)) =>
       if (r.isRel) {
         val correct = c + 1

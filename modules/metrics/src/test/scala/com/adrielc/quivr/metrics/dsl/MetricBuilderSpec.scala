@@ -1,10 +1,13 @@
 package com.adrielc.quivr.metrics.dsl
 
 import cats.data.{NonEmptyMap, NonEmptyVector}
+import com.adrielc.quivr.free.FreeArrow
 import com.adrielc.quivr.metrics.{MyEngagement, ResultRels}
 import org.scalatest.{FlatSpec, Matchers}
 import eu.timepit.refined.auto._
 import com.adrielc.quivr.metrics.data.EngagedResults
+import com.adrielc.quivr.metrics.dsl.evaluation.EvalOp
+import com.adrielc.quivr.~~>
 
 class MetricBuilderSpec extends FlatSpec with Matchers {
   import MyEngagement._
@@ -57,5 +60,21 @@ class MetricBuilderSpec extends FlatSpec with Matchers {
     ))
     assert(res.lookup("binaryClick.ap.@40").isDefined)
     assert(res.lookup("binaryClick.ap.@40").exists(_.contains(0.32500000000000007)))
+  }
+
+  "EvalOp" should "annotate" in {
+
+    val evaluation2 = clicks.from[ResultEngs] >>> atK(60) >>> eval.qMeasure(1)
+
+    type Annotated[A, B] = A >> (List[EvalOp[_, _]], B)
+
+    val res = evaluation2.foldMap[Annotated](new (EvalOp ~~> Annotated) {
+      override def apply[A, B](fab: EvalOp[A, B]): Annotated[A, B] =
+        FreeArrow.liftK(fab).rmap(o => (List(fab), o))
+    }).rmap(a => interpreter.key.defaultKeyBuilder.summarize(a._1) -> a._2).run(results)
+
+    println(res)
+
+    assert(res._2.isEmpty)
   }
 }

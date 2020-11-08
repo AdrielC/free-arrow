@@ -2,8 +2,7 @@ package com.adrielc.quivr.metrics
 package data
 
 import cats.data.{NonEmptyMap, NonEmptyVector}
-import result._
-import AtK.ops._
+import com.adrielc.quivr.metrics.result.AtK, AtK.ops._
 
 /**
  * Witnesses the following
@@ -17,6 +16,7 @@ case class EngagedResults[E](results: NonEmptyVector[ResultId], engagements: Non
     copy(engagements = engagements.map(_.binarize))
 }
 object EngagedResults {
+  import result.{Results, Engagements}
 
   implicit def atKEngagedResults[E]: AtK[EngagedResults[E]] = (a, k) => a.results.atK(k).map(n => a.copy(results = n))
 

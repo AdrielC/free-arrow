@@ -2,8 +2,8 @@ package com.adrielc.quivr.metrics
 
 import cats.data.{NonEmptyMap => Nem, NonEmptySet => Nes, NonEmptyVector => Nev}
 import cats.implicits._
-import com.adrielc.quivr.metrics.function.gain
 import com.adrielc.quivr.metrics.result._
+import function.gain
 import eu.timepit.refined.auto._
 import eu.timepit.refined.types.numeric.PosInt
 import org.scalatest.{FlatSpec, Matchers}

@@ -1,11 +1,12 @@
-package com.adrielc.quivr.metrics
+package com.adrielc.quivr
+package metrics
 package data
 
 import cats.data.{NonEmptyList, NonEmptyMap, NonEmptyVector}
 import cats.implicits._
 import cats.{Eq, Functor, Monoid}
-import com.adrielc.quivr.metrics.ranking.{RankedRelevancies, Relevancy, ResultRelevancies}
-import com.adrielc.quivr.metrics.result.{AtK, Engagements, Results}
+import com.adrielc.quivr.metrics.ranking.{RankedRelevancies, ResultRelevancies}
+import com.adrielc.quivr.metrics.result.{AtK, Relevancy}
 import com.adrielc.quivr.metrics.retrieval.RelevanceCount
 import eu.timepit.refined.cats._
 import eu.timepit.refined.auto._
@@ -74,6 +75,7 @@ object Rankings {
 
   object RankedResults {
 
+    import result.{Engagements, Results}
     import cats.implicits._
     import implicits._
 

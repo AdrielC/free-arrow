@@ -11,6 +11,7 @@ import MyEngagement._
 import com.adrielc.quivr.metrics.dsl.evaluation.KGreaterThanMax
 import metrics.implicits._
 import Rankings.Ranked
+import com.adrielc.quivr.metrics.Rank
 
 
 class FreeEvalTest extends FlatSpec with Matchers {
@@ -121,39 +122,27 @@ class FreeEvalTest extends FlatSpec with Matchers {
     assert(result.length == 144)
   }
 
-  "Filter" should "filter out result sets" in {
-
-    val results = EngagedResults(
-      NonEmptyVector.of(1L, 2L to 60L:_*),
-      NonEmptyMap.of(
-        1L -> (10.clicks + 5.cartAdds + 1.purchase),
-        4L -> (20.clicks + 5.cartAdds),
-        10L -> (2.purchases + 6.cartAdds + 23.clicks),
-        25L -> (5.purchases + 10.cartAdds + 1.click),
-        49L -> (3.cartAdds + 6.clicks),
-        70L -> (1.purchase + 1.cartAdd + 1.click)
-      )
+  private val results = EngagedResults(
+    NonEmptyVector.of(1L, 2L to 60L:_*),
+    NonEmptyMap.of(
+      1L -> (10.clicks + 5.cartAdds + 1.purchase),
+      4L -> (20.clicks + 5.cartAdds),
+      10L -> (2.purchases + 6.cartAdds + 23.clicks),
+      25L -> (5.purchases + 10.cartAdds + 1.click),
+      49L -> (3.cartAdds + 6.clicks),
+      70L -> (1.purchase + 1.cartAdd + 1.click)
     )
+  )
+
+  "Filter" should "filter out result sets" in {
 
     val evaluation =
       ^[ResultEngs] >>>
-        filter.nResult.===(60) >>>
         label(clicks) >>>
         atK(60) >>>
         eval.qMeasure(1)
 
     assert(evaluation.run(results)._2.contains(0.9317013470520544))
-
-    val evaluation2 =
-      ^[ResultEngs] >>>
-        filter.nResult.>(61) >>>
-        clicks.from >>>
-        atK(60) >>>
-        eval.qMeasure(1)
-
-    println(evaluation2.run(results))
-
-    assert(evaluation2.run(results)._2.isEmpty)
   }
 }
 

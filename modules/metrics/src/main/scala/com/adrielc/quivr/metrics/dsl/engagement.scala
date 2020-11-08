@@ -1,8 +1,10 @@
 package com.adrielc.quivr.metrics
 package dsl
 
+import com.adrielc.quivr.metrics.function.Eq
 import matryoshka.data.Fix
 import scalaz.Functor
+
 import Numeric.Implicits._
 
 object engagement {
@@ -20,7 +22,7 @@ object engagement {
     def ifThen[E](i: Judge[E], t: Labeler[E])     : Labeler[E] = Fix(IfThen(i, t))
     def and[E](e1: Labeler[E], e2: Labeler[E])    : Labeler[E] = Fix(And(e1, e2))
     def or[E](e1: Labeler[E], e2: Labeler[E])     : Labeler[E] = Fix(Or(e1, e2))
-    def equiv[E](eq: function.Eq[Double], e: Labeler[E], v: Labeler[E]): Labeler[E] = Fix(Equiv(eq, e, v): LabelerF[E, Labeler[E]])
+    def equiv[E](eq: Eq[Double], e: Labeler[E], v: Labeler[E]): Labeler[E] = Fix(Equiv(eq, e, v): LabelerF[E, Labeler[E]])
   }
 
 
@@ -29,7 +31,7 @@ object engagement {
   object Judge {
     def and[E](e1: Judge[E], e2: Judge[E]): Judge[E] = Fix(And(e1, e2))
     def or[E](e1: Judge[E], e2: Judge[E]): Judge[E] = Fix(Or(e1, e2))
-    def equiv[E](eq: function.Eq[Double], e: Labeler[E], v: Labeler[E]): Judge[E] = Fix(Equiv(eq, e, v): JudgeF[E, Judge[E]])
+    def equiv[E](eq: Eq[Double], e: Labeler[E], v: Labeler[E]): Judge[E] = Fix(Equiv(eq, e, v): JudgeF[E, Judge[E]])
   }
 
 
@@ -60,7 +62,7 @@ object engagement {
 
   private[dsl] object JudgeF {
 
-    case class Equiv[E, A](eq: function.Eq[Double], a: Labeler[E], b: Labeler[E]) extends JudgeF[E, A]
+    case class Equiv[E, A](eq: Eq[Double], a: Labeler[E], b: Labeler[E]) extends JudgeF[E, A]
     case class Or[E, A](e1: A, e2: A) extends JudgeF[E, A]
     case class And[E, A](e1: A, e2: A) extends JudgeF[E, A]
 

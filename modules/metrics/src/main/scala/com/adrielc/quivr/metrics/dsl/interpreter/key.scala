@@ -1,15 +1,17 @@
-package com.adrielc.quivr
-package metrics
+package com.adrielc.quivr.metrics
 package dsl
 package interpreter
+import com.adrielc.quivr.~>|
 import matryoshka.implicits._
 
 object key {
+  import function.{double, gain}
   import dsl.evaluation.EvalOp
   import dsl.evaluation.EvalOp._
-  import dsl.engagement.{LabelerF, JudgeF}, LabelerF._, JudgeF._
+  import dsl.engagement.{JudgeF, LabelerF}
+  import LabelerF._
+  import JudgeF._
   import dsl.key._
-  import function.gain
 
   type MetricKeyBuilder   = SummarizeOps[EvalOp, String]
 
@@ -34,7 +36,7 @@ object key {
       case Or(e1, e2)       => s"($e1|$e2)"
       case And(e1, e2)      => s"($e1&$e2)"
       case Equiv(e, e1, e2) => (e, e2.unFix) match {
-        case (function.double.>, Value(0)) => s"binary${labelerToKey(e1).capitalize}" // handle special binary case
+        case (double.>, Value(0)) => s"binary${labelerToKey(e1).capitalize}" // handle special binary case
         case _ => s"(${labelerToKey(e1)}$e${labelerToKey(e2)})"
       }
     }
@@ -42,7 +44,6 @@ object key {
   val defaultKeyBuilder: MetricKeyBuilder = SummarizeOps(
     new (EvalOp ~>| String) {
       def apply[A, B](fab: EvalOp[A, B]): String = fab match {
-        case ResultCountEq(eq, k) => s"filterK$eq$k"
         case Ndcg(gain.pow2, _) => "ndcg"
         case QMeasure(1) => "qMeasure"
         case Ndcg(g, _) => s"ndcg-G$g"
@@ -60,10 +61,9 @@ object key {
     },
     new (EvalOp ~>| Int) {
       def apply[A, B](fab: EvalOp[A, B]): Int = fab match {
-        case _: FilterOp[_]         => 1
-        case _: EngagementOp[_, _]  => 2
-        case _: MetricOp[_, _]      => 3
-        case K(_)                   => 4
+        case _: EngagementOp[_, _]  => 1
+        case _: MetricOp[_]         => 2
+        case K(_)                   => 3
       }
     },
     buildKeyGroups = "("-:",":-")",
