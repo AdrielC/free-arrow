@@ -4,9 +4,10 @@ package data
 
 import cats.data.{NonEmptyList, NonEmptyMap, NonEmptyVector}
 import cats.implicits._
-import cats.{Eq, Functor, Monoid}
+import cats.Functor
+import com.adrielc.quivr.metrics.data.relevance.Relevance
 import com.adrielc.quivr.metrics.ranking.{RankedRelevancies, ResultRelevancies}
-import com.adrielc.quivr.metrics.result.{AtK, Relevancy}
+import com.adrielc.quivr.metrics.result.{AtK, Engagements, Relevancy, Results}
 import com.adrielc.quivr.metrics.retrieval.RelevanceCount
 import eu.timepit.refined.cats._
 import eu.timepit.refined.auto._
@@ -75,22 +76,23 @@ object Rankings {
 
   object RankedResults {
 
-    import result.{Engagements, Results}
     import cats.implicits._
-    import implicits._
+    import metrics.implicits._
 
     // guarantees that if a list of relevancies is returned then there is at least one judged result
-    def apply[A: Engagements[*, E]: Results, E, B: Relevancy : Monoid : Eq](a: A, judgeLabel: Map[E, Int] => B): Option[RankedResults[B]] = {
+    def fromEngagedResults[A: Results : Engagements[*, E], E](a: A, judgeLabel: Map[E, Int] => Relevance): Option[RankedResults[Relevance]] = {
 
-      val rels = a.engagementCounts.mapValues(judgeLabel)
+      val engs = a.engagements
 
-      val results = a.results.map(id => (id, rels.getOrElse(id, Monoid.empty[B])))
-
-      val nRel = Count.from(rels.count(_._2.isRel)).toOption.filter(_ > 0)
-
-      val nJudged = Some(results.toList.count(_._2.isJudged)).filter(_ > 0)
-
-      (nJudged *> nRel).map(new RankedResults(results, Rank.unsafeFrom(results.length), _))
+      a.results.map(id => id -> engs.get(id).map(judgeLabel).getOrElse(Relevance.unjudged)).toNev
+        .map { res =>
+          res -> res.toVector.foldMap(r => (
+            if(r._2 != Relevance.unjudged) 1 else 0,
+            if(r._2 != Relevance.unjudged && r._2.isRel) 1 else 0
+          ))
+        }
+        .filter { case (_, (isJudged, isRel)) => isJudged > 0 && isRel > 0 }
+        .map { case (res, (_, nRel)) => new RankedResults(res, Rank.unsafeFrom(res.toVector.length), Count.unsafeFrom(nRel)) }
     }
 
     implicit def resultRelsRelevanciesInstance[A: Relevancy]: ResultRelevancies.Aux[RankedResults[A], (ResultId, A)] with RelevanceCount[RankedResults[A]] =

@@ -8,7 +8,7 @@ import com.adrielc.quivr.metrics.data._
 import org.scalatest.{FlatSpec, Matchers}
 import eu.timepit.refined.auto._
 import MyEngagement._
-import com.adrielc.quivr.metrics.dsl.evaluation.KGreaterThanMax
+import com.adrielc.quivr.metrics.dsl.evaluation.EvalError.KGreaterThanMax
 import metrics.implicits._
 import Rankings.Ranked
 import com.adrielc.quivr.metrics.Rank
@@ -37,7 +37,7 @@ class FreeEvalTest extends FlatSpec with Matchers {
       Map(
         "clicks.mrr.@10" -> Right(0.5),
         "clicks.ndcg.@10" -> Right(0.6309297535714574),
-        "clicks.@60" -> Left(KGreaterThanMax) // metric key stops building on error so Errors aren't repeated for all downstream combinations
+        "clicks.@60" -> Left(KGreaterThanMax(60)) // metric key stops building on error so Errors aren't repeated for all downstream combinations
       )
     )
   }

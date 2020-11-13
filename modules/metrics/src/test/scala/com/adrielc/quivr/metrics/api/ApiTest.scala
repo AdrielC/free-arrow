@@ -2,8 +2,6 @@ package com.adrielc.quivr.metrics.api
 
 import com.adrielc.quivr.metrics.MyEngagement
 import com.adrielc.quivr.metrics.MyEngagement.{Click, Purchase}
-import com.adrielc.quivr.metrics.api.metric._
-import com.adrielc.quivr.metrics.api.label._
 import eu.timepit.refined.auto._
 import org.scalatest.{FlatSpec, Matchers}
 
@@ -13,12 +11,11 @@ class ApiTest extends FlatSpec with Matchers {
   "Api" should "work" in {
 
     val eval = evaluator(
-      labelers = (
-        count(Click: MyEngagement),
-        count(Purchase: MyEngagement)
-      ),
-      atKs = Seq(10, 20, 30),
+      (count(Click: MyEngagement), count(Purchase: MyEngagement))
+    )(
       f1, ndcg, avgPrecision,
+    )(
+      10, 20, 30
     )
 
     val results = eval(

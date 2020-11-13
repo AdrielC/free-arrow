@@ -2,6 +2,7 @@ package com.adrielc.quivr.metrics
 
 import cats.data.{NonEmptyMap => Nem, NonEmptySet => Nes, NonEmptyVector => Nev}
 import cats.implicits._
+import com.adrielc.quivr.metrics.result.Results.NonEmptyResults
 import com.adrielc.quivr.metrics.result._
 import function.gain
 import eu.timepit.refined.auto._
@@ -10,10 +11,10 @@ import org.scalatest.{FlatSpec, Matchers}
 
 case class ResultsWithRelevant(results: Nev[Long], relevant: Nes[Long], labels: Nem[Long, Label])
 object ResultsWithRelevant {
-  implicit val relevanciesInstance: Results[ResultsWithRelevant] with GroundTruth[ResultsWithRelevant] with ResultLabels[ResultsWithRelevant] =
-    new Results[ResultsWithRelevant] with GroundTruth[ResultsWithRelevant] with ResultLabels[ResultsWithRelevant] {
-      override def groundTruth(a: ResultsWithRelevant): GroundTruth.RelSet = GroundTruth.RelSet(a.relevant)
-      override def results(a: ResultsWithRelevant): Nev[ResultId] = a.results
+  implicit val relevanciesInstance: NonEmptyResults[ResultsWithRelevant] with GroundTruth[ResultsWithRelevant] with ResultLabels[ResultsWithRelevant] =
+    new NonEmptyResults[ResultsWithRelevant] with GroundTruth[ResultsWithRelevant] with ResultLabels[ResultsWithRelevant] {
+      override def groundTruth(a: ResultsWithRelevant): GroundTruth.Set = GroundTruth.Set(a.relevant)
+      override def nonEmptyResults(a: ResultsWithRelevant): Nev[ResultId] = a.results
       override def resultLabels(a: ResultsWithRelevant): Nem[ResultId, Label] = a.labels
   }
 }

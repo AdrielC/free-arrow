@@ -23,8 +23,8 @@ object relevance {
 
     private case object Unjudged                              extends Relevance
     sealed trait Judged                                       extends Relevance
-    private final case class GradedRel(label: Double)         extends Judged
-    private final case class BinaryRel(isRelevant: Boolean)   extends Judged
+    final case class GradedRel(label: Double)         extends Judged
+    final case class BinaryRel(isRelevant: Boolean)   extends Judged
 
     implicit val relevanceEq: Eq[Relevance] = Eq.by(_.gain)
 

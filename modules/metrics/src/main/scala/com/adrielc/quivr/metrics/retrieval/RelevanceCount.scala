@@ -29,6 +29,6 @@ object RelevanceCount {
   implicit def relevanceK[A](implicit R: Results[A], G: GroundTruth[A]): RelevanceCount[A] = new RelevanceCount[A] {
     final def groundTruthCount(a: A): Int = G.groundTruthCount(a)
     final def resultCount(a: A): Int = R.resultCount(a)
-    final def truePositiveCount(a: A): Int = R.results(a).toVector.count(G.groundTruth(a).set.contains)
+    final def truePositiveCount(a: A): Int = R.results(a).count(G.groundTruth(a).set.contains)
   }
 }

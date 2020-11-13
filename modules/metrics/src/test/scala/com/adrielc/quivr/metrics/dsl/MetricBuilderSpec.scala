@@ -75,6 +75,6 @@ class MetricBuilderSpec extends FlatSpec with Matchers {
 
     println(res)
 
-    assert(res._2.contains(("click.qMeasure.@60",0.25056636689763623)))
+    assert(res._2.contains(("click.q.@60",0.25056636689763623)))
   }
 }

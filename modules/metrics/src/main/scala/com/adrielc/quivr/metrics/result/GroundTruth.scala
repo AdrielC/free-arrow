@@ -8,7 +8,7 @@ import simulacrum.typeclass
 
 @typeclass trait GroundTruth[A] extends GroundTruthCount[A] {
 
-  def groundTruth(a: A): GroundTruth.RelSet
+  def groundTruth(a: A): GroundTruth.Set
 
   override def groundTruthCount(a: A): Int =
     groundTruth(a).nRel
@@ -16,7 +16,7 @@ import simulacrum.typeclass
 object GroundTruth {
 
   // relevant document set
-  case class RelSet(set: NonEmptySet[ResultId]) {
+  case class Set(set: NonEmptySet[ResultId]) {
 
     lazy val nRel: Int = set.length
   }

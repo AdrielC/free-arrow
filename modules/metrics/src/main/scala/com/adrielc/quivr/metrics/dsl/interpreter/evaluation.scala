@@ -9,6 +9,7 @@ import cats.implicits._
 import cats.kernel.Order
 import cats.~>
 import com.adrielc.quivr.data.{AccumMap, AccumWriter}
+import com.adrielc.quivr.metrics.data.EngagedResults
 import com.adrielc.quivr.metrics.data.Rankings.RankedResults
 import com.adrielc.quivr.metrics.data.relevance.Relevance
 import com.adrielc.quivr.metrics.dsl.engagement.{Judge, Labeler}
@@ -22,29 +23,37 @@ object evaluation {
   type RunErr[A, B]     = Kleisli[EvalResult, A, B]
 
   val runEvalWithError: EvalOp ~~> EvalFn = new (EvalOp ~~> EvalFn) {
+    import EvalError._
+
     override def apply[A, B](fab: EvalOp[A, B]): EvalFn[A, B] = fab match {
 
+      case toEng: ToEngagedResults[A, e] => import toEng._
+        a: A => EngagedResults.fromResultsWithEngagements[A, e](a).leftMap(MissingError(_): EvalError)
+
       case eng: EvalOp.EngagementToJudgement[A, e] =>
-        val f = judgeF[e](eng.e); implicit val e = eng.E; implicit val r = eng.R
-        a: A => RankedResults[A, e, Relevance](a, f).toRight(NoValidJudgements: EvalError)
+        val f = judgeF[e](eng.e); import eng._
+        a: A => RankedResults.fromEngagedResults[A, e](a, f).toRight(NoValidJudgements: EvalError)
 
       case eng: EvalOp.EngagementToLabel[A, e] =>
-        val f = labelF[e](eng.e); implicit val e = eng.E; implicit val r = eng.R
-        a: A => RankedResults[A, e, Relevance](a, f).toRight(NoValidLabels: EvalError)
+        val f = labelF[e](eng.e); import eng._
+        a: A => RankedResults.fromEngagedResults[A, e](a, f).toRight(NoValidLabels: EvalError)
 
       case at: EvalOp.K[A] =>
-        a: A => at.A.atK(a, at.k.value).toRight(KGreaterThanMax: EvalError)
+        a: A => at.A.atK(a, at.k.value).toRight(KGreaterThanMax(at.k.value): EvalError)
 
-      case op: EvalOp.MetricOp[A] => op match {
-        case m@Ndcg(g, d)         => a => m.R.ndcg(a, g, d).toRight(NoRelevant)
-        case m@QMeasure(b)        => a => m.P.qMeasure(a, b).toRight(NoRelevant)
-        case m@Precision()        => a => m.T.precision(a).toRight(NoRelevant)
-        case m@RPrecision()       => a => m.R.rPrecision(a).toRight(NoRelevant)
-        case m@Recall()           => a => m.R.recall(a).toRight(NoRelevant)
-        case m@FScore()           => a => m.R.fScore(a).toRight(NoRelevant)
-        case m@AveragePrecision() => a => m.P.averagePrecision(a).toRight(NoRelevant)
-        case m@ReciprocalRank()   => a => m.P.reciprocalRank(a).toRight(NoRelevant)
-      }
+
+      case op: EvalOp.MetricOp[A] =>
+        import MetricOp._
+        op match {
+          case m@Ndcg(g, d)         => a => m.R.ndcg(a, g, d).toRight(NoRelevant)
+          case m@QMeasure(b)        => a => m.P.qMeasure(a, b).toRight(NoRelevant)
+          case m@Precision()        => a => m.T.precision(a).toRight(NoRelevant)
+          case m@RPrecision()       => a => m.R.rPrecision(a).toRight(NoRelevant)
+          case m@Recall()           => a => m.R.recall(a).toRight(NoRelevant)
+          case m@FScore()           => a => m.R.fScore(a).toRight(NoRelevant)
+          case m@AveragePrecision() => a => m.P.averagePrecision(a).toRight(NoRelevant)
+          case m@ReciprocalRank()   => a => m.P.reciprocalRank(a).toRight(NoRelevant)
+        }
     }
 
     private def judgeF[E](j: Judge[E]): Map[E, Int] => Relevance =

@@ -5,7 +5,7 @@ import cats.arrow.{Arrow, ArrowChoice}
 import cats.data.{IRWST, Kleisli}
 import cats.{Monad, Monoid, MonoidK, SemigroupK}
 import cats.implicits._
-import com.adrielc.quivr.instances.catsIRWST.IRWSTArrow
+
 
 object instances {
 
@@ -19,24 +19,24 @@ object instances {
         val A: AC[Kleisli[M, *, *]] = Kleisli.catsDataArrowChoiceForKleisli
       }
 
-    implicit def arrowPlusForIRWST[E, L, F[_]]
-    (implicit SK: SemigroupK[F], ML: Monoid[L], M: Monad[F]): ArrowChoicePlus[IRWST[F, E, L, *, *, Unit]] =
-      new ArrowChoicePlus[IRWST[F, E, L, *, *, Unit]] with IRWSTArrow[F, E, L]  {
+    implicit def arrowChoiceZeroForIRWST[E, L, F[_]]
+    (implicit MK: MonoidK[F], ML: Monoid[L], M: Monad[F]): ArrowChoiceZero[IRWST[F, E, L, *, *, Unit]] =
+      new catsIRWST.IRWST_ACZ[F, E, L] {
         val monad: Monad[F] = M
         val monoid: Monoid[L] = ML
-
-        override def choose[A, B, C, D](f: IRWST[F, E, L, A, C, Unit])(g: IRWST[F, E, L, B, D, Unit]): IRWST[F, E, L, Either[A, B], Either[C, D], Unit] =
-          IRWST.apply((e: E, sa: Either[A, B]) => sa.fold(
-            a => f.modify(_.asLeft[D]).run(e, a),
-            b => g.modify(_.asRight[C]).run(e, b)
-          ))
-
-        override def plus[A, B](f: IRWST[F, E, L, A, B, Unit], g: IRWST[F, E, L, A, B, Unit]): IRWST[F, E, L, A, B, Unit] =
-          IRWST.apply((e: E, a: A) => f.run(e, a) <+> g.run(e, a))
+        val monoidK: MonoidK[F] = MK
       }
   }
 
   trait Instances0 {
+
+    implicit def arrowPlusForIRWST[E, L, F[_]]
+    (implicit SK: SemigroupK[F], ML: Monoid[L], M: Monad[F]): ArrowChoicePlus[IRWST[F, E, L, *, *, Unit]] =
+      new catsIRWST.IRWST_ACP[F, E, L] {
+        val monad: Monad[F] = M
+        val monoid: Monoid[L] = ML
+        val semigroupK: SemigroupK[F] = SK
+      }
 
     implicit def kleisliArrowChoicePlus[M[_]](implicit M: Monad[M], SK: SemigroupK[M]): ArrowChoicePlus[Kleisli[M, *, *]] =
       new kleisli.KleisliArrowChoicePlus[M] {
@@ -66,6 +66,29 @@ object instances {
 
 
   object catsIRWST {
+
+    private[quivr] trait IRWST_ACZ[F[_], E, L] extends ArrowChoiceZero[IRWST[F, E, L, *, *, Unit]] with IRWST_ACP[F, E, L]  {
+
+      implicit def monoidK: MonoidK[F]
+      override def semigroupK: SemigroupK[F] = monoidK
+
+      override def zeroArrow[B, C]: IRWST[F, E, L, B, C, Unit] =
+        IRWST.apply((_: E, _: B) => monoidK.empty[(L, C, Unit)])
+    }
+
+    private[quivr] trait IRWST_ACP[F[_], E, L] extends ArrowChoicePlus[IRWST[F, E, L, *, *, Unit]] with IRWSTArrow[F, E, L]  {
+
+      implicit def semigroupK: SemigroupK[F]
+
+      override def choose[A, B, C, D](f: IRWST[F, E, L, A, C, Unit])(g: IRWST[F, E, L, B, D, Unit]): IRWST[F, E, L, Either[A, B], Either[C, D], Unit] =
+        IRWST.apply((e: E, sa: Either[A, B]) => sa.fold(
+          a => f.modify(_.asLeft[D]).run(e, a),
+          b => g.modify(_.asRight[C]).run(e, b)
+        ))
+
+      override def plus[A, B](f: IRWST[F, E, L, A, B, Unit], g: IRWST[F, E, L, A, B, Unit]): IRWST[F, E, L, A, B, Unit] =
+        IRWST.apply((e: E, a: A) => f.run(e, a) <+> g.run(e, a))
+    }
 
     private[quivr] trait IRWSTArrow[F[_], E, L] extends Arrow[IRWST[F, E, L, *, *, Unit]] {
       import cats.data.IndexedReaderWriterStateT.catsDataStrongForIRWST

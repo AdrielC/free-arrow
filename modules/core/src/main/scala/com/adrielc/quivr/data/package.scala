@@ -23,3 +23,10 @@ package object data {
 
   def lazyTuple[A, B](a: => A, b: => Eval[B]): A :&: B = (Eval.later(a), Eval.defer(b))
 }
+
+package data {
+  
+  class or[F[_, _], G[_, _]] {
+    type T[A, B] = BiEitherK[F, G, A, B]
+  }
+}

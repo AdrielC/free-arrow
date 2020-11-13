@@ -1,7 +1,7 @@
 package com.adrielc.quivr.metrics
 package data
 
-import cats.data.NonEmptyMap
+import cats.data.{NonEmptyMap, NonEmptyList}
 import cats.kernel.{CommutativeSemigroup, Order}
 import cats.implicits._
 import eu.timepit.refined.cats._
@@ -18,6 +18,11 @@ case class KeyCounts[K](counts: NonEmptyMap[K, NonZeroCount]) {
     copy(counts = counts.map(_ => 1))
 }
 object KeyCounts {
+
+  def fromMap[K: Order](map: Map[K, Int]): Option[KeyCounts[K]] = for {
+    nel       <- NonEmptyList.fromList(map.toList)
+    posCount  <- nel.traverse(_.traverse(NonZeroCount.from(_).toOption))
+  } yield KeyCounts(posCount.toNem)
 
   implicit def semigroup[E: Order]: CommutativeSemigroup[KeyCounts[E]] =
     CommutativeSemigroup.instance(_ + _)

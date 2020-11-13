@@ -23,9 +23,10 @@ object engagemement {
             case Value(value)     => Kleisli.pure(value)
             case Count(e)         => Kleisli(_.get(e).map(_.toDouble))
             case Sum(e1, e2)      => e1 |+| e2
+            case Log(e1, base)    => e1.mapF(v => v.filter(_ >= 0).map(math.log1p(_) / math.log(base)))
             case Mult(e1, e2)     => combWith(e1, e2)(_ * _)
             case Div(num, den)    => combWith(num, den)(safeDiv(_, _).getOrElse(0.0))
-            case i: IfThen[A, FromEngs[A, Double]] => judge.judgeCompiler(i.i).flatMap(b => if(b) i.t else Kleisli(_ => none[Double]))
+            case i: As[A, FromEngs[A, Double]] => judge.judgeCompiler(i.i).flatMap(b => if(b) i.t else Kleisli(_ => none[Double]))
             case Or(e1, e2)       => e1 <+> e2
             case And(e1, e2)      => Kleisli(e => e1(e).flatMap(a => e2(e).map(b => a + b)))
             case eqv: Equiv[A, Double] @unchecked => for {

@@ -24,8 +24,9 @@ object key {
       case Value(d)         => formatDouble(d)
       case Mult(e1, e2)     => s"($e1*$e2)"
       case Sum(e1, e2)      => s"($e1+$e2)"
+      case Log(e1, base)    => s"(log${formatDouble(base)}($e1))"
       case Div(e1, e2)      => s"($e1/$e2)"
-      case IfThen(i, t)     => s"if(${judgeToKey(i)},$t)"
+      case As(i, t)     => s"if(${judgeToKey(i)},$t)"
       case Or(e1, e2)       => s"($e1|$e2)"
       case And(e1, e2)      => s"($e1&$e2)"
       case Equiv(e, e1, e2) => s"filter(${labelerToKey(e1)}$e${labelerToKey(e2)}"
@@ -43,11 +44,12 @@ object key {
 
   val defaultKeyBuilder: MetricKeyBuilder = SummarizeOps(
     new (EvalOp ~>| String) {
+      import MetricOp._
       def apply[A, B](fab: EvalOp[A, B]): String = fab match {
         case Ndcg(gain.pow2, _) => "ndcg"
-        case QMeasure(1) => "qMeasure"
+        case QMeasure(1) => "q"
         case Ndcg(g, _) => s"ndcg-G$g"
-        case QMeasure(b) => s"qMeasure-B${formatDouble(b)}"
+        case QMeasure(b) => s"q-B${formatDouble(b)}"
         case Precision() => "prec"
         case RPrecision() => "rPrec"
         case Recall() => "recall"
@@ -56,6 +58,7 @@ object key {
         case ReciprocalRank() => "mrr"
         case EngagementToLabel(e) => labelerToKey(e)
         case EngagementToJudgement(e) => judgeToKey(e)
+        case ToEngagedResults() => ""
         case k: K[_] => s"@${k.k}"
       }
     },

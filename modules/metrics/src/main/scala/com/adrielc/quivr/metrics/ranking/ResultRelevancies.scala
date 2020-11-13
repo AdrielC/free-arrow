@@ -5,7 +5,8 @@ import cats.Contravariant
 import cats.data.{NonEmptyList, NonEmptyVector}
 import com.adrielc.quivr.metrics.data.Rankings.Ranked
 import com.adrielc.quivr.metrics.function._
-import com.adrielc.quivr.metrics.result.{Relevancy, ResultLabels, Results, GroundTruth}
+import com.adrielc.quivr.metrics.result.Results.NonEmptyResults
+import com.adrielc.quivr.metrics.result.{GroundTruth, Relevancy, ResultLabels, Results}
 import com.adrielc.quivr.metrics.retrieval.TruePositiveCount
 import simulacrum.typeclass
 import eu.timepit.refined.auto._
@@ -81,15 +82,15 @@ object ResultRelevancies {
 
   implicit def nelLabelledSet[R: Relevancy]: ResultRelevancies.Aux[NonEmptyList[R], R] = instance(nel => NonEmptyVector(nel.head, nel.tail.toVector))
 
-  implicit def binaryJudgementsFromGroundTruth[S: Results : GroundTruth : ResultLabels]: ResultRelevancies.Aux[S, Option[Label]] = new ResultRelevancies[S] {
+  implicit def binaryJudgementsFromGroundTruth[S: NonEmptyResults : GroundTruth : ResultLabels]: ResultRelevancies.Aux[S, Option[Label]] = new ResultRelevancies[S] {
     type Rel = Option[Label]
     override val rel: Relevancy[Option[Label]] = Relevancy[Option[Label]]
 
-    def resultRelevancies(a: S): NonEmptyVector[Rel] = Results[S].labeledResults(a)
+    def resultRelevancies(a: S): NonEmptyVector[Rel] = NonEmptyResults[S].nonEmptyLabeledResults(a)
 
     override def truePositiveCount(a: S): Int = {
       val rels = GroundTruth[S].groundTruth(a).set
-      Results[S].results(a).toVector.count(rels.contains)
+      Results[S].results(a).count(rels.contains)
     }
   }
 

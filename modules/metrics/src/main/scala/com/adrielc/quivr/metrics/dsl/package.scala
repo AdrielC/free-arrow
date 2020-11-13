@@ -90,7 +90,7 @@ package object dsl {
 
     /** {{{ ifThen(count(Clicks) === 0, -1) | ifThen(count(CartAdds) > 100, count(Purchases)) }}}  **/
     def ifThen[E, A](i: Judge[E], t: A)(implicit L: A LabelFor E): Labeler[E] =
-      engagement.Labeler.ifThen(i, t.labeler)
+      engagement.Labeler.as(i, t.labeler)
 
     /**
      * Sum all of the counts for each sub expression
@@ -195,7 +195,7 @@ package object dsl {
     def &&(other: Judge[E]) : Judge[E] = Judge.and(exp, other)
 
     // convert to labeler that runs if this predicate succeeds
-    def ->>[B:engagement. LabelFor[*, E]](b: B): Labeler[E] = Labeler.ifThen(exp, b.labeler)
+    def ->>[B:engagement. LabelFor[*, E]](b: B): Labeler[E] = Labeler.as(exp, b.labeler)
 
     /**
      * interpret this Expression as a function from Engagements of type [[E]] to a ground truth set for [[A]]
@@ -221,7 +221,7 @@ package object dsl {
 
   // compute metric
   object eval {
-    import EvalOp.{Ndcg, QMeasure, FScore, Precision, AveragePrecision, ReciprocalRank, RPrecision, Recall}
+    import EvalOp.MetricOp.{Ndcg, QMeasure, FScore, Precision, AveragePrecision, ReciprocalRank, RPrecision, Recall}
     import ranking.{ResultRelevancies, RankedRelevancies}
     import retrieval.{RelevanceCount, TruePositiveCount}
 
