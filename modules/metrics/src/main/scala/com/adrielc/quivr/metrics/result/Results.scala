@@ -2,7 +2,7 @@ package com.adrielc.quivr.metrics
 package result
 
 import cats.Contravariant
-import cats.data.{NonEmptyList, NonEmptyMap, NonEmptySet, NonEmptyVector}
+import cats.data.{NonEmptyList, NonEmptyVector}
 import com.adrielc.quivr.metrics.retrieval.ResultCount
 import simulacrum.{op, typeclass}
 
@@ -10,22 +10,6 @@ import simulacrum.{op, typeclass}
 
   @op("results")
   def results(a: A): NonEmptyVector[ResultId]
-
-  def judgeWith(a: A, groundTruth: NonEmptySet[ResultId]): NonEmptyVector[Boolean] =
-    results(a).map(groundTruth.contains)
-
-  def labelWith(a: A, labels: NonEmptyMap[ResultId, Label]): NonEmptyVector[Option[Label]] =
-    results(a).map(labels.lookup)
-
-  def labeledResults(a: A)(implicit R: ResultLabels[A]): NonEmptyVector[Option[Label]] = {
-    val labels = R.resultLabels(a)
-    results(a).map(labels.lookup)
-  }
-
-  def judgedResults(a: A)(implicit G: GroundTruth[A]): NonEmptyVector[Boolean] = {
-    val rels = G.groundTruth(a).set
-    results(a).map(rels.contains)
-  }
 
   override def resultCount(a: A): Int =
     results(a).length

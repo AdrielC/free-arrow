@@ -51,6 +51,7 @@ lazy val metrics = (project in file("modules/metrics"))
       "eu.timepit" %% "refined" % "0.9.17",
       "eu.timepit" %% "refined-cats" % "0.9.17",
       "com.slamdata" %% "matryoshka-core" % "0.21.3",
+      "com.codecommit" %% "skolems" % "0.1.2",
       compilerPlugin(Libraries.kindProjector)
     )
   )

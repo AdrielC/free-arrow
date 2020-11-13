@@ -7,7 +7,7 @@ import cats.implicits._
 import com.adrielc.quivr.metrics.data.Rankings.{Ranked, RankedResults}
 import com.adrielc.quivr.metrics.data.relevance.Relevance
 import com.adrielc.quivr.metrics.function.{DiscountFn, GainFn}
-import com.adrielc.quivr.metrics.result.Relevancy
+import com.adrielc.quivr.metrics.result.BinaryRelevancy
 import eu.timepit.refined.api.RefinedTypeOps
 import eu.timepit.refined.types.numeric.{NonNegInt, PosInt}
 
@@ -57,18 +57,32 @@ package object metrics {
    *
     */
   def calcNdcgK(labels: Ranked[Double], g: GainFn, d: DiscountFn): Option[Double] = {
-    val ideal = labels.copy(rankings = labels.rankings.toNel.sortBy(-_._2).mapWithIndex { case ((k, l), i) =>
-      val r = Rank.fromIndex(i)
-      val ll = if(k > labels.k) 0.0 else l // disregard gain from results above rank K
-      r -> ll
-    }.toNem)
-    safeDiv(
-      calcDcgK(labels, g, d),
-      calcDcgK(ideal, g, d)
-    )
+    labels.rankings.toSortedMap.filterKeys(_ <= labels.k).values.toVector.sortBy(-_).toNev.flatMap { ideal =>
+      if(labels.k == Rank.unsafeFrom(20)) {
+        println("last\t\t" + labels.rankings.last)
+        println("labels\t\t" + labels)
+//        println(ideal)
+      }
+      safeDiv(
+        calcDcgK(labels, g, d),
+        calcDcg(ideal, g, d)
+      )
+    }
   }
+
   def calcDcgK(ranked: Ranked[Double], g: GainFn, d: DiscountFn): Double =
     ranked.rankings.toNel.foldMap { case (r, label) => if(r > ranked.k) 0.0 else g(label) / d(r) }
+
+  def calcAP[R: BinaryRelevancy](rnk: Ranked[R]): Option[Double] = {
+    val (correct, sum) = rnk.rankings.toNel.foldLeft((0, 0.0)) { case ((c, s), (k, r)) =>
+      if (BinaryRelevancy[R].isRel(r)) {
+        val correct = c + 1
+        val sum = s + (correct / k.toDouble)
+        (correct, sum)
+      } else (c, s)
+    }
+    safeDiv(sum.toDouble, correct.toDouble)
+  }
 
   def calcDcg(labels: NonEmptyVector[Double], g: GainFn, d: DiscountFn): Double =
     labels.foldLeft((0.0, 1)) { case ((s, idx), label) => (s + (g(label) / d(idx)), idx + 1) }._1
@@ -81,28 +95,20 @@ package object metrics {
     )
   }
 
-  def calcAP[R: Relevancy](rnk: Ranked[R]): Option[Double] = {
-    import Relevancy.ops._
-    val (correct, sum) = rnk.rankings.toNel.foldLeft((0, 0.0)) { case ((c, s), (i, r)) =>
-      if (r.isRel) {
-        val correct = c + 1
-        val sum = s + (correct / i.toDouble)
-        (correct, sum)
-      } else (c, s)
-    }
-    safeDiv(sum.toDouble, correct.toDouble)
-  }
-
-  def calcQ[R: Relevancy](rnk: Ranked[R], b: Double): Option[Double] = {
-    import Relevancy.ops._
+  //    Because BR(r) has an r in the denominator (just like P(r)),
+  //    Q-measure is guaranteed to become smaller as a relevant document goes
+  //    down the ranked list. A large b (e.g., b = 100) alleviates this effect,
+  //    and makes Q-measure more forgiving for relevant documents near the bottom of the ranked list.
+  //    Conversely, a small b (e.g., b = 1) imposes more penalty
+  def calcQ(rnk: Ranked[Double], b: Double): Option[Double] = {
     val labs = rnk.rankings.toNel
-    val ideal = labs.sortBy(-_._2.gainOrZero)
+    val ideal = labs.map { case (k,r) => k -> (if(k > rnk.k) 0.0 else r)}.sortBy(-_._2)
     val withIdeal = labs.zipWith(ideal)((a, b) => (Rank.fromIndex(a._1), a._2, b._2))
     val (_, _, correct, sum) = withIdeal.foldLeft((0.0, 0.0, 0, 0.0)) {
       case (prev @ (cg, cgI, c, s), (k, r, rIdeal)) =>
-        if(r.isRel) {
-          val cG      = cg + r.gainOrZero
-          val cGI     = cgI + rIdeal.gainOrZero
+        if(r > 0) {
+          val cG      = cg + r
+          val cGI     = cgI + rIdeal
           val correct = c + 1
           val sum     = s + ((b*cG + correct) / (b*cGI + k.toDouble))
           (cG, cGI, correct, sum)
@@ -111,9 +117,9 @@ package object metrics {
     safeDiv(sum.toDouble, correct.toDouble)
   }
 
-  def calcReciprocalRank[R: Relevancy](rnk: NonEmptyMap[Rank, R]): Option[Double] =
+  def calcReciprocalRank[R: BinaryRelevancy](rnk: NonEmptyMap[Rank, R]): Option[Double] =
     rnk.toNel
-      .find { case (_, r) => Relevancy[R].isRel(r) }
+      .find(r => BinaryRelevancy[R].isRel(r._2))
       .map { case (k, _) => 1 / k.toDouble }
 
 

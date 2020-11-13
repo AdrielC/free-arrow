@@ -2,7 +2,7 @@ package com.adrielc.quivr.metrics.dsl
 
 import cats.data.{NonEmptyMap, NonEmptyVector}
 import com.adrielc.quivr.free.FreeArrow
-import com.adrielc.quivr.metrics.{MyEngagement, ResultRels}
+import com.adrielc.quivr.metrics.{MyEngagement, Rank}
 import org.scalatest.{FlatSpec, Matchers}
 import eu.timepit.refined.auto._
 import com.adrielc.quivr.metrics.data.EngagedResults
@@ -17,19 +17,19 @@ class MetricBuilderSpec extends FlatSpec with Matchers {
   val results = EngagedResults(
     NonEmptyVector.fromVectorUnsafe((1L to 60L).toVector),
     NonEmptyMap.of(
-      1L -> (1.click + 1.cartAdd + 2.purchases),
-      20L -> (2.clicks + 2.cartAdds + 2.purchases),
-      30L -> (3.clicks + 3.cartAdds + 3.purchases),
-      40L -> (4.clicks + 4.cartAdds + 4.purchases),
-      60L -> (7.clicks + 7.cartAdds + 7.purchases)
+      1L -> (1.click + 1.cartAdd + 2.purchases).toMap,
+      20L -> (2.clicks + 2.cartAdds + 2.purchases).toMap,
+      30L -> (3.clicks + 3.cartAdds + 3.purchases).toMap,
+      40L -> (4.clicks + 4.cartAdds + 4.purchases).toMap,
+      60L -> (7.clicks + 7.cartAdds + 7.purchases).toMap
     )
   )
 
   "combine" should "build" in {
 
-    val labeler = label.from[Res](purchases, clicks && (purchases.filter === 100))
+    val labeler = label(purchases, clicks & (purchases.filter === 100))
 
-    val metrics = labeler >>> atK(50) >>> (eval.recall[ResultRels] &&& eval.precision)
+    val metrics = labeler >>> atK(50) >>> (eval.recall &&& eval.precision)
 
     val res = metrics.run(results)
 
@@ -43,8 +43,8 @@ class MetricBuilderSpec extends FlatSpec with Matchers {
   "ranking metrics" should "be applied" in {
 
     val evaluator =
-      (atK[Res](10, 20) >>> label(clicks, cartAdds, purchases) >>> eval.ndcg) <+>
-        (atK[Res](30, 40) >>> judge(anyClicks) >>> eval.averagePrecision)
+      (atK[EngRes[MyEngagement]](10, 20) >>> label(clicks, cartAdds, purchases) >>> eval.ndcg.tapIn(r => if(r.k == Rank.unsafeFrom(20)) println("lastInt\t\t" + r.res.last))) <+>
+        (atK[EngRes[MyEngagement]](30, 40) >>> judge(anyClicks) >>> eval.averagePrecision)
 
     val res = evaluator.run(results)
 
@@ -60,11 +60,33 @@ class MetricBuilderSpec extends FlatSpec with Matchers {
     ))
     assert(res.lookup("binaryClick.ap.@40").isDefined)
     assert(res.lookup("binaryClick.ap.@40").exists(_.contains(0.32500000000000007)))
+
+    Map(
+      "binaryClick.ap.@30" -> Right(0.4000000000000001),
+      "binaryClick.ap.@40" -> Right(0.32500000000000007),
+      "cartadd.ndcg.@10" -> Right(1.0),
+      "cartadd.ndcg.@20" -> Right(0.46352060224668756),
+      "click.ndcg.@10" -> Right(1.0),
+      "click.ndcg.@20" -> Right(0.46352060224668756),
+      "purchase.ndcg.@10" -> Right(1.0),
+      "purchase.ndcg.@20" -> Right(0.7527425666302089)
+
+    )
+    Map(
+      "binaryClick.ap.@30" -> Right(0.4000000000000001),
+      "binaryClick.ap.@40" -> Right(0.32500000000000007),
+      "cartadd.ndcg.@10" -> Right(1.0),
+      "cartadd.ndcg.@20" -> Right(0.752742566630209),
+      "click.ndcg.@10" -> Right(1.0),
+      "click.ndcg.@20" -> Right(0.752742566630209),
+      "purchase.ndcg.@10" -> Right(1.0),
+      "purchase.ndcg.@20" -> Right(0.752742566630209))
+
   }
 
   "EvalOp" should "annotate" in {
 
-    val evaluation2 = clicks.from[ResultEngs] >>> atK(60) >>> eval.qMeasure(1)
+    val evaluation2 = clicks.liftA >>> atK(60) >>> eval.qMeasure(1)
 
     type Annotated[A, B] = A >> (List[EvalOp[_, _]], B)
 
@@ -75,6 +97,6 @@ class MetricBuilderSpec extends FlatSpec with Matchers {
 
     println(res)
 
-    assert(res._2.contains(("click.qMeasure.@60",0.25056636689763623)))
+    assert(res._2.contains(("click.qMeasure.@60",0.27755027230833684)))
   }
 }

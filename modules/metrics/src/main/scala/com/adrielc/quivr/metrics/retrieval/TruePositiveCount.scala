@@ -23,5 +23,5 @@ import simulacrum.{op, typeclass}
 }
 object TruePositiveCount {
 
-  implicit def relevantResultInstance[A](implicit R: ranking.ResultRelevancies[A]): TruePositiveCount[A] = R
+  implicit def relevantResultInstance[A](implicit R: ranking.ResultJudgements[A]): TruePositiveCount[A] = R
 }

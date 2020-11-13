@@ -1,21 +1,24 @@
-package com.adrielc.quivr
-package metrics
+package com.adrielc.quivr.metrics
 package data
 
 import cats.data.{NonEmptyList, NonEmptyMap, NonEmptyVector}
-import cats.implicits._
-import cats.{Eq, Functor, Monoid}
-import com.adrielc.quivr.metrics.ranking.{RankedRelevancies, ResultRelevancies}
-import com.adrielc.quivr.metrics.result.{AtK, Relevancy}
+import cats.Functor
+import com.adrielc.quivr.metrics.data.relevance.Relevance
+import com.adrielc.quivr.metrics.ranking.{RankedRelevancies, ResultJudgements}
+import com.adrielc.quivr.metrics.result.{AtK, BinaryRelevancy, Relevancy}
 import com.adrielc.quivr.metrics.retrieval.RelevanceCount
 import eu.timepit.refined.cats._
 import eu.timepit.refined.auto._
 
 sealed trait Rankings[+A] {
-  def rankings: NonEmptyMap[Rank, A]
+  def ranked: Rankings.Ranked[A]
+  def setK(k: Int): Option[Rankings[A]]
   def map[B](f: A => B): Rankings[B]
 }
 object Rankings {
+  import result.{Engagements, Results}
+  import cats.implicits._
+  import implicits._
 
   /**
    * He showed that the application of Reciprocal Rank, O-measure (Sakai 2006c) and P+-measure
@@ -23,6 +26,11 @@ object Rankings {
    * data incompleteness problem.
    */
   final case class Ranked[+A] private[metrics] (rankings: NonEmptyMap[Rank, A], k: Rank) extends Rankings[A] {
+
+    override def ranked: Ranked[A] = this
+
+    override def setK(newK: Int): Option[Rankings[A]] =
+      if(newK > k) None else Rank.from(newK).toOption.map(newK => copy(k = newK))
 
     def map[B](f: A => B): Ranked[B] =
       copy(rankings = rankings.map(f))
@@ -50,62 +58,64 @@ object Rankings {
         fa.map(f)
     }
 
+    def toRankMap[A](results: NonEmptyVector[(_, A)]): NonEmptyMap[Rank, A] =
+      results.mapWithIndex((id, idx) => Rank.fromIndex(idx) -> id._2).toNem
+
     implicit def indexesToK[A]: AtK[Ranked[A]] =
       (a, k) => if(k > a.k) None else Rank.from(k).toOption.map(newK => a.copy(k = newK))
 
     implicit def rankedLabels[R: Relevancy]: RankedRelevancies.Aux[Ranked[R], R] =
       new RankedRelevancies[Ranked[R]] {
         override type Rel = R
-        val rel: Relevancy[R] = Relevancy[R]
+        val relevancy: Relevancy[R] = Relevancy[R]
         override def rankedRelevancies(a: Ranked[R]): Ranked[R] = a
       }
   }
 
-  final case class RankedResults[+A] private[metrics] (res: NonEmptyVector[(ResultId, A)], k: Rank, nRelevant: Count) extends Rankings[A] {
+  final case class RankedResults[+A] private (res: NonEmptyVector[(ResultId, A)], k: Rank, nRelevant: Count) extends Rankings[A] {
 
-    override def rankings: NonEmptyMap[Rank, A] =
-      res.mapWithIndex { case ((_, a), i) => Rank.fromIndex(i) -> a }.toNem
+    override lazy val ranked: Ranked[A] =
+      Ranked(Ranked.toRankMap(res), k)
 
     override def map[B](f: A => B): RankedResults[B] =
-      copy(res = res.map { case (id, a) => id -> f(a) })
+      RankedResults(res.map { case (id, a) => id -> f(a) }, k, nRelevant)
+
+    lazy val resultsAtK: NonEmptyVector[(ResultId, A)] =
+      NonEmptyVector.fromVectorUnsafe(res.toVector.take(k.value)) // safe because k is guaranteed >= 1
+
+    override def setK(k: Int): Option[Rankings[A]] =
+      Rank.from(k).toOption.flatMap(newK => (newK <= res.length).guard[Option].as(copy(k = newK)))
 
     def setK(newK: Rank): Option[RankedResults[A]] =
-      (newK <= res.length).guard[Option].as(copy(k = newK))
+      (newK <= res.length).guard[Option].as(RankedResults(res, newK, nRelevant))
   }
 
   object RankedResults {
 
-    import result.{Engagements, Results}
-    import cats.implicits._
-    import implicits._
-
-    // guarantees that if a list of relevancies is returned then there is at least one judged result
-    def apply[A: Engagements[*, E]: Results, E, B: Relevancy : Monoid : Eq](a: A, judgeLabel: Map[E, Int] => B): Option[RankedResults[B]] = {
-
+    // guarantees that if a list of relevancies is returned then there is at least one judged result and one relevant
+    def apply[A: Engagements[*, E]: Results, E](a: A, judgeLabel: Map[E, Int] => Relevance): Option[RankedResults[Relevance]] = {
       val rels = a.engagementCounts.mapValues(judgeLabel)
-
-      val results = a.results.map(id => (id, rels.getOrElse(id, Monoid.empty[B])))
-
-      val nRel = Count.from(rels.count(_._2.isRel)).toOption.filter(_ > 0)
-
-      val nJudged = Some(results.toList.count(_._2.isJudged)).filter(_ > 0)
-
-      (nJudged *> nRel).map(new RankedResults(results, Rank.unsafeFrom(results.length), _))
+      val results = a.results.map(id => (id, rels.getOrElse(id, Relevance.unjudged)))
+      (Some(results.toList.count(_._2.gain.isDefined)).filter(_ > 0) *>
+        Count.from(rels.count(a => a._2.gain.gain > 0)).toOption.filter(_ > 0))
+        .map(new RankedResults(results.map(a => a._1 -> a._2), Rank.unsafeFrom(results.length), _))
     }
 
-    implicit def resultRelsRelevanciesInstance[A: Relevancy]: ResultRelevancies.Aux[RankedResults[A], (ResultId, A)] with RelevanceCount[RankedResults[A]] =
-      new ResultRelevancies[RankedResults[A]] with RelevanceCount[RankedResults[A]] {
+    implicit def resultRelsRelevanciesInstance[A: BinaryRelevancy]: ResultJudgements.Aux[RankedResults[A], (ResultId, A)] with RelevanceCount[RankedResults[A]] =
+      new ResultJudgements[RankedResults[A]] with RelevanceCount[RankedResults[A]] {
 
         override type Rel = (ResultId, A)
 
-        override val rel: Relevancy[(ResultId, A)] =
-          Relevancy.gainRelevancy.contramap(_._2.gainValue)
+        override val relevancy: BinaryRelevancy[(ResultId, A)] = BinaryRelevancy[A].contramap(_._2)
 
-        override def resultRelevancies(a: RankedResults[A]): NonEmptyVector[(ResultId, A)] =
-          NonEmptyVector.fromVectorUnsafe(a.res.toVector.take(a.k.value)) // safe because k is guaranteed >= 1
+        override def resultRelevancies(a: RankedResults[A]): NonEmptyVector[(ResultId, A)] = a.resultsAtK
 
-        override def groundTruthCount(a: RankedResults[A]): Int =
-          a.nRelevant
+        override def groundTruthCount(a: RankedResults[A]): Int = a.nRelevant
+
+        override def truePositiveCount(a: RankedResults[A]): Int =
+          a.res.toVector.foldLeft((1, 0)) { case ((rnk, cnt), (id, rel)) =>
+            (rnk + 1) -> (if(rnk <= a.k && relevancy.isRel((id, rel))) cnt + 1 else cnt )
+          }._2
       }
 
     implicit def rankedResultsAtK[A]: AtK[RankedResults[A]] = (a, k) => Rank.from(k).toOption.flatMap(a.setK)

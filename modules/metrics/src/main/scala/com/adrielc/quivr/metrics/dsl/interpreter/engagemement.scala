@@ -6,7 +6,8 @@ import cats.data.Kleisli
 import cats.~>
 import cats.implicits._
 import com.adrielc.quivr.metrics.data.relevance.Relevance
-import com.adrielc.quivr.metrics.dsl.engagement.{Judge, Labeler}
+import com.adrielc.quivr.metrics.data.relevance.Relevance.{BinaryRel, GradedRel}
+import engagement.{Judge, Labeler}
 import matryoshka.implicits._
 
 
@@ -25,9 +26,10 @@ object engagemement {
             case Sum(e1, e2)      => e1 |+| e2
             case Mult(e1, e2)     => combWith(e1, e2)(_ * _)
             case Div(num, den)    => combWith(num, den)(safeDiv(_, _).getOrElse(0.0))
-            case i: IfThen[A, FromEngs[A, Double]] => judge.judgeCompiler(i.i).flatMap(b => if(b) i.t else Kleisli(_ => none[Double]))
+            case i: As[A, FromEngs[A, Double]] => judge.judgeCompiler(i.i).flatMap(b => if(b) i.t else Kleisli(_ => none[Double]))
             case Or(e1, e2)       => e1 <+> e2
             case And(e1, e2)      => Kleisli(e => e1(e).flatMap(a => e2(e).map(b => a + b)))
+            case Log(e1, e2)      => e1.mapF(_.flatMap(d => if(d < 0 || e2 < 0) none[Double] else Some(math.log(d + 1) / math.log(e2))))
             case eqv: Equiv[A, Double] @unchecked => for {
               a <- labelerCompiler(eqv.a)
               b <- labelerCompiler(eqv.b)
@@ -37,10 +39,10 @@ object engagemement {
       }
     }
 
-    val labelerToRelevanceCompiler: Labeler ~> FromEngs[*, Relevance] = {
-      new (Labeler ~> FromEngs[*, Relevance]) {
-        override def apply[A](fa: Labeler[A]): FromEngs[A, Relevance] =
-          labelerCompiler(fa).map(Relevance.label)
+    val labelerToRelevanceCompiler: Labeler ~> FromEngs[*, GradedRel] = {
+      new (Labeler ~> FromEngs[*, GradedRel]) {
+        override def apply[A](fa: Labeler[A]): FromEngs[A, GradedRel] =
+          labelerCompiler(fa).map(Relevance.grade)
       }
     }
   }
@@ -62,9 +64,9 @@ object engagemement {
       }
     }
 
-    val judgementCompilerToRelevance: Judge ~> FromEngs[*, Relevance] =
-      new (engagement.Judge ~> FromEngs[*, Relevance]) {
-        override def apply[A](fa: Judge[A]): FromEngs[A, Relevance] =
+    val judgementCompilerToRelevance: Judge ~> FromEngs[*, BinaryRel] =
+      new (engagement.Judge ~> FromEngs[*, BinaryRel]) {
+        override def apply[A](fa: Judge[A]): FromEngs[A, BinaryRel] =
           judgeCompiler(fa).map(Relevance.judge)
       }
 

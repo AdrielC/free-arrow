@@ -13,13 +13,13 @@ class ExprTest extends FlatSpec with Matchers {
   val results = EngagedResults(
     NonEmptyVector.of(1L, 2L to 10L:_*),
     NonEmptyMap.of(
-      1L -> (1.click + 1.cartAdd + 1.purchase),
-      2L -> (2.click + 2.cartAdd + 2.purchase),
-      3L -> (3.click + 3.cartAdd + 3.purchase),
-      4L -> (4.click + 4.cartAdd + 4.purchase),
-      8L -> 1.cartAdd,
-      9L -> 1.purchase,
-      10L -> 1.click
+      1L -> (1.click + 1.cartAdd + 1.purchase).toMap,
+      2L -> (2.click + 2.cartAdd + 2.purchase).toMap,
+      3L -> (3.click + 3.cartAdd + 3.purchase).toMap,
+      4L -> (4.click + 4.cartAdd + 4.purchase).toMap,
+      8L -> 1.cartAdd.toMap,
+      9L -> 1.purchase.toMap,
+      10L -> 1.click.toMap
     )
   )
 
@@ -27,7 +27,7 @@ class ExprTest extends FlatSpec with Matchers {
 
     val labeler = clicks + cartAdds + purchases
 
-    val r = labeler.labelResults(results).exists(_.res.toNem.lookup(1L).exists(_.gainOrZero == 3.0))
+    val r = labeler.liftA.run(results)._2.exists(_.res.toNem.lookup(1L).exists(_.gain.contains(3.0)))
 
     assert(r)
   }
@@ -38,16 +38,16 @@ class ExprTest extends FlatSpec with Matchers {
 
     val labeler2 = clicks + cartAdds*5 + purchases*25
 
-    val r = labeler.labelResults(results).exists(_.res.toNem.lookup(1L).exists(_.gainOrZero == 31.0))
+    val r = labeler.liftA.run(results)._2.exists(_.res.toNem.lookup(1L).exists(_.gain.contains(31.0)))
 
     assert(r)
-    assert(labeler.labelResults(results) == labeler2.labelResults(results))
+    assert(labeler.liftA.run(results)._2 == labeler2.liftA.run(results)._2)
   }
 
 
   "ifThenElse" should "chain logic" in {
 
-    val weighted  = ((anyClicks ->> 1) + (anyCartAdds ->> 5) + (anyPurchases ->> 25)).from[ResultEngs]
+    val weighted  = ((anyClicks ->> 1) + (anyCartAdds ->> 5) + (anyPurchases ->> 25)).liftA
 
     val expected = NonEmptyList.of(1L -> 31.0, 2L -> 31.0, 3L -> 31.0, 4L -> 31.0, 8L -> 5.0, 9L -> 25.0, 10L -> 1.0)
 
@@ -56,12 +56,12 @@ class ExprTest extends FlatSpec with Matchers {
 
   "Judgements" should "exclude any result with either only clicks or nothing" in {
 
-    val r = (cartAdds | purchases).from[ResultEngs].run(results)
+    val r = (cartAdds | purchases).liftA.run(results)
 
     assert(r._2.flatMap(_.res.toList.filter(_._2.isRel).toNel.map(_.toNem.keys))
       .contains(NonEmptySet.of(1L, 2L, 3L, 4L, 8L, 9L)))
 
-    assert((anyCartAdds | anyPurchases).run(results).flatMap(_.res.toList.filter(_._2.isRel).toNel.map(_.toNem.keys))
+    assert((anyCartAdds | anyPurchases).liftA.run(results)._2.flatMap(_.res.toList.filter(_._2.isRel).toNel.map(_.toNem.keys))
       .contains(NonEmptySet.of(1L, 2L, 3L, 4L, 8L, 9L)))
   }
 
@@ -78,7 +78,8 @@ class ExprTest extends FlatSpec with Matchers {
     ).mapValues(_.toMap)
 
 
-    assert((cartAdds + purchases).engsToLabels(engagements) == Map(
+    val f = (cartAdds + purchases).run
+    assert(engagements.mapValues(f) == Map(
       1L -> 6.0.some,
       4L -> 5.0.some,
       10L -> 8.0.some,
@@ -94,27 +95,27 @@ class ExprTest extends FlatSpec with Matchers {
 
     val engagements =
       NonEmptyMap.of(
-        1L  -> (10.clicks + 5.cartAdds + 1.purchase),
-        4L  -> (20.clicks + 6.cartAdds),
-        10L -> (2.purchases + 6.cartAdds + 23.clicks),
-        25L -> (5.purchases + 10.cartAdds + 1.click),
-        49L -> (3.cartAdds + 6.clicks),
-        70L -> (1.purchase + 1.cartAdd + 200.click)
+        1L  -> (10.clicks + 5.cartAdds + 1.purchase).toMap,
+        4L  -> (20.clicks + 6.cartAdds).toMap,
+        10L -> (2.purchases + 6.cartAdds + 23.clicks).toMap,
+        25L -> (5.purchases + 10.cartAdds + 1.click).toMap,
+        49L -> (3.cartAdds + 6.clicks).toMap,
+        70L -> (1.purchase + 1.cartAdd + 200.click).toMap
       )
 
     val res = EngagedResults(NonEmptyVector.of(1L, 2L to 70L:_*), engagements)
 
     val standardWeightedEngs = clicks + cartAdds*5 + purchases*25
 
-    val negativeIfTwoTimesMoreClicks = (((purchases + cartAdds) <= 2) && (clicks >= 200)) ->> -1
+    val negativeIfTwoTimesMoreClicks = (((purchases + cartAdds) <= 2) & (clicks >= 200)) ->> -1
 
     val a  = negativeIfTwoTimesMoreClicks | ((standardWeightedEngs < 50) ->> 30) | 500
 
-    val evaluator = a.from[ResultEngs] >>> eval.ndcg
+    val evaluator = a.liftA >>> eval.ndcg
 
-    assert(evaluator.run(res)._2.contains(0.7544045426339389))
+    assert(evaluator.run(res)._2.contains(0.7155165369503295))
 
-    assert(a.labelResults(res).foldMapK(_.res.toNem.toSortedMap.toList.mapFilter{case (k, v) => v.gain.map(k -> _)}).toMap == Map(
+    assert(a.liftA.run(res)._2.foldMapK(_.res.toNem.toSortedMap.toList.mapFilter{case (k, v) => v.gain.map(k -> _)}).toMap == Map(
       1L -> 500.0,
       4L -> 500.0,
       10L -> 500.0,

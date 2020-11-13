@@ -1,6 +1,8 @@
 package com.adrielc.quivr.metrics
 package dsl
 package interpreter
+import com.adrielc.quivr.metrics.dsl.engagement
+import com.adrielc.quivr.metrics.dsl.evaluation.EvalOp.EngagementOp.{EngagementToJudgement, EngagementToLabel}
 import com.adrielc.quivr.~>|
 import matryoshka.implicits._
 
@@ -8,7 +10,8 @@ object key {
   import function.{double, gain}
   import dsl.evaluation.EvalOp
   import dsl.evaluation.EvalOp._
-  import dsl.engagement.{JudgeF, LabelerF}
+  import Metric._
+  import engagement.{JudgeF, LabelerF}
   import LabelerF._
   import JudgeF._
   import dsl.key._
@@ -24,8 +27,9 @@ object key {
       case Value(d)         => formatDouble(d)
       case Mult(e1, e2)     => s"($e1*$e2)"
       case Sum(e1, e2)      => s"($e1+$e2)"
+      case Log(e1, base)    => s"log$base($e1)"
       case Div(e1, e2)      => s"($e1/$e2)"
-      case IfThen(i, t)     => s"if(${judgeToKey(i)},$t)"
+      case As(i, t)         => s"if(${judgeToKey(i)},$t)"
       case Or(e1, e2)       => s"($e1|$e2)"
       case And(e1, e2)      => s"($e1&$e2)"
       case Equiv(e, e1, e2) => s"filter(${labelerToKey(e1)}$e${labelerToKey(e2)}"
@@ -48,12 +52,12 @@ object key {
         case QMeasure(1) => "qMeasure"
         case Ndcg(g, _) => s"ndcg-G$g"
         case QMeasure(b) => s"qMeasure-B${formatDouble(b)}"
-        case Precision() => "prec"
-        case RPrecision() => "rPrec"
-        case Recall() => "recall"
-        case FScore() => "f1"
-        case AveragePrecision() => "ap"
-        case ReciprocalRank() => "mrr"
+        case Precision => "prec"
+        case RPrecision => "rPrec"
+        case Recall => "recall"
+        case FScore => "f1"
+        case AveragePrecision => "ap"
+        case ReciprocalRank => "mrr"
         case EngagementToLabel(e) => labelerToKey(e)
         case EngagementToJudgement(e) => judgeToKey(e)
         case k: K[_] => s"@${k.k}"
@@ -62,7 +66,7 @@ object key {
     new (EvalOp ~>| Int) {
       def apply[A, B](fab: EvalOp[A, B]): Int = fab match {
         case _: EngagementOp[_, _]  => 1
-        case _: MetricOp[_]         => 2
+        case _: Metric[_]         => 2
         case K(_)                   => 3
       }
     },

@@ -2,13 +2,12 @@ package com.adrielc.quivr
 package metrics
 package dsl
 
-import com.adrielc.quivr.metrics.data.Rankings.RankedResults
-import com.adrielc.quivr.metrics.data.relevance.Relevance
-import com.adrielc.quivr.metrics.dsl.engagement.{Judge, Labeler}
-import com.adrielc.quivr.metrics.function.{DiscountFn, Eq, GainFn}
-import com.adrielc.quivr.metrics.ranking.{RankedRelevancies, ResultRelevancies}
-import com.adrielc.quivr.metrics.result.{AtK, Engagements, Results}
-import com.adrielc.quivr.metrics.retrieval.{RelevanceCount, TruePositiveCount}
+import java.time.Instant
+
+import cats.data.{NonEmptyList, NonEmptyMap}
+import engagement.{Judge, Labeler}
+import com.adrielc.quivr.metrics.function.{DiscountFn, GainFn}
+import com.adrielc.quivr.metrics.result.AtK
 import eu.timepit.refined.types.all.PosInt
 
 object evaluation {
@@ -16,33 +15,46 @@ object evaluation {
   sealed trait EvalOp[A, B]
   object EvalOp {
 
+    sealed trait QueryOp[A, B]
+    object QueryOp {
+      final case class QueryResults(system: System)                  extends QueryOp[Query, NonEmptyList[ResultId]]
+      final case class QueryLabelSource(from: Instant, to: Instant)  extends QueryOp[Query, NonEmptyMap[ResultId, Label]]
+
+      sealed trait System
+      case object Control                     extends System
+      final case class Variant(name: String)  extends System
+
+      sealed trait Query
+      case class Search(keyword: String)
+      case class Navigation(taxonomy: String)
+    }
+
     sealed trait EngagementOp[A, B] extends EvalOp[A, B]
-
-    final case class EngagementToJudgement[A, E](e: Judge[E])(implicit val E: Engagements[A, E], val R: Results[A])
-      extends EngagementOp[A, RankedResults[Relevance]]
-
-    final case class EngagementToLabel[A, E](e: Labeler[E])(implicit val E: Engagements[A, E], val R: Results[A])
-      extends EngagementOp[A, RankedResults[Relevance]]
-
+    object EngagementOp {
+      final case class EngagementToJudgement[E](e: Judge[E])  extends EngagementOp[EngRes[E], ResultRels]
+      final case class EngagementToLabel[E](e: Labeler[E])    extends EngagementOp[EngRes[E], ResultRels]
+    }
+    
     final case class K[A](k: PosInt)(implicit val A: AtK[A]) extends EvalOp[A, A]
 
-    sealed trait MetricOp[A] extends EvalOp[A, Double]
-    final case class Ndcg[A](g: GainFn, d: DiscountFn)(implicit val R: ResultRelevancies[A]) extends MetricOp[A]
-    final case class RPrecision[A]()                  (implicit val R: ResultRelevancies[A]) extends MetricOp[A]
-    final case class QMeasure[A](b: Double)           (implicit val P: RankedRelevancies[A]) extends MetricOp[A]
-    final case class AveragePrecision[A]()            (implicit val P: RankedRelevancies[A]) extends MetricOp[A]
-    final case class ReciprocalRank[A]()              (implicit val P: RankedRelevancies[A]) extends MetricOp[A]
-    final case class FScore[A]()                      (implicit val R: RelevanceCount[A])    extends MetricOp[A]
-    final case class Recall[A]()                      (implicit val R: RelevanceCount[A])    extends MetricOp[A]
-    final case class Precision[A]()                   (implicit val T: TruePositiveCount[A]) extends MetricOp[A]
+    sealed trait Metric[A] extends EvalOp[A, Double]
+    object Metric {
+      final case class Ndcg(g: GainFn, d: DiscountFn) extends Metric[ResultRels]
+      case object RPrecision                          extends Metric[ResultRels]
+      case class QMeasure(b: Double)                  extends Metric[ResultRels]
+      case object AveragePrecision                    extends Metric[ResultRels]
+      case object ReciprocalRank                      extends Metric[ResultRels]
+      case object FScore                              extends Metric[ResultRels]
+      case object Recall                              extends Metric[ResultRels]
+      case object Precision                           extends Metric[ResultRels]
+    }
   }
 
-  sealed trait EvalError
+  sealed trait EvalError extends Product with Serializable
   case object NoResults         extends EvalError
   case object NoEngagements     extends EvalError
   case object KGreaterThanMax   extends EvalError
   case object NoValidJudgements extends EvalError
   case object NoValidLabels     extends EvalError
   case object NoRelevant        extends EvalError
-  case class ResultSizeFiltered(eq: Eq[Int], k: PosInt) extends EvalError
 }

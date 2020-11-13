@@ -4,6 +4,7 @@ import cats.Order
 import cats.data.NonEmptyMap
 import cats.implicits._
 import com.adrielc.quivr.metrics.data.{EngagedResults, KeyCounts}
+import com.adrielc.quivr.metrics.dsl.engagement
 import eu.timepit.refined.types.numeric.PosInt
 
 sealed abstract class MyEngagement extends Product with Serializable
@@ -11,9 +12,9 @@ object MyEngagement {
   import dsl._
   type ResultEngs = EngagedResults[MyEngagement]
 
-  val clicks    : engagement.Labeler[MyEngagement] = label.of(Click: MyEngagement)
-  val cartAdds  : engagement.Labeler[MyEngagement] = label.of(CartAdd: MyEngagement)
-  val purchases : engagement.Labeler[MyEngagement] = label.of(Purchase: MyEngagement)
+  val clicks    : engagement.Labeler[MyEngagement] = label.count(Click: MyEngagement)
+  val cartAdds  : engagement.Labeler[MyEngagement] = label.count(CartAdd: MyEngagement)
+  val purchases : engagement.Labeler[MyEngagement] = label.count(Purchase: MyEngagement)
   val anyClicks    : engagement.Judge[MyEngagement] = judge.any(Click: MyEngagement)
   val anyCartAdds  : engagement.Judge[MyEngagement] = judge.any(CartAdd: MyEngagement)
   val anyPurchases : engagement.Judge[MyEngagement] = judge.any(Purchase: MyEngagement)

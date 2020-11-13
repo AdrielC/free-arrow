@@ -1,6 +1,6 @@
 package com.adrielc.quivr.data
 
-import cats.data.{NonEmptyList => Nel, NonEmptyMap}
+import cats.data.{NonEmptyList, NonEmptyMap}
 import cats.{Monad, Monoid, Order, Semigroup, SemigroupK}
 import cats.implicits._
 
@@ -10,9 +10,9 @@ import scala.collection.immutable.SortedMap
  * A non empty map that represents a store of values with monoidal keys
  *
  * @param nem Non empty map
- * @tparam K
- * @tparam E
- * @tparam V
+ * @tparam K Composite key
+ * @tparam E Error
+ * @tparam V Value
  */
 case class AccumMap[K, +E, +V](nem: NonEmptyMap[K, Either[E, V]]) {
 
@@ -20,10 +20,14 @@ case class AccumMap[K, +E, +V](nem: NonEmptyMap[K, Either[E, V]]) {
     AccumMap(nem.map(_.map(f)))
 
   def flatMap[EE >: E, B](f: V => AccumMap[K, EE, B])(implicit S: Semigroup[K], O: Order[K]): AccumMap[K, EE, B] =
-    AccumMap(
+    AccumMap {
       nem.toNel.flatMap { case (k, v) =>
-        v.fold(e => Nel.one(k -> e.asLeft), f(_).nem.toNel.map { case (k1, v1) => (k |+| k1) -> v1 })
-      }.toNem)
+        v.fold(
+          a => NonEmptyList.one(k -> a.asLeft),
+          f(_).nem.toNel.map { case (k1, v1) => (k |+| k1) -> v1 }
+        )
+      }.toNem
+    }
 
   def combine[EE >: E, VV >: V: Semigroup](x: AccumMap[K, EE, VV])(implicit O: Order[K]): AccumMap[K, EE, VV] =
     AccumMap(NonEmptyMap.fromMapUnsafe(x.nem.toSortedMap |+| nem.toSortedMap))

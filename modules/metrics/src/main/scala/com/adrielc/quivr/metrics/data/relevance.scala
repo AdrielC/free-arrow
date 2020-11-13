@@ -1,41 +1,59 @@
 package com.adrielc.quivr.metrics.data
 
-import cats.Eq
-import cats.kernel.CommutativeMonoid
+import cats.Monoid
+import com.adrielc.quivr.metrics.result.{BinaryRelevancy, Relevancy}
 
 object relevance {
 
   sealed trait Relevance {
     import Relevance._
     def gain: Option[Double] = this match {
-      case Relevance.Unjudged => None
-      case GradedRel(l)       => Some(l)
-      case BinaryRel(r)       => Some(if(r) 1.0 else 0.0)
+      case Relevance.Unjudged     => None
+      case GradedRel(label)       => Some(label)
+      case BinaryRel(isRelevant)  => Some(if(isRelevant) 1.0 else 0.0)
     }
   }
   object Relevance {
 
-    def label(label: Double): Relevance = GradedRel(label)
-    def judge(isRel: Boolean): Relevance = BinaryRel(isRel)
-    val irrelevant: Relevance = BinaryRel(false)
-    val zero: Relevance = label(0.0)
+    def grade(grade: Double): GradedRel = GradedRel(grade)
+    def judge(isRel: Boolean): BinaryRel = BinaryRel(isRel)
+    val irrelevant: BinaryRel = BinaryRel(false)
+    val zero: GradedRel = grade(0.0)
     val unjudged: Relevance = Unjudged
 
-    private case object Unjudged                              extends Relevance
-    sealed trait Judged                                       extends Relevance
-    private final case class GradedRel(label: Double)         extends Judged
-    private final case class BinaryRel(isRelevant: Boolean)   extends Judged
 
-    implicit val relevanceEq: Eq[Relevance] = Eq.by(_.gain)
+    case object Unjudged extends Relevance
 
-    implicit val relevanceMonoid: CommutativeMonoid[Relevance] = CommutativeMonoid.instance(Relevance.unjudged, {
-      case (Unjudged,   other)          => other
-      case (other,      Unjudged)       => other
-      case (BinaryRel(a), BinaryRel(b)) => BinaryRel(a || b)
-      case (GradedRel(a), GradedRel(b)) => GradedRel(a + b)
-      case (BinaryRel(r), GradedRel(l)) => GradedRel(if(r) 1.0 else l)
-      case (GradedRel(l), BinaryRel(r)) => GradedRel(if(r) 1.0 else l)
-    })
+    sealed trait Judged extends Relevance {
+      def gainValue: Double = this match {
+        case GradedRel(l)   => l
+        case BinaryRel(r)   => if(r) 1.0 else 0.0
+      }
+    }
+
+    final case class GradedRel(label: Double) extends Judged
+    object GradedRel {
+      implicit val gradedRelMonoid: Monoid[GradedRel] = Monoid.instance(zero, (a, b) => grade(a.label + b.label))
+      implicit def gradedRelRelevance: Relevancy[GradedRel] = a => {
+        println("graded\t\t" + a)
+        println("graded\t\t" + a.gainValue)
+        a.gainValue
+      }
+    }
+
+    final case class BinaryRel(isRelevant: Boolean) extends Judged
+    object BinaryRel {
+      implicit val binaryMonoid: Monoid[BinaryRel] = Monoid.instance(irrelevant, (a, b) => judge(a.isRelevant || b.isRelevant))
+      implicit def binaryRelRelevance: BinaryRelevancy[BinaryRel] = a => {
+        println("binary rel" + a.gain.getOrElse(0.0))
+        println("binary rel" + a)
+        a.isRelevant
+      }
+    }
+
+    implicit val relevance: BinaryRelevancy[Relevance] = new BinaryRelevancy[Relevance] {
+      override def isRel(a: Relevance): Boolean = a.gain.exists(_ > 0)
+    }
   }
 
 
