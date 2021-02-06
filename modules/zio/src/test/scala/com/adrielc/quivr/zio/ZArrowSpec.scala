@@ -59,5 +59,7 @@ class ZArrowSpec extends FlatSpec with Matchers {
     val diff = zio.Runtime.default.unsafeRun(timed)
 
     println(diff)
+
+    assert(diff > 0)
   }
 }

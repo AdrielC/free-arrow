@@ -1,8 +1,6 @@
 package com.adrielc.quivr
 package data
 
-import cats.data.AndThen
-
 import scala.io.StdIn
 import scala.util.Try
 
@@ -26,9 +24,9 @@ object exampleDsl {
 
       val function = new Pure[Expr] {
         def toFn[A, B](f: Expr[A, B]): A => B = f match {
-          case Add => AndThen((ab: (Int, Int)) => ab._1 + ab._2)
-          case Sub => AndThen((ab: (Int, Int)) => ab._1 - ab._2)
-          case Num(n) => AndThen(_ => n)
+          case Add => (ab: (Int, Int)) => ab._1 + ab._2
+          case Sub => (ab: (Int, Int)) => ab._1 - ab._2
+          case Num(n) => _ => n
         }
       }
     }
@@ -61,16 +59,16 @@ object exampleDsl {
 
     object ~~> {
 
-      implicit val function: Cnsl ~~> Function1 = new (Cnsl ~~> Function1) {
-        override def apply[A, B](f: Cnsl[A, B]): A => B = f match {
-          case Prompt(message) => AndThen(_ => println(message))
-          case GetLine => AndThen(_ => StdIn.readLine())
-          case GetInt => AndThen(_ => Try(StdIn.readLong().toInt).getOrElse(1))
-          case Compute => AndThen(_ => Thread.sleep(1000)) // trivial example
-          case PutLine => AndThen(println)
-          case RepeatN => AndThen((sn: (String, Int)) => for(_ <- 1 to sn._2) { println(sn._1) })
-          case Const(value) => AndThen(_ => value)
-          case Dictionary(dict) => AndThen(s => dict.get(s))
+      implicit val function: Cnsl ~~> Function1 = new Pure[Cnsl] {
+        override def toFn[A, B](f: Cnsl[A, B]): A => B = f match {
+          case Prompt(message) => _ => println(message)
+          case GetLine => _ => StdIn.readLine()
+          case GetInt => _ => Try(StdIn.readLong().toInt).getOrElse(1)
+          case Compute => _ => Thread.sleep(1000) // trivial example
+          case PutLine => println
+          case RepeatN => (sn: (String, Int)) => for(_ <- 1 to sn._2) { println(sn._1) }
+          case Const(value) => _ => value
+          case Dictionary(dict) => s => dict.get(s)
         }
       }
 

@@ -453,12 +453,10 @@ object FreeArrow extends FreeArrowInstances {
   )(implicit ev: B =:= A) extends FreeArrow[Arr, F, A, B] {
     def foldMap[G[_, _]](fk: F ~~> G)(implicit A: Arr[G]): G[A, B] = {
       val _ = ev
-      import cats.syntax.foldable._
-      import cats.instances.stream._
       val init = arr.foldMap(fk).asInstanceOf[G[B, B]]
-      Stream.fill(n - 1)(init).foldr(Eval.now(init))(
-        (ab, e) => e.map(a => ab.andThen(a))
-      ).value.asInstanceOf[G[A, B]]
+      List.fill(n - 1)(init).foldRight(init)(
+        (ab, e) => ab.andThen(e)
+      ).asInstanceOf[G[A, B]]
     }
   }
   final private case class AndThen[Arr[f[_, _]] <: AR[f], F[_, _], A, B, C](

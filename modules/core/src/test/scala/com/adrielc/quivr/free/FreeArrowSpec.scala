@@ -11,19 +11,18 @@ import cats.arrow.{Arrow, ArrowChoice}
 import cats.data.NonEmptyMap
 import com.adrielc.quivr.data.exampleDsl.{Cnsl, Expr}
 
-import scala.concurrent.duration.{Duration, MILLISECONDS}
-import scala.concurrent.{Await, ExecutionContext, Future}
-
 class FreeArrowSpec extends FlatSpec with Matchers {
   import FreeArrow._
 
   "FreeArrow" should "not stack overflow" in {
 
+    val n = 100000
+
     val add1 = FreeArrow.lift((_: Int) + 1)
 
-    val run = List.fill(100000)(add1).reduce(_ andThen _).fold[Function1].apply(0)
+    val run = add1.loopN(n).fold[Function1].apply(0)
 
-    assert(run == 100000)
+    assert(run == n)
   }
 
   "ArrowDescr" should "render op Json" in {
@@ -178,13 +177,13 @@ class FreeArrowSpec extends FlatSpec with Matchers {
 
   "FreeA.foldMap" should "not overflow" in {
 
-    implicit val ec: ExecutionContext = ExecutionContext.global
+    val n = 1000000
 
-    val add10Loop = (id[Int] >>/ num(1) >>> add).loopN(10000)
+    val add10Loop = (id[Int] >>/ num(1) >>> add).loopN(n)
 
-    val f = add10Loop.foldMap(Expr.~~>.function.kleisli[Future])
+    val f = add10Loop.foldMap(Expr.~~>.function)
 
-    println(Await.result(f(0), Duration(1000, MILLISECONDS)))
+    assert(f(0) == n)
   }
 
   /**
