@@ -86,7 +86,7 @@ object Recs {
     }
 
     val pure = new Pure[Recs] {
-      def apply[A, B](fab: Recs[A, B]): A => B = fab match {
+      def toFn[A, B](fab: Recs[A, B]): A => B = fab match {
         case GetUserInfo => (u: User) => userInfo(u.id)
         case GetRecommendations => (u: User) => {
           val r = new Random(u.id)

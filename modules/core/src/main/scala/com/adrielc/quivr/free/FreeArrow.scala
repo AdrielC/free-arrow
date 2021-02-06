@@ -248,13 +248,8 @@ sealed abstract class FreeArrow[-R[f[_, _]] <: Arrow[f], +Flow[_, _], In, Out] {
    * may blow the stack
    *
    * */
-  def loopN(n: Int)(implicit ev: Out =:= In): FreeArrow[R, Flow, In, Out] = {
-    val _ = ev
-    val init = self.asInstanceOf[FreeArrow[R, Flow, Out, Out]]
-    var g = init
-    for (_ <- 1 until n) { g = g.andThen(init) }
-    g.asInstanceOf[FreeArrow[R, Flow, In, Out]]
-  }
+  def loopN(n: Int)(implicit ev: Out =:= In): FreeArrow[R, Flow, In, Out] =
+    LoopN(self, n)
 
   /**
    * Fuses any pure functions if possible, otherwise wraps the arrows in [[AndThen]]
@@ -451,6 +446,20 @@ object FreeArrow extends FreeArrowInstances {
   final private case class LiftK[F[_, _], A, B](fab: F[A, B]) extends FreeArrow[Arrow, F, A, B] {
     def foldMap[G[_, _]](fg: F ~~> G)(implicit A: Arrow[G]): G[A, B] = fg(fab)
     override def toString: String = fab.toString
+  }
+  final private case class LoopN[Arr[f[_, _]] <: AR[f], F[_, _], A, B](
+    arr: FreeArrow[Arr, F, A, B],
+    n: Int
+  )(implicit ev: B =:= A) extends FreeArrow[Arr, F, A, B] {
+    def foldMap[G[_, _]](fk: F ~~> G)(implicit A: Arr[G]): G[A, B] = {
+      val _ = ev
+      import cats.syntax.foldable._
+      import cats.instances.stream._
+      val init = arr.foldMap(fk).asInstanceOf[G[B, B]]
+      Stream.fill(n - 1)(init).foldr(Eval.now(init))(
+        (ab, e) => e.map(a => ab.andThen(a))
+      ).value.asInstanceOf[G[A, B]]
+    }
   }
   final private case class AndThen[Arr[f[_, _]] <: AR[f], F[_, _], A, B, C](
     begin: FreeArrow[Arr, F, A, B],

@@ -45,6 +45,18 @@ object BiFunctionK {
 
   def id[F[_, _]]: F ~~> F = new (F ~~> F) { def apply[A, B](f: F[A, B]): F[A, B] = f }
 
+  trait Pure[-F[_, _]] extends BiFunctionK[F, Function1] {
+
+    def toFn[A, B](fab: F[A, B]): A => B
+
+    final def apply[A, B](fab: F[A, B]): cats.data.AndThen[A, B] = cats.data.AndThen(toFn(fab))
+  }
+  object Pure {
+    implicit def apply[F[a, b] <: a => b]: Pure[F] = new Pure[F] {
+      def toFn[A, B](fab: F[A, B]): A => B = fab
+    }
+  }
+
   def pure[M[_]] = new PureOps[M]
 
   final class PureOps[M[_]] private[BiFunctionK] {
@@ -82,7 +94,7 @@ object BiFunctionK {
     }
   }
 
-  implicit class ToFunctionOps[F[_, _]](private val fk: Pure[F]) extends AnyVal {
+  implicit class ToFunctionOps[F[_, _]](private val fk: BiFunctionK[F, Function1]) extends AnyVal {
 
     def kleisli[M[_]: Applicative]: F ~~> Kleisli[M, *, *] = fk.andThen(pure[M].lower[Function1].andThen(functionToKleisli))
   }

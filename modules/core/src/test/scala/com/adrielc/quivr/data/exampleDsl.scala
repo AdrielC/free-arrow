@@ -24,8 +24,8 @@ object exampleDsl {
 
     object ~~> {
 
-      val function = new (Expr ~~> Function1) {
-        def apply[A, B](f: Expr[A, B]): A => B = f match {
+      val function = new Pure[Expr] {
+        def toFn[A, B](f: Expr[A, B]): A => B = f match {
           case Add => AndThen((ab: (Int, Int)) => ab._1 + ab._2)
           case Sub => AndThen((ab: (Int, Int)) => ab._1 - ab._2)
           case Num(n) => AndThen(_ => n)
