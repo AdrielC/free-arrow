@@ -47,7 +47,8 @@ object Recs {
   val sendRecommend       = liftK(SendRecommend)
 
   object ~~> {
-    private val SEED = 100
+    private var SEED = 100
+    def reseed(): Unit = SEED = 100
     private val rng = new Random(SEED)
 
     val users: List[User] = List.fill(SEED)(User(rng.nextLong()))

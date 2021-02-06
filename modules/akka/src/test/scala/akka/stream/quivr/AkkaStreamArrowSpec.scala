@@ -53,9 +53,15 @@ class AkkaStreamArrowSpec extends FlatSpec with Matchers {
 
   "FreeA.plus" should "fall back to second" in {
 
-    implicit val system: ActorSystem = ActorSystem.create("PlusTest")
+    Recs.~~>.reseed()
 
     val errorCounter = new AtomicInteger(0)
+
+    implicit val system: ActorSystem = ActorSystem.create("PlusTest")
+
+    system.registerOnTermination(
+      assert(errorCounter.get() == 10)
+    )
 
     val flow = {
 
@@ -64,15 +70,14 @@ class AkkaStreamArrowSpec extends FlatSpec with Matchers {
       zeroArrow <+> ((f |&| f) >>> justRight)
     }
 
+
     flow
       .foldMap(Recs.~~>.toAkka)
       .runWith(
-        Recs.~~>.usersSource(20),
+        Recs.~~>.usersSource(10),
         Sink.foreach(println)
       )
 
-    system.registerOnTermination(
-      assert(errorCounter.get() == 15)
-    )
+    system.terminate()
   }
 }
