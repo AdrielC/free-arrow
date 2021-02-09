@@ -117,6 +117,7 @@ package object dsl {
 
     // arithmetic
     def +[B: LabelFor[*, E]](other: B) : Labeler[E] = Labeler.sum(lab, other.labeler)
+    def ++[B: LabelFor[*, E]](other: B) : Labeler[E] = Labeler.sum(lab, other.labeler)
     def *[B: LabelFor[*, E]](other: B) : Labeler[E] = Labeler.times(lab, other.labeler)
     def /[B: LabelFor[*, E]](other: B) : Labeler[E] = Labeler.div(lab, other.labeler)
 

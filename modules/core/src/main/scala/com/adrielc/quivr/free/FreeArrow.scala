@@ -241,6 +241,10 @@ sealed abstract class FreeArrow[-R[f[_, _]] <: Arrow[f], +Flow[_, _], In, Out] {
   def test(implicit ev: Out =:= Boolean): FreeArrow[R, Flow, In, Either[In, In]] =
     self >*^ ((a, b) => if(a) b.asRight else b.asLeft)
 
+  /** test condition [[Out]], Right == true */
+  def test(f: Out => Boolean): FreeArrow[R, Flow, In, Either[In, In]] =
+    (self >^ f).test
+
   /**
    * If this arrows output is type equivalent to the input, then feed the output to this arrows input n times
    * [[andThen]] is Stack-safe when compiling the [[FreeArrow]] to some target arrow, but if the targets arrow
@@ -252,7 +256,7 @@ sealed abstract class FreeArrow[-R[f[_, _]] <: Arrow[f], +Flow[_, _], In, Out] {
     LoopN(self, n)
 
   /**
-   * Fuses any pure functions if possible, otherwise wraps the arrows in [[AndThen]]
+   * Fuses any pure functions if possible, otherwise wraps the arrows in [[AndThen]] and right associ
    */
   def andThen[RR[f[_, _]] <: R[f], FF[a, b] >: Flow[a, b], C](
     fbc: FreeArrow[RR, FF, Out, C]

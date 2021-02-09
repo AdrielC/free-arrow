@@ -44,7 +44,7 @@ class FreeArrowSpec extends FlatSpec with Matchers {
   "FreeArrowChoice" should "allow for choice" in {
 
     val program =
-      (prompt("start left") +++ prompt("right")) >>>
+      (prompt("start left") +++ prompt("start right")) >>>
         (const("done left") >>> putLine).left >>>
         (const("done right") >>> putLine).right
 

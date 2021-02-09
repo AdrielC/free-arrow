@@ -19,6 +19,9 @@ object ToRel {
     override def toRel(a: A): Res[Eng] +> ResultRels = f(a)
   }
 
+  implicit def reflexive[Eng]: ToRel.Aux[Res[Eng] +> ResultRels, Eng] =
+    instance(identity)
+
   implicit def fromLabeler[Eng]: ToRel.Aux[Labeler[Eng], Eng] =
     instance(_.from[Res[Eng]])
 
