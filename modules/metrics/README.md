@@ -78,7 +78,7 @@ metrics == NonEmptyMap.of(
  val manyLabelers: MyClass +> WithLabels[MyClass]   = label[MyClass](  // or for many labelers
   countClicks,
   countPurchases,
-  countClicks + (countPurchases 5)
+  countClicks + (countPurchases * 5)
  )
 
  // specify values of k to compute metrics by
