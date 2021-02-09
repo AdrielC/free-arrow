@@ -1,5 +1,15 @@
 # Information Retrieval and Ranking Evaluation
 
+### Supported Metrics
+
+- Ndcg
+- Reciprocal Rank
+- FScore/F1
+- QMeasure (variant of AP)
+- R-Precision
+- Precision
+- Recall
+
 
 ### Quickstart
 
