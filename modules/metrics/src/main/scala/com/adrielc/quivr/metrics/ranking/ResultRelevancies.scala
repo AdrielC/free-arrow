@@ -12,7 +12,7 @@ import simulacrum.typeclass
 import eu.timepit.refined.auto._
 
 /**
- * Represents a complete list of results with their associated relevanceies
+ * Represents a complete list of results with their associated relevancies
  *
  * @tparam A
  */
