@@ -1,5 +1,15 @@
 # Information Retrieval and Ranking Evaluation
 
+### Supported Metrics
+
+- Ndcg
+- Reciprocal Rank
+- FScore/F1
+- QMeasure (variant of AP)
+- R-Precision
+- Precision
+- Recall
+
 
 ### Quickstart
 
@@ -68,7 +78,7 @@ metrics == NonEmptyMap.of(
  val manyLabelers: MyClass +> WithLabels[MyClass]   = label[MyClass](  // or for many labelers
   countClicks,
   countPurchases,
-  countClicks + (countPurchases 5)
+  countClicks + (countPurchases * 5)
  )
 
  // specify values of k to compute metrics by
@@ -76,7 +86,7 @@ metrics == NonEmptyMap.of(
 
  // Build an evaluator: Compose via `>>>`, combine via `<+>`, and compose/combine in a single step via `>++`
 
- val labelEval = (manyLabelers <+> singleLabeler) >>> atKTen >>> eval.ndcg
+ val labelEval = (manyLabelers <+> singleLabeler) >>> atKs >>> eval.ndcg
 
  val judgeEval = anyClicks >>> atK(5, 10, 40, 90) >++ (eval.precision, eval.recall, eval.averagePrecision)
 
