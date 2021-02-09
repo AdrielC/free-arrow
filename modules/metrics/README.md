@@ -86,7 +86,7 @@ metrics == NonEmptyMap.of(
 
  // Build an evaluator: Compose via `>>>`, combine via `<+>`, and compose/combine in a single step via `>++`
 
- val labelEval = (manyLabelers <+> singleLabeler) >>> atKTen >>> eval.ndcg
+ val labelEval = (manyLabelers <+> singleLabeler) >>> atKs >>> eval.ndcg
 
  val judgeEval = anyClicks >>> atK(5, 10, 40, 90) >++ (eval.precision, eval.recall, eval.averagePrecision)
 
