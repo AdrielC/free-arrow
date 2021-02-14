@@ -399,7 +399,7 @@ object FreeArrow extends FreeArrowInstances {
     def unary_~ : FA[F, A, B] = liftK(fab)
   }
 
-  @inline def zeroArrow: Any ~@~ Nothing = Zero()
+  val zeroArrow: Any ~@~ Nothing = Zero()
 
   @inline def justLeft[A, B]: B ^|- A = Z.justLeft
 
