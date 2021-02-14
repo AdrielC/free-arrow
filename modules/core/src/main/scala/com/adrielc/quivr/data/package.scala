@@ -4,6 +4,8 @@ import cats.Eval
 
 package object data {
 
+  type Id[+A] = A
+
   type EnvA[E, +F[_, _], A, B] = BiTuple2K[BiConst[Eval[E], *, *], F, A, B]
   object EnvA {
 
@@ -22,11 +24,4 @@ package object data {
   type :&:[A,B] = (Eval[A], Eval[B])
 
   def lazyTuple[A, B](a: => A, b: => Eval[B]): A :&: B = (Eval.later(a), Eval.defer(b))
-}
-
-package data {
-  
-  class or[F[_, _], G[_, _]] {
-    type T[A, B] = BiEitherK[F, G, A, B]
-  }
 }

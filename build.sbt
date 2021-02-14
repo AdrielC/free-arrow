@@ -25,7 +25,10 @@ lazy val commonSettings = Seq(
 lazy val macros = (project in file("modules/macros"))
   .settings(
     commonSettings,
-    scalacOptions --= List("-Xfatal-warnings")
+    scalacOptions --= List(
+      "-Xfatal-warnings",
+      "-Ywarn-macros:after"
+    )
   )
 
 lazy val core = (project in file("modules/core"))

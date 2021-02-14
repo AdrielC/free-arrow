@@ -39,7 +39,7 @@ package object dsl {
    *
    * {{{ arrAB >>> arrBC }}}
     */
-  type >>[A, B]     = FA[EvalOp, A, B]
+  type >>[-A, +B]     = FA[EvalOp, A, B]
 
   /**
    * Independent arrow combination
@@ -48,7 +48,7 @@ package object dsl {
    *
    * * {{{ arrAB <+> arrAB }}}
    */
-  type +>[A, B]     = FAP[EvalOp, A, B]
+  type +>[-A, +B]     = FAP[EvalOp, A, B]
 
   type EvalResult[+A] = Either[EvalError, A]
 

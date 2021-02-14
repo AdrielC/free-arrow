@@ -1,10 +1,11 @@
 package com.adrielc.quivr.metrics.dsl
 package interpreter
 
-import cats.data.{Kleisli, NonEmptyMap}
+import cats.data.NonEmptyMap
 import com.adrielc.quivr.metrics.dsl.evaluation._
 import com.adrielc.quivr.instances.all._
 import com.adrielc.quivr.free.FreeArrow
+import com.adrielc.quivr.data.Kleisli
 import cats.implicits._
 import cats.kernel.Order
 import cats.~>
@@ -18,9 +19,9 @@ import com.adrielc.quivr.metrics.dsl.key.SummarizeOps
 import com.adrielc.quivr.{AC, ACP, BiFunctionK, ~~>}
 
 object evaluation {
-  type EvalFn[A, B] = A => EvalResult[B]
-  type EvalOpMap[A, B]  = Kleisli[AccumMap[List[EvalOp[_, _]], EvalError, *], A, B]
-  type RunErr[A, B]     = Kleisli[EvalResult, A, B]
+  type EvalFn[-A, +B] = A => EvalResult[B]
+  type EvalOpMap[-A, +B]  = Kleisli[AccumMap[List[EvalOp[_, _]], EvalError, +*], A, B]
+  type RunErr[-A, +B]     = Kleisli[EvalResult, A, B]
 
   val runEvalWithError: EvalOp ~~> EvalFn = new (EvalOp ~~> EvalFn) {
     import EvalError._

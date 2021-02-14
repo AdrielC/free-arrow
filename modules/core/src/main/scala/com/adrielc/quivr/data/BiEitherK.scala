@@ -4,7 +4,7 @@ package data
 import cats.arrow.Profunctor
 import cats.data.Validated
 import cats.syntax.either._
-import com.adrielc.quivr.BiFunctionK
+import com.adrielc.quivr.data.BiEitherK._
 
 final case class BiEitherK[+F[_, _], +G[_, _], A, B](run: Either[F[A, B], G[A, B]]) {
 
@@ -59,4 +59,8 @@ object BiEitherK {
 
   /** [[BiFunctionK]] variant of [[rightc]] */
   def rightK[F[_, _], G[_, _]]: G ~~> (F or G)#T = BiFunctionK.lift[G, BiEitherK[F, G, *, *]](rightc)
+
+  class or[F[_, _], G[_, _]] {
+    type T[A, B] = BiEitherK[F, G, A, B]
+  }
 }

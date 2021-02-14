@@ -1,6 +1,7 @@
 package com.adrielc.quivr
 
 import com.adrielc.quivr.data.{BiEitherK, EnvA}
+import com.adrielc.quivr.free.FreeArrow
 
 package object free {
 
@@ -8,16 +9,16 @@ package object free {
   val FC = FreeCompose
 
   /** All levels of FreeArrow capability */
-  type FA[+F[_, _], A, B] = FreeArrow[AR, F, A, B]
-  type FAC[+F[_, _], A, B] = FreeArrow[AC, F, A, B]
-  type FAZ[+F[_, _], A, B] = FreeArrow[AZ, F, A, B]
-  type FAP[+F[_, _], A, B] = FreeArrow[AP, F, A, B]
-  type FACP[+F[_, _], A, B] = FreeArrow[ACP, F, A, B]
-  type FACZ[+F[_, _], A, B] = FreeArrow[ACZ, F, A, B]
+  type FA[+F[_, _], -A, +B] = FreeArrow[AR, F, A, B]
+  type FAC[+F[_, _], -A, +B] = FreeArrow[AC, F, A, B]
+  type FAZ[+F[_, _], -A, +B] = FreeArrow[AZ, F, A, B]
+  type FAP[+F[_, _], -A, +B] = FreeArrow[AP, F, A, B]
+  type FACP[+F[_, _], -A, +B] = FreeArrow[ACP, F, A, B]
+  type FACZ[+F[_, _], -A, +B] = FreeArrow[ACZ, F, A, B]
 
 
   /** Specialized types of [[FreeArrow]] that correspond to method symbols */
-  type >>>[A, B] = FA[Nothing, A, B]
+  type >>>[-A, +B] = FA[Nothing, A, B]
 
   /** [[FreeArrow.justLeft]] */
   type ^|-[L, R] = FACZ[Nothing, Either[L, R], L]
@@ -26,7 +27,7 @@ package object free {
   type -|^[L, R] = FACZ[Nothing, Either[L, R], R]
 
   /** [[FreeArrow.zeroArrow]] */
-  type ~@~[A, B] = FAZ[Nothing, A, B]
+  type ~@~[-A, +B] = FAZ[Nothing, A, B]
 
 
   /** Rebuild/Optimize FreeA
@@ -35,7 +36,6 @@ package object free {
    *
    * Isomorphic to `(M, F[A, B]) => FreeA[Arrow, F, A, B]`
    * */
-  type |~>[M, -R[f[_, _]] <: AR[f], F[_, _]] = EnvA[M, F, *, *] ~~> FreeArrow[R, F, *, *]
 
   type EitherFreeA[-R[f[_, _]] <: AR[f], +F[_, _], +G[_, _], A, B] = FreeArrow[R, BiEitherK[F, G, *, *], A, B]
 
@@ -50,4 +50,15 @@ package object free {
   val `||^` : ||| = Right(())
   val `|^|` : ||| = Left(Right(()))
   val `^||` : ||| = Left(Left(()))
+}
+
+/** Rebuild/Optimize FreeArrow
+ *
+ * Given some summary [[M]] and an [[F]] for any `A` and `B`, create a `FreeA[Arrow, F, A, B]`
+ *
+ * Isomorphic to `(M, F[A, B]) => FreeA[Arrow, F, A, B]`
+ * */
+class |~>[M, F[_, _]] {
+
+  type Arr[-R[f[_, _]] <: AR[f]] = EnvA[M, F, *, *] ~~> FreeArrow[R, F, *, *]
 }

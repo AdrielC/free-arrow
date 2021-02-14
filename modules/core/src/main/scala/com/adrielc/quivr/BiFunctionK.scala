@@ -2,7 +2,6 @@ package com.adrielc.quivr
 
 import cats.{Applicative, ~>}
 import cats.arrow.Profunctor
-import cats.data.{Kleisli, Reader}
 import com.adrielc.quivr.data._
 import cats.instances.{function, list}
 import function._
@@ -28,9 +27,9 @@ trait BiFunctionK[-F[_, _], +G[_, _]] extends Serializable {
 
   def andThen[H[_, _]](g: G ~~> H): F ~~> H = g.compose(self)
 
-  def and[H[_, _], FF[a, b] <: F[a, b], GG[a, b] >: G[a, b]](other: FF ~~> H): FF ~~> BiTuple2K[GG, H, *, *] =
+  def and[H[-_, +_], FF[a, b] <: F[a, b], GG[-a, +b] >: G[_, _]](other: FF ~~> H): FF ~~> BiTuple2K[GG, H, *, *] =
     new (FF ~~> BiTuple2K[GG, H, *, *]) {
-      def apply[A, B](f: FF[A, B]): BiTuple2K[GG, H, A, B] = BiTuple2K(self(f), other(f))
+      def apply[A, B](f: FF[A, B]): BiTuple2K[GG, H, A, B] = BiTuple2K[GG, H, A, B](self(f), other(f))
     }
 
   def or[H[_, _], FF[a, b] <: F[a, b], GG[a, b] >: G[a, b]](h: H ~~> GG): BiEitherK[FF, H, *, *] ~~> GG =
@@ -67,21 +66,21 @@ object BiFunctionK {
     def lower[F[_, _]](implicit P: Profunctor[F], A: Applicative[M]): F ~~> λ[(α, β) => F[α, M[β]]] =
       new (F ~~> λ[(α, β) => F[α, M[β]]]) { def apply[A, B](fab: F[A, B]): F[A, M[B]] = P.rmap(fab)(A.pure) }
   }
-  implicit class BiFunctionKKleisliOp[F[_, _], G[_]](private val fK: F ~~> Kleisli[G, *, *]) extends AnyVal {
+  implicit class BiFunctionKKleisliOp[F[_, _], G[+_]](private val fK: F ~~> Kleisli[G, *, *]) extends AnyVal {
 
-    def mapK[H[_]](f: G ~> H): F ~~> Kleisli[H, *, *] = new (F ~~> Kleisli[H, *, *]) {
+    def mapK[H[+_]](f: G ~> H): F ~~> Kleisli[H, *, *] = new (F ~~> Kleisli[H, *, *]) {
       override def apply[A, B](fab: F[A, B]): Kleisli[H, A, B] = fK(fab).mapK(f)
     }
   }
   implicit class BiFunctionKPureKOp[F[_, _], G[_, _], M[_]](private val fK: F ~~> λ[(α, β) => M[G[α, β]]]) extends AnyVal {
 
-    def mapK[N[_]](f: M ~> N): F ~~> λ[(α, β) => N[G[α, β]]] = new (F ~~> λ[(α, β) => N[G[α, β]]]) {
+    def mapK[N[+_]](f: M ~> N): F ~~> λ[(α, β) => N[G[α, β]]] = new (F ~~> λ[(α, β) => N[G[α, β]]]) {
       override def apply[A, B](fab: F[A, B]): N[G[A, B]] = f(fK(fab))
     }
   }
   implicit class BiFunctionKPureOp[F[_, _], G[_, _], M[_]](private val fK: F ~~> λ[(α, β) => G[α, M[β]]]) extends AnyVal {
 
-    def rmapK[N[_]](f: M ~> N)(implicit P: Profunctor[G]): F ~~> λ[(α, β) => G[α, N[β]]] = new (F ~~> λ[(α, β) => G[α, N[β]]]) {
+    def rmapK[N[+_]](f: M ~> N)(implicit P: Profunctor[G]): F ~~> λ[(α, β) => G[α, N[β]]] = new (F ~~> λ[(α, β) => G[α, N[β]]]) {
       override def apply[A, B](fab: F[A, B]): G[A, N[B]] = P.rmap(fK(fab))(f(_))
     }
   }
@@ -96,14 +95,16 @@ object BiFunctionK {
 
   implicit class ToFunctionOps[F[_, _]](private val fk: BiFunctionK[F, Function1]) extends AnyVal {
 
-    def kleisli[M[_]: Applicative]: F ~~> Kleisli[M, *, *] = fk.andThen(pure[M].lower[Function1].andThen(functionToKleisli))
+    def kleisli[M[+_]: Applicative]: F ~~> Kleisli[M, *, *] = fk.andThen(pure[M].lower[Function1].andThen(functionToKleisli))
   }
 
-  def functionToKleisli[M[_]]: λ[(α, β) => α => M[β]] ~~> Kleisli[M, *, *] =
+  def functionToKleisli[M[+_]]: λ[(-[α], +[β]) => α => M[β]] ~~> Kleisli[M, -*, +*] =
     new (λ[(α, β) => α => M[β]] ~~> Kleisli[M, *, *]) { def apply[A, B](fab: A => M[B]): Kleisli[M, A, B] = Kleisli(fab) }
 
-  val functionToReader: Function1 ~~> Reader =
-    BiFunctionK.lift(Reader.apply)
+  val functionToReader: Function1 ~~> Kleisli[Id, -*, +*] =
+    new (Function1 ~~> Kleisli[Id, *, *]) {
+      override def apply[A, B](fab: A => B): Kleisli[Id, A, B] = Kleisli(fab:  A => Id[B])
+    }
 
   def collect[F[_, _]]: F ~>| List[F[_, _]] = BiFunctionK.pure[List].lift[F]
 

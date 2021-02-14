@@ -2,7 +2,7 @@ package com.adrielc.quivr
 
 import org.scalatest.{FlatSpec, Matchers}
 
-import cats.data.Kleisli
+import data.Kleisli
 import cats.implicits._
 import implicits._
 

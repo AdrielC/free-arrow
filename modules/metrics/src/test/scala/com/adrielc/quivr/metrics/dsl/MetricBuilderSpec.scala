@@ -66,7 +66,7 @@ class MetricBuilderSpec extends FlatSpec with Matchers {
 
     val evaluation2 = clicks.from[ResultEngs] >>> atK(60) >>> eval.qMeasure(1)
 
-    type Annotated[A, B] = A >> (List[EvalOp[_, _]], B)
+    type Annotated[-A, +B] = A >> (List[EvalOp[_, _]], B)
 
     val res = evaluation2.foldMap[Annotated](new (EvalOp ~~> Annotated) {
       override def apply[A, B](fab: EvalOp[A, B]): Annotated[A, B] =

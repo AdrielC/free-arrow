@@ -95,7 +95,7 @@ class FreeArrowSpec extends FlatSpec with Matchers {
           case _              => 0
         }
       },
-      new (|~>[Int, AC, Cnsl]) {
+      new (Int |~> Cnsl) # Arr[AC] {
         def apply[A, B](f: EnvA[Int, Cnsl, A, B]): FAC[Cnsl, A, B] = f._2 match {
 
           case d if d.isInstanceOf[Cnsl.Dictionary]  =>
@@ -132,12 +132,12 @@ class FreeArrowSpec extends FlatSpec with Matchers {
           }
         }
       },
-      new (|~>[Int, AC, Cnsl]) {
+      new (Int |~> Cnsl) # Arr[AC] {
         def apply[A, B](f: EnvA[Int, Cnsl, A, B]): FAC[Cnsl, A, B] = FA.liftK(f._2)
       }
     )
 
-    val runnable = optimized.foldMap(stubGets.andThen(function))
+    val runnable = optimized.foldMap(stubGets andThen function)
 
     runnable(())
 
@@ -147,7 +147,7 @@ class FreeArrowSpec extends FlatSpec with Matchers {
 
   "FreeArrowPlus" should "add zero arrow and mix in" in {
 
-    val plusZeroId = zeroArrow[Int, Int] <+> id
+    val plusZeroId = zeroArrow <+> id[Int]
 
     val addBoth = (plusZeroId &&& plusZeroId) >>> add
 
@@ -203,9 +203,9 @@ class FreeArrowSpec extends FlatSpec with Matchers {
 
     val both = getUserInt.inl[Expr] >>>^ addN >^ (_.toString) >>>^ putLine
 
-    stubGets.andThen(Cnsl.~~>.function).or(Expr.~~>.function)
+    val ab = stubGets.andThen(Cnsl.~~>.function).or(Expr.~~>.function)
 
-    val run = both.foldMap(stubGets.andThen(Cnsl.~~>.function) or Expr.~~>.function)
+    val run = both.foldMap[Function1](ab)
 
     run(())
   }
@@ -220,7 +220,7 @@ class FreeArrowSpec extends FlatSpec with Matchers {
 
     val ap: FreeArrow[ArrowPlus,    Nothing, Unit, Unit]                = ar <+> ar <+> ar
 
-    val az: FreeArrow[ArrowZero,    Nothing, Unit, Unit]                = ap >>> zeroArrow[Unit, Unit] <+> ar <+> ar
+    val az: FreeArrow[ArrowZero,    Nothing, Unit, Unit]                = ap >>> zeroArrow <+> ar <+> ar
 
     val run = az.foldMap(BiFunctionK.id[Function1].kleisli[List])
 

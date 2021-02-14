@@ -4,7 +4,7 @@ package result
 import cats.{Contravariant, Inject}
 import shapeless.=:!=
 
-trait Engagements[A, E] {
+trait Engagements[-A, E] {
 
   def engagements(a: A): Map[ResultId, Map[E, Int]]
 }
@@ -22,8 +22,6 @@ object Engagements extends EngagementsInject {
     def engagements[E](implicit E: Engagements[A, E]): Map[ResultId, Map[E, Int]] = E.engagements(a)
   }
 
-  implicit def engagementsIdentityInstance[E]: Engagements[Map[ResultId, Map[E, Int]], E] = identity
-
   implicit def engagementsRightTuple[A, B: Engagements[*, E], E]: Engagements[(A, B), E] = ab => Engagements[B, E].engagements(ab._2)
 
   implicit def contravariantEngagements[E]: Contravariant[Engagements[*, E]] = new Contravariant[Engagements[*, E]] {
@@ -32,6 +30,8 @@ object Engagements extends EngagementsInject {
 }
 
 trait EngagementsInject {
+
+  implicit def engagementsIdentityInstance[E]: Engagements[Map[ResultId, Map[E, Int]], E] = identity
 
   implicit def injectEngagements[A, E, E1, E2]
   (implicit

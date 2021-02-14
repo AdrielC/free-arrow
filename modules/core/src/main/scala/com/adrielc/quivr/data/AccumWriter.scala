@@ -1,19 +1,18 @@
 package com.adrielc.quivr.data
 
-import cats.data.Kleisli
 import cats.implicits._
 import cats.{Monad, Monoid, MonoidK, Semigroup}
 import com.adrielc.quivr.~~>
 
-case class AccumWriter[L, A](l: L, run: Option[A]) {
+case class AccumWriter[+L, +A](l: L, run: Option[A]) {
 
   def mapLog[LL](f: L => LL): AccumWriter[LL, A] =
     copy(l = f(l))
 
-  def log(b: L)(implicit S: Semigroup[L]): AccumWriter[L, A] =
-    AccumWriter(b |+| l, run)
+  def log[LL >: L](b: LL)(implicit S: Semigroup[LL]): AccumWriter[LL, A] =
+    AccumWriter(b |+| (l: LL), run)
 
-  def flatMap[B](f: A => AccumWriter[L, B])(implicit S: Semigroup[L]): AccumWriter[L, B] =
+  def flatMap[B, LL >: L](f: A => AccumWriter[LL, B])(implicit S: Semigroup[LL]): AccumWriter[LL, B] =
     run.map(f(_).log(l)).getOrElse(AccumWriter(l, None))
 }
 object AccumWriter {
@@ -51,9 +50,9 @@ object AccumWriter {
       }
     }
 
-  def toAccumWriterKleisli[F[_, _]](fOpt: F ~~> Kleisli[Option, *, *]): F ~~> Kleisli[AccumWriter[List[F[_, _]], *], *, *] =
-    new (F ~~> Kleisli[AccumWriter[List[F[_, _]], *], *, *]) {
-      override def apply[C, D](fab: F[C, D]): Kleisli[AccumWriter[List[F[_, _]], *], C, D] = {
+  def toAccumWriterKleisli[F[_, _]](fOpt: F ~~> Kleisli[Option, -*, +*]): F ~~> Kleisli[AccumWriter[List[F[_, _]], +*], -*, +*] =
+    new (F ~~> Kleisli[AccumWriter[List[F[_, _]], +*], *, *]) {
+      override def apply[C, D](fab: F[C, D]): Kleisli[AccumWriter[List[F[_, _]], +*], C, D] = {
         Kleisli(a => AccumWriter(List(fab), fOpt(fab)(a)))
       }
     }

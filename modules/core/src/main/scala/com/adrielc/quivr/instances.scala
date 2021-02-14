@@ -2,9 +2,10 @@ package com.adrielc.quivr
 
 
 import cats.arrow.{Arrow, ArrowChoice}
-import cats.data.{IRWST, Kleisli}
+import cats.data.IRWST
 import cats.{Monad, Monoid, MonoidK, SemigroupK}
 import cats.implicits._
+import com.adrielc.quivr.data.Kleisli
 
 
 object instances {
@@ -13,7 +14,7 @@ object instances {
 
   trait AllInstances extends Instances0 {
 
-    implicit def kleisliArrowChoiceZero[M[_]](implicit M: Monad[M], MK: MonoidK[M]): ArrowChoiceZero[Kleisli[M, *, *]] =
+    implicit def kleisliArrowChoiceZero[M[+_]](implicit M: Monad[M], MK: MonoidK[M]): ArrowChoiceZero[Kleisli[M, *, *]] =
       new kleisli.KleisliArrowChoiceZero[M] {
         val monoidK: MonoidK[M] = MK
         val A: AC[Kleisli[M, *, *]] = Kleisli.catsDataArrowChoiceForKleisli
@@ -38,7 +39,7 @@ object instances {
         val semigroupK: SemigroupK[F] = SK
       }
 
-    implicit def kleisliArrowChoicePlus[M[_]](implicit M: Monad[M], SK: SemigroupK[M]): ArrowChoicePlus[Kleisli[M, *, *]] =
+    implicit def kleisliArrowChoicePlus[M[+_]](implicit M: Monad[M], SK: SemigroupK[M]): ArrowChoicePlus[Kleisli[M, *, *]] =
       new kleisli.KleisliArrowChoicePlus[M] {
         val semigroupK: SemigroupK[M] = SK
         val A: AC[Kleisli[M, *, *]] = Kleisli.catsDataArrowChoiceForKleisli
@@ -48,14 +49,14 @@ object instances {
 
   object kleisli {
 
-    private[quivr] trait KleisliArrowChoicePlus[M[_]] extends ArrowChoicePlus[Kleisli[M, *, *]] with ComposedArrowChoiceInstance[Kleisli[M, *, *]] {
+    private[quivr] trait KleisliArrowChoicePlus[M[+_]] extends ArrowChoicePlus[Kleisli[M, *, *]] with ComposedArrowChoiceInstance[Kleisli[M, *, *]] {
       implicit def semigroupK: SemigroupK[M]
 
       def plus[A, B](f: Kleisli[M, A, B], g: Kleisli[M, A, B]): Kleisli[M, A, B] =
         Kleisli[M, A, B](a => semigroupK.combineK(f.run(a), g.run(a)))
     }
 
-    private[quivr] trait KleisliArrowChoiceZero[M[_]] extends KleisliArrowChoicePlus[M] with ArrowChoiceZero[Kleisli[M, *, *]] {
+    private[quivr] trait KleisliArrowChoiceZero[M[+_]] extends KleisliArrowChoicePlus[M] with ArrowChoiceZero[Kleisli[M, *, *]] {
       def monoidK: MonoidK[M]
       def semigroupK: SemigroupK[M] = monoidK
       override def zeroArrow[B, C]: Kleisli[M, B, C] =

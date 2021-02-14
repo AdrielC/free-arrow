@@ -11,7 +11,6 @@ import MyEngagement._
 import com.adrielc.quivr.metrics.dsl.evaluation.EvalError.KGreaterThanMax
 import metrics.implicits._
 import Rankings.Ranked
-import com.adrielc.quivr.metrics.Rank
 
 
 class FreeEvalTest extends FlatSpec with Matchers {
@@ -28,8 +27,8 @@ class FreeEvalTest extends FlatSpec with Matchers {
 
     val evaluation =
       label.of(Clicks).from[Results] >>>  // create continuous labels from click counts
-        atK(10, 60) >++                   // compute downstream metrics for each K
-        (eval.ndcg, eval.reciprocalRank)  // compute each metric
+        atK(10, 60) >>>                   // compute downstream metrics for each K
+        eval(eval.ndcg, eval.reciprocalRank)  // compute each metric
 
     val metrics = evaluation.run(results).toSortedMap
 
@@ -89,7 +88,7 @@ class FreeEvalTest extends FlatSpec with Matchers {
     val metrics =
       label.from[ResultEngs](clicks, cartAdds, purchases) >>>
         atK(10, 20, 30, 40, 50, 60) >++
-        (ndcg, precision, recall, rPrecision)
+        (ndcg[ResultRels], precision[ResultRels], recall[ResultRels], rPrecision[ResultRels])
 
     val result = metrics.run(results)
     assert(result.length == 72)
@@ -112,11 +111,11 @@ class FreeEvalTest extends FlatSpec with Matchers {
       )
     )
 
-    val metrics = ^[ResultEngs] >++ (
-      label(clicks, cartAdds, purchases),
-      judge(anyClicks, anyCartAdds, anyPurchases)) >>>
-      atK(10, 20, 30, 40, 50, 60) >++
-      (ndcg, precision, recall, rPrecision)
+    val metrics = (
+      label.from[ResultEngs](clicks, cartAdds, purchases) <+>
+      judge.from[ResultEngs](anyClicks, anyCartAdds, anyPurchases)) >>>
+      atK(10, 20, 30, 40, 50, 60) >>>
+      eval(ndcg, precision, recall, rPrecision)
 
     val result = metrics.run(results)
     assert(result.length == 144)

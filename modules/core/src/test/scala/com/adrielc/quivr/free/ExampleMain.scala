@@ -48,7 +48,7 @@ object ExampleMain extends App {
       (_.toString) >>>
       putLine
 
-  val or = getLine >>> putLine >>> zeroArrow[Unit, Unit]
+  val or = getLine >>> putLine >>> zeroArrow
 
   // interpret program
 

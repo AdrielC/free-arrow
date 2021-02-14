@@ -1,10 +1,10 @@
 package com.adrielc.quivr.data
 
-import cats.Monoid
-import cats.arrow.Arrow
+import cats.{Applicative, Monoid}
+import cats.arrow.{Arrow, ArrowChoice}
 import cats.instances.int._
 
-case class Scan[-A, B](run: A => (Scan[A, B], B)) {
+case class Scan[-A, +B](run: A => (Scan[A, B], B)) {
 
   def runList(data: List[A]): List[B] = Scan.runList(this, data)
 
@@ -17,6 +17,16 @@ case class Scan[-A, B](run: A => (Scan[A, B], B)) {
     val (gg, b) = run(a)
     val (ff, c) = f.run(b)
     (gg.andThen(ff), c)
+  }
+
+  def lmap[Z](f: Z => A): Scan[Z, B] = Scan { z =>
+    val (a, b) = run(f(z))
+    (a.lmap(f), b)
+  }
+
+  def rmap[C](f: B => C): Scan[A, C] = Scan { a =>
+    val (ab, b) = run(a)
+    (ab.rmap(f), f(b))
   }
 }
 
@@ -40,7 +50,7 @@ object Scan {
     def scan[B](s: Scan[A, B]): List[B] = runList(s, listA)
   }
 
-  implicit val arrowScan: Arrow[Scan] = new Arrow[Scan] {
+  implicit val arrowScan: Arrow[Scan] = new ArrowChoice[Scan] {
 
     override def lift[A, B](f: A => B): Scan[A, B] =
       Scan.lift(f)
@@ -50,6 +60,18 @@ object Scan {
 
     override def first[A, B, C](fa: Scan[A, B]): Scan[(A, C), (B, C)] =
       fa.first[C]
+
+    override def choose[A, B, C, D](f: Scan[A, C])(g: Scan[B, D]): Scan[Either[A, B], Either[C, D]] = {
+      import cats.implicits._
+      Scan {
+        case Left(value) =>
+          val (a, b) = f.run(value)
+          (choose(a)(g), b.asLeft)
+        case Right(value) =>
+          val (a, b) = g.run(value)
+          (choose(f)(a), b.asRight)
+      }
+    }
   }
 
   private def runList[A, B](ff: Scan[A, B], as: List[A]): List[B] = as match {
@@ -57,5 +79,18 @@ object Scan {
       val (ff2, b) = ff.run(h)
       b :: runList(ff2, t)
     case _ => List()
+  }
+
+  implicit def applicativeScan[I]: Applicative[Scan[I, *]] = new Applicative[Scan[I, *]] {
+
+    override def pure[A](x: A): Scan[I, A] = ???
+
+    override def ap[A, B](ff: Scan[I, A => B])(fa: Scan[I, A]): Scan[I, B] = Scan { i =>
+      val (a, b) = ff.run(i)
+      val (c, d) = fa.run(i)
+      (ap(a)(c), b(d))
+    }
+
+    override def map[A, B](fa: Scan[I, A])(f: A => B): Scan[I, B] = fa.rmap(f)
   }
 }
