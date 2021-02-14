@@ -34,7 +34,7 @@ sealed abstract class FreeArrow[-R[f[_, _]] <: Arrow[f], +Flow[_, _], -In, +Out]
    */
   def foldMap[G[-_, +_]: R](fg: Flow ~~> G): G[In, Out]
 
-  def fold[FF[-a, +b] >: Flow[_, _]: R]: FF[In, Out] =
+  def fold[FF[-_, +_] >: Flow[_, _]: R]: FF[In, Out] =
     foldMap(BiFunctionK.id[FF])
 
 
