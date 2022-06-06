@@ -1,6 +1,8 @@
 package com.adrielc.quivr.metrics
 package retrieval
 
+//import com.adrielc.quivr.metrics.ranking.ResultRelevancies
+//import com.adrielc.quivr.metrics.result.ResultLabels
 import simulacrum.{op, typeclass}
 
 @typeclass trait RelevanceCount[A] extends TruePositiveCount[A] {

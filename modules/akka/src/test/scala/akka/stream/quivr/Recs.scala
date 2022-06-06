@@ -27,7 +27,7 @@ object Recs {
   case class  InvalidUser(user: User) extends RecsError
   case object NoRecs                  extends RecsError
 
-  def getTopRecommend(recs: List[Product]): Either[RecsError, Product] =
+  val getTopRecommend: List[Product] => Either[RecsError, Product] = recs =>
     recs.sortBy(_.id).headOption match {
       case Some(value) => scala.Right(value)
       case None =>        scala.Left(NoRecs)

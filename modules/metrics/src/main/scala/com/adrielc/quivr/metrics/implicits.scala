@@ -5,6 +5,7 @@ object implicits
   with ranking.RankedRelevancies.ToRankedRelevanciesOps
   with ranking.ResultRelevancies.ToResultRelevanciesOps
   with result.Results.ToResultsOps
+  with result.Results.NonEmptyResults.ToNonEmptyResultsOps
   with result.Engagements.ToEngagementsOps
   with result.GroundTruth.ToGroundTruthOps
   with retrieval.TruePositiveCount.ToTruePositiveCountOps

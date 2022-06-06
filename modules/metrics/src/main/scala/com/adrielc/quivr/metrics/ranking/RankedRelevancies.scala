@@ -22,11 +22,17 @@ import eu.timepit.refined.auto._
 
   def rankedRelevancies(a: A): Ranked[Rel]
 
+  def ndcg(a: A, g: GainFn = gain.pow2, d: DiscountFn = discount.log2): Option[Double] =
+    calcNdcgK(gains(a), g, d)
+
+  def dcg(a: A, g: GainFn = gain.pow2, d: DiscountFn = discount.log2): Double =
+    calcDcgK(gains(a), g, d)
+
   def ndcgK(a: A, k: Rank, g: GainFn = gain.pow2, d: DiscountFn = discount.log2): Option[Double] =
     gains(a).atK(k).flatMap(calcNdcgK(_: Ranked[Double], g, d))
 
   def dcgK(a: A, k: Rank, g: GainFn = gain.pow2, d: DiscountFn = discount.log2): Option[Double] =
-    gains(a).atK(k).flatMap(calcNdcgK(_: Ranked[Double], g, d))
+    gains(a).atK(k).map(calcDcgK(_: Ranked[Double], g, d))
 
   @op("avgPrec", alias = true)
   def averagePrecision(a: A): Option[Double] =
@@ -43,7 +49,6 @@ import eu.timepit.refined.auto._
   //    Conversely, a small b (e.g., b = 1) imposes more penalty
   def qMeasure(a: A, b: Double = 1): Option[Double] =
     calcQ(rankedRelevancies(a), b)
-
 
   def qMeasureK(a: A, k: Rank, b: Double = 1): Option[Double] =
     gains(a).atK(k).flatMap(calcQ(_, b))

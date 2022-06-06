@@ -8,7 +8,9 @@ import cats.kernel.Monoid
 
 object key {
 
-  final case class KeyBuilder[A](prefix: Option[A] = None, delim: A, suffix: Option[A] = None) {
+  final case class KeyBuilder[A](prefix: Option[A] = None,
+                                 delim: A,
+                                 suffix: Option[A] = None) {
 
     def buildKey[F[_]](fa: F[A])(implicit F: Foldable[F], M: Monoid[A]): A = fa.foldSmash(prefix.getOrElse(M.empty), delim, suffix.getOrElse(M.empty))
 

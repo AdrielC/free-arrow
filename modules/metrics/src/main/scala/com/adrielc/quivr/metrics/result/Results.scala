@@ -42,6 +42,11 @@ object Results {
       val labels = R.resultLabels(a)
       nonEmptyResults(a).map(labels.lookup)
     }
+
+    def nonEmptyJudgedResults(a: A)(implicit R: GroundTruth[A]): NonEmptyVector[Boolean] = {
+      val rels = R.groundTruth(a).set
+      nonEmptyResults(a).map(rels.contains)
+    }
   }
   object NonEmptyResults {
 

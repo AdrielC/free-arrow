@@ -1,11 +1,11 @@
 package com.adrielc.quivr.metrics
 
-import cats.data.Kleisli
-import com.adrielc.quivr.free.FA
-import cats.implicits._
+//import cats.data.Kleisli
+//import com.adrielc.quivr.free.FA
+//import cats.implicits._
+//import eu.timepit.refined.types.all.PosInt
+//import shapeless.Lazy
 import com.adrielc.quivr.metrics.dsl.engagement.{Judge, Labeler}
-import eu.timepit.refined.types.all.PosInt
-import shapeless.Lazy
 
 package object api {
   import dsl._
@@ -28,33 +28,27 @@ package object api {
   val reciprocalRank: Metric = eval.reciprocalRank
   val rPrecision    : Metric = eval.rPrecision
 
-  object rel {
 
-    def apply[A, E](a: A)(implicit T: Lazy[ToRel.Aux[A, E]]): Res[E] +> ResultRels =
-      T.value.toRel(a)
-  }
-
-
-  object evaluator {
-
-    def apply[H, E](
-      labelers  : H
-    )(
-      metric    : Metric,
-      metrics   : Metric*
-    )(
-      atKs      : PosInt*
-    )(implicit T: ToRel.Aux[H, E]): (Seq[ResultId], Map[ResultId, Map[E, Int]]) => Map[String, Double] = {
-      import FA._
-      val m = plus(metric, metrics:_*)
-      val k = atKs.toList.map(atK[ResultRels](_): ResultRels +> ResultRels).toNel.map(_.reduceK).getOrElse(FA.id[ResultRels])
-      val l = T.toRel(labelers)
-
-      val arrow = l >>> k >>> m
-
-      val evaluator = Kleisli(interpreter.evaluation.compileManyMetrics(arrow, interpreter.key.defaultKeyBuilder).rmap(_.toSortedMap))
-      val orEmpty = evaluator.run.rmap(_.toList.mapFilter(a => a._2.toOption.tupleLeft(a._1)).toMap)
-      (a, b) => orEmpty((a, b))
-    }
-  }
+//  object evaluator {
+//
+//    def apply[H, E](
+//      labelers  : H
+//    )(
+//      metric    : Metric,
+//      metrics   : Metric*
+//    )(
+//      atKs      : PosInt*
+//    )(implicit T: ToRel.Aux[H, E]): (Seq[ResultId], Map[ResultId, Map[E, Int]]) => Map[String, Double] = {
+//      import FA._
+//      val m = plus(metric, metrics:_*)
+//      val k = atKs.toList.map(atK[ResultRels](_): ResultRels +> ResultRels).toNel.map(_.reduceK).getOrElse(FA.id[ResultRels])
+//      val l = T.toRel(labelers)
+//
+//      val arrow = l >>> k >>> m
+//
+//      val evaluator = Kleisli(interpreter.evaluation.compileManyMetrics(arrow, interpreter.key.defaultKeyBuilder).rmap(_.toSortedMap))
+//      val orEmpty = evaluator.run.rmap(_.toList.mapFilter(a => a._2.toOption.tupleLeft(a._1)).toMap)
+//      (a, b) => orEmpty((a, b))
+//    }
+//  }
 }

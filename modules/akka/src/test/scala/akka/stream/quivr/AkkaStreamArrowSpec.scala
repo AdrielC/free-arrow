@@ -17,7 +17,7 @@ class AkkaStreamArrowSpec extends FlatSpec with Matchers {
 
     val handleError = lift(logError) >>> always(counter.getAndIncrement()) >^ (i => println((i + 1) + " errors"))
 
-    val getRecsAndSend = getRecommendations >>> lift(getTopRecommend) >>> (handleError +++ sendRecommend)
+    val getRecsAndSend = getRecommendations >^ getTopRecommend >>> (handleError +++ sendRecommend)
 
     (getUserInfo >>> needsRecommendation).test >>> ((handleError <^ InvalidUser) +++ getRecsAndSend)
   }

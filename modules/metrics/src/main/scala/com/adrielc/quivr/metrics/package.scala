@@ -57,11 +57,9 @@ package object metrics {
    *
     */
   def calcNdcgK(labels: Ranked[Double], g: GainFn, d: DiscountFn): Option[Double] = {
-    val ideal = labels.copy(rankings = labels.rankings.toNel.sortBy(-_._2).mapWithIndex { case ((k, l), i) =>
-      val r = Rank.fromIndex(i)
-      val ll = if(k > labels.k) 0.0 else l // disregard gain from results above rank K
-      r -> ll
-    }.toNem)
+    val ideal = labels.copy(rankings = labels.rankings.toNel.map { case (k, l) =>
+      (k, if(k > labels.k) 0.0 else l) // disregard gain from results above rank K
+    }.sortBy(-_._2).mapWithIndex { case ((_, l), i) => Rank.fromIndex(i) -> l }.toNem)
     safeDiv(
       calcDcgK(labels, g, d),
       calcDcgK(ideal, g, d)

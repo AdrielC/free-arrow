@@ -74,9 +74,9 @@ object engagement {
   }
   private[dsl] sealed trait JudgeF[+E, +A] extends LabelerF[E, A] {
     override def map[B](f: A => B): JudgeF[E, B] = this match {
-      case Equiv(eq, e, v) => Equiv(eq, e, v)
-      case Or(exp1, exp2) => Or(f(exp1), f(exp2))
-      case And(exp1, exp2) => And(f(exp1), f(exp2))
+      case Equiv(eq, e, v)  => Equiv(eq, e, v)
+      case Or(exp1, exp2)   => Or(f(exp1), f(exp2))
+      case And(exp1, exp2)  => And(f(exp1), f(exp2))
     }
   }
 

@@ -19,23 +19,25 @@ object instances {
         val A: AC[Kleisli[M, *, *]] = Kleisli.catsDataArrowChoiceForKleisli
       }
 
-    implicit def arrowChoiceZeroForIRWST[E, L, F[_]]
-    (implicit MK: MonoidK[F], ML: Monoid[L], M: Monad[F]): ArrowChoiceZero[IRWST[F, E, L, *, *, Unit]] =
-      new catsIRWST.IRWST_ACZ[F, E, L] {
+    implicit def arrowChoiceZeroForIRWST[E, L, O, F[_]]
+    (implicit MK: MonoidK[F], ML: Monoid[L], M: Monad[F], MO: Monoid[O]): ArrowChoiceZero[IRWST[F, E, L, *, *, O]] =
+      new catsIRWST.IRWST_ACZ[F, E, L, O] {
         val monad: Monad[F] = M
         val monoid: Monoid[L] = ML
         val monoidK: MonoidK[F] = MK
+        val monoidO: Monoid[O] = MO
       }
   }
 
   trait Instances0 {
 
-    implicit def arrowPlusForIRWST[E, L, F[_]]
-    (implicit SK: SemigroupK[F], ML: Monoid[L], M: Monad[F]): ArrowChoicePlus[IRWST[F, E, L, *, *, Unit]] =
-      new catsIRWST.IRWST_ACP[F, E, L] {
+    implicit def arrowPlusForIRWST[E, L, O, F[_]]
+    (implicit SK: SemigroupK[F], ML: Monoid[L], M: Monad[F], MO: Monoid[O]): ArrowChoicePlus[IRWST[F, E, L, *, *, O]] =
+      new catsIRWST.IRWST_ACP[F, E, L, O] {
         val monad: Monad[F] = M
         val monoid: Monoid[L] = ML
         val semigroupK: SemigroupK[F] = SK
+        val monoidO: Monoid[O] = MO
       }
 
     implicit def kleisliArrowChoicePlus[M[_]](implicit M: Monad[M], SK: SemigroupK[M]): ArrowChoicePlus[Kleisli[M, *, *]] =
@@ -67,62 +69,63 @@ object instances {
 
   object catsIRWST {
 
-    private[quivr] trait IRWST_ACZ[F[_], E, L] extends ArrowChoiceZero[IRWST[F, E, L, *, *, Unit]] with IRWST_ACP[F, E, L]  {
+    private[quivr] trait IRWST_ACZ[F[_], E, L, O] extends ArrowChoiceZero[IRWST[F, E, L, *, *, O]] with IRWST_ACP[F, E, L, O]  {
 
       implicit def monoidK: MonoidK[F]
       override def semigroupK: SemigroupK[F] = monoidK
 
-      override def zeroArrow[B, C]: IRWST[F, E, L, B, C, Unit] =
-        IRWST.apply((_: E, _: B) => monoidK.empty[(L, C, Unit)])
+      override def zeroArrow[B, C]: IRWST[F, E, L, B, C, O] =
+        IRWST.apply((_: E, _: B) => monoidK.empty[(L, C, O)])
     }
 
-    private[quivr] trait IRWST_ACP[F[_], E, L] extends ArrowChoicePlus[IRWST[F, E, L, *, *, Unit]] with IRWSTArrow[F, E, L]  {
+    private[quivr] trait IRWST_ACP[F[_], E, L, O] extends ArrowChoicePlus[IRWST[F, E, L, *, *, O]] with IRWSTArrow[F, E, L, O]  {
 
       implicit def semigroupK: SemigroupK[F]
 
-      override def choose[A, B, C, D](f: IRWST[F, E, L, A, C, Unit])(g: IRWST[F, E, L, B, D, Unit]): IRWST[F, E, L, Either[A, B], Either[C, D], Unit] =
+      override def choose[A, B, C, D](f: IRWST[F, E, L, A, C, O])(g: IRWST[F, E, L, B, D, O]): IRWST[F, E, L, Either[A, B], Either[C, D], O] =
         IRWST.apply((e: E, sa: Either[A, B]) => sa.fold(
           a => f.modify(_.asLeft[D]).run(e, a),
           b => g.modify(_.asRight[C]).run(e, b)
         ))
 
-      override def plus[A, B](f: IRWST[F, E, L, A, B, Unit], g: IRWST[F, E, L, A, B, Unit]): IRWST[F, E, L, A, B, Unit] =
+      override def plus[A, B](f: IRWST[F, E, L, A, B, O], g: IRWST[F, E, L, A, B, O]): IRWST[F, E, L, A, B, O] =
         IRWST.apply((e: E, a: A) => f.run(e, a) <+> g.run(e, a))
     }
 
-    private[quivr] trait IRWSTArrow[F[_], E, L] extends Arrow[IRWST[F, E, L, *, *, Unit]] {
+    private[quivr] trait IRWSTArrow[F[_], E, L, O] extends Arrow[IRWST[F, E, L, *, *, O]] {
       import cats.data.IndexedReaderWriterStateT.catsDataStrongForIRWST
 
       implicit def monad: Monad[F]
       implicit def monoid: Monoid[L]
+      implicit def monoidO: Monoid[O]
 
-      override def split[A, B, C, D](fab: IRWST[F, E, L, A, B, Unit], fcd: IRWST[F, E, L, C, D, Unit]): IRWST[F, E, L, (A, C), (B, D), Unit] =
+      override def split[A, B, C, D](fab: IRWST[F, E, L, A, B, O], fcd: IRWST[F, E, L, C, D, O]): IRWST[F, E, L, (A, C), (B, D), O] =
         IRWST.applyF {
           (fab.runF, fcd.runF).mapN { (a, c) =>
             (e: E, ac: (A, C)) => {
               val bout = a(e, ac._1)
               val dout = c(e, ac._2)
-              (bout, dout).mapN { case ((l1, b, _), (l2, d, _)) =>  (l1 |+| l2, (b, d), ()) }
+              (bout, dout).mapN { case ((l1, b, o1), (l2, d, o2)) =>  (l1 |+| l2, (b, d), o1 |+| o2) }
             }
           }
         }
 
-      override def lift[A, B](f: A => B): IRWST[F, E, L, A, B, Unit] =
-        IRWST.modify(f)
+      override def lift[A, B](f: A => B): IRWST[F, E, L, A, B, O] =
+        IRWST.modify(f)(monad, monoid).map(_ => monoidO.empty)
 
-      override def compose[A, B, C](f: IRWST[F, E, L, B, C, Unit], g: IRWST[F, E, L, A, B, Unit]): IRWST[F, E, L, A, C, Unit] =
-        g.flatMap(_ => f)
+      override def compose[A, B, C](f: IRWST[F, E, L, B, C, O], g: IRWST[F, E, L, A, B, O]): IRWST[F, E, L, A, C, O] =
+        g.flatMap(o => f.map(o |+| _))
 
-      override def first[A, B, C](fa: IRWST[F, E, L, A, B, Unit]): IRWST[F, E, L, (A, C), (B, C), Unit] =
-        catsDataStrongForIRWST[F, E, L, Unit].first(fa)
+      override def first[A, B, C](fa: IRWST[F, E, L, A, B, O]): IRWST[F, E, L, (A, C), (B, C), O] =
+        catsDataStrongForIRWST[F, E, L, O].first(fa)
 
-      override def second[A, B, C](fa: IRWST[F, E, L, A, B, Unit]): IRWST[F, E, L, (C, A), (C, B), Unit] =
-        catsDataStrongForIRWST[F, E, L, Unit].second(fa)
+      override def second[A, B, C](fa: IRWST[F, E, L, A, B, O]): IRWST[F, E, L, (C, A), (C, B), O] =
+        catsDataStrongForIRWST[F, E, L, O].second(fa)
 
-      override def lmap[A, B, C](fab: IRWST[F, E, L, A, B, Unit])(f: C => A): IRWST[F, E, L, C, B, Unit] =
+      override def lmap[A, B, C](fab: IRWST[F, E, L, A, B, O])(f: C => A): IRWST[F, E, L, C, B, O] =
         fab.contramap(f)
 
-      override def rmap[A, B, C](fab: IRWST[F, E, L, A, B, Unit])(f: B => C): IRWST[F, E, L, A, C, Unit] =
+      override def rmap[A, B, C](fab: IRWST[F, E, L, A, B, O])(f: B => C): IRWST[F, E, L, A, C, O] =
         fab.modify(f)
     }
   }

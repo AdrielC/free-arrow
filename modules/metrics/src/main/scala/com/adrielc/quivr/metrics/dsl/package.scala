@@ -3,13 +3,12 @@ package metrics
 
 import com.adrielc.quivr.free.{FA, FAP, FreeArrow}
 import cats.data.{NonEmptyList, NonEmptyMap => Nem}
-import com.adrielc.quivr.metrics.dsl.evaluation.EvalOp.{EngagementToJudgement, EngagementToLabel}
+import com.adrielc.quivr.metrics.dsl.evaluation.EvalOp.{EngagementToJudgement, EngagementToLabel, LabelsToJudgement}
 import com.adrielc.quivr.metrics.dsl.evaluation.{EvalError, EvalOp}
 import cats.implicits._
-import com.adrielc.quivr.metrics.data.Rankings.RankedResults
-import com.adrielc.quivr.metrics.data.relevance.Relevance
+import com.adrielc.quivr.metrics.data.Labeled.{WithGroundTruth, WithLabels}
 import com.adrielc.quivr.metrics.dsl.label.LabelerFilterOps
-import com.adrielc.quivr.metrics.result.{AtK, Engagements, Results}
+import com.adrielc.quivr.metrics.result.{AtK, Engagements, ResultLabels, Results}
 import eu.timepit.refined.types.all.PosInt
 
 
@@ -39,7 +38,7 @@ package object dsl {
    *
    * {{{ arrAB >>> arrBC }}}
     */
-  type >>[A, B]     = FA[EvalOp, A, B]
+  type >>[A, B] = FA[EvalOp, A, B]
 
   /**
    * Independent arrow combination
@@ -48,7 +47,7 @@ package object dsl {
    *
    * * {{{ arrAB <+> arrAB }}}
    */
-  type +>[A, B]     = FAP[EvalOp, A, B]
+  type +>[A, B] = FAP[EvalOp, A, B]
 
   type EvalResult[+A] = Either[EvalError, A]
 
@@ -62,10 +61,10 @@ package object dsl {
 
   object label {
 
-    def apply[A, E](e: Labeler[E])(implicit R: Results[A], E: Engagements[A, E]): A >> ResultRels =
-      FA.liftK(EngagementToLabel(e): EvalOp[A, ResultRels])
+    def apply[A, E](e: Labeler[E])(implicit E: Engagements[A, E]): A >> WithLabels[A] =
+      FA.liftK(EngagementToLabel(e): EvalOp[A, WithLabels[A]])
 
-    def apply[A, E](e: Labeler[E], es: Labeler[E]*)(implicit R: Results[A], E: Engagements[A, E]): A +> ResultRels =
+    def apply[A, E](e: Labeler[E], es: Labeler[E]*)(implicit E: Engagements[A, E]): A +> WithLabels[A] =
       FA.plus(NonEmptyList(apply(e), es.map(apply(_)).toList))
 
     /**
@@ -75,10 +74,10 @@ package object dsl {
 
     final class PartiallyAppliedLabeler[A] private[dsl] {
 
-      def apply[E](e: Labeler[E])(implicit R: Results[A], E: Engagements[A, E]): A >> ResultRels =
+      def apply[E](e: Labeler[E])(implicit E: Engagements[A, E]): A >> WithLabels[A] =
         label(e)
 
-      def apply[E](e: Labeler[E], es: Labeler[E]*)(implicit R: Results[A], E: Engagements[A, E]): A +> ResultRels =
+      def apply[E](e: Labeler[E], es: Labeler[E]*)(implicit E: Engagements[A, E]): A +> WithLabels[A] =
         label(e, es:_*)
     }
 
@@ -141,24 +140,24 @@ package object dsl {
      *
      * same as [[dsl.label.apply]] except it is for individual labelers
      */
-    def from[A: Engagements[*, E] : Results]: A >> RankedResults[Relevance] =
-      FA.liftK[EvalOp, A, RankedResults[Relevance]](EngagementToLabel[A, E](lab))
+    def from[A: Engagements[*, E]]: A >> WithLabels[A] =
+      FA.liftK[EvalOp, A, WithLabels[A]](EngagementToLabel[A, E](lab))
 
     def engsToLabels[A](a: A)(implicit E: Engagements[A, E]): Map[ResultId, Option[Double]] = {
       val f = interpreter.engagemement.label.labelerCompiler(lab)
       E.engagements(a).mapValues(f.run)
     }
 
-    def labelResults[A: Engagements[*, E]: Results](a: A): Option[ResultRels] =
+    def labelResults[A: Engagements[*, E]](a: A): Option[WithLabels[A]] =
       from[A].run(a)._2
   }
 
   object judge {
 
-    def apply[A, E](e: Judge[E])(implicit R: Results[A], E: Engagements[A, E]): A >> ResultRels =
-      FA.liftK(EngagementToJudgement(e): EvalOp[A, ResultRels])
+    def apply[A, E](e: Judge[E])(implicit E: Engagements[A, E]): A >> WithGroundTruth[A] =
+      FA.liftK(EngagementToJudgement(e): EvalOp[A, WithGroundTruth[A]])
 
-    def apply[A, E](e: Judge[E], es: Judge[E]*)(implicit R: Results[A], E: Engagements[A, E]): A +> ResultRels =
+    def apply[A, E](e: Judge[E], es: Judge[E]*)(implicit E: Engagements[A, E]): A +> WithGroundTruth[A] =
       FA.plus(NonEmptyList(apply(e), es.map(apply(_)).toList))
 
     /**
@@ -178,14 +177,24 @@ package object dsl {
 
     final class EngagementJudgeBuilder[A] private[dsl] {
 
-      def apply[E](e: Judge[E])(implicit R: Results[A], E: Engagements[A, E]): A >> ResultRels =
+      def apply[E](e: Judge[E])(implicit E: Engagements[A, E]): A >> WithGroundTruth[A] =
         judge(e)
 
-      def apply[E](e: Judge[E], es: Judge[E]*)(implicit R: Results[A], E: Engagements[A, E]): A +> ResultRels =
+      def apply[E](e: Judge[E], es: Judge[E]*)(implicit E: Engagements[A, E]): A +> WithGroundTruth[A] =
         judge(e, es:_*)
     }
 
     def any[E](e: E): Judge[E] = Labeler.countOf(e) > 0
+
+    def labels[A]: JudgeLabelOps[A] = new JudgeLabelOps[A]
+
+    class JudgeLabelOps[A] private[dsl] {
+      def <=(d: Double)(implicit R: ResultLabels[A]) : A >> WithGroundTruth[A] = FA.liftK(LabelsToJudgement[A](double.<=, d): EvalOp[A, WithGroundTruth[A]])
+      def >=(d: Double)(implicit R: ResultLabels[A]) : A >> WithGroundTruth[A] = FA.liftK(LabelsToJudgement[A](double.>=, d): EvalOp[A, WithGroundTruth[A]])
+      def >(d: Double)(implicit R: ResultLabels[A])  : A >> WithGroundTruth[A] = FA.liftK(LabelsToJudgement[A](double.>, d): EvalOp[A, WithGroundTruth[A]])
+      def <(d: Double)(implicit R: ResultLabels[A])  : A >> WithGroundTruth[A] = FA.liftK(LabelsToJudgement[A](double.<, d): EvalOp[A, WithGroundTruth[A]])
+      def ===(d: Double)(implicit R: ResultLabels[A]): A >> WithGroundTruth[A] = FA.liftK(LabelsToJudgement[A](double.===, d): EvalOp[A, WithGroundTruth[A]])
+    }
   }
 
   implicit class JudgementOps[E](private val exp: Judge[E]) extends AnyVal {
@@ -200,10 +209,10 @@ package object dsl {
     /**
      * interpret this Expression as a function from Engagements of type [[E]] to a ground truth set for [[A]]
      */
-    def from[A: Engagements[*, E] : Results]: A >> RankedResults[Relevance] =
-      FA.liftK[EvalOp, A, RankedResults[Relevance]](EngagementToJudgement[A, E](exp))
+    def from[A: Engagements[*, E] : Results]: A >> WithGroundTruth[A] =
+      FA.liftK[EvalOp, A, WithGroundTruth[A]](EngagementToJudgement[A, E](exp))
 
-    def run[A: Engagements[*, E]: Results](a: A): Option[RankedResults[Relevance]] =
+    def run[A: Engagements[*, E]: Results](a: A): Option[WithGroundTruth[A]] =
       from[A].run(a)._2
   }
 

@@ -38,6 +38,8 @@ lazy val core = (project in file("modules/core"))
       Libraries.simulacrum,
       Libraries.shapeless,
       "com.slamdata" %% "matryoshka-core" % "0.21.3",
+      "org.scodec" %% "scodec-bits" % "1.1.29",
+      "com.twitter" %% "algebird-core" % "0.13.9",
       compilerPlugin(Libraries.kindProjector)
     )
   )
@@ -51,6 +53,7 @@ lazy val metrics = (project in file("modules/metrics"))
       "eu.timepit" %% "refined" % "0.9.17",
       "eu.timepit" %% "refined-cats" % "0.9.17",
       "com.slamdata" %% "matryoshka-core" % "0.21.3",
+      "com.lihaoyi" %% "fastparse" % "2.3.0",
       compilerPlugin(Libraries.kindProjector)
     )
   )

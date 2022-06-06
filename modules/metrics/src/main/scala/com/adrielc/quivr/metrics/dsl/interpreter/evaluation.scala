@@ -10,15 +10,14 @@ import cats.kernel.Order
 import cats.~>
 import com.adrielc.quivr.data.{AccumMap, AccumWriter}
 import com.adrielc.quivr.metrics.data.EngagedResults
-import com.adrielc.quivr.metrics.data.Rankings.RankedResults
-import com.adrielc.quivr.metrics.data.relevance.Relevance
+import com.adrielc.quivr.metrics.data.Labeled.{WithGroundTruth, WithLabels}
 import com.adrielc.quivr.metrics.dsl.engagement.{Judge, Labeler}
 import com.adrielc.quivr.metrics.dsl.evaluation.EvalOp._
 import com.adrielc.quivr.metrics.dsl.key.SummarizeOps
 import com.adrielc.quivr.{AC, ACP, BiFunctionK, ~~>}
 
 object evaluation {
-  type EvalFn[A, B] = A => EvalResult[B]
+  type EvalFn[A, B]     = A => EvalResult[B]
   type EvalOpMap[A, B]  = Kleisli[AccumMap[List[EvalOp[_, _]], EvalError, *], A, B]
   type RunErr[A, B]     = Kleisli[EvalResult, A, B]
 
@@ -32,11 +31,14 @@ object evaluation {
 
       case eng: EvalOp.EngagementToJudgement[A, e] =>
         val f = judgeF[e](eng.e); import eng._
-        a: A => RankedResults.fromEngagedResults[A, e](a, f).toRight(NoValidJudgements: EvalError)
+        a: A => WithGroundTruth.fromEngagements[A, e](a, f).toRight(NoValidJudgements: EvalError)
+
+      case eng: EvalOp.LabelsToJudgement[A] =>
+        a: A => WithGroundTruth.fromLabels(a, eng.R.resultLabels(a).toSortedMap, eng.equiv(_: Double, eng.d)).toRight(NoValidLabels: EvalError)
 
       case eng: EvalOp.EngagementToLabel[A, e] =>
         val f = labelF[e](eng.e); import eng._
-        a: A => RankedResults.fromEngagedResults[A, e](a, f).toRight(NoValidLabels: EvalError)
+        a: A => WithLabels.fromEngagements[A, e](a, f).toRight(NoValidLabels: EvalError)
 
       case at: EvalOp.K[A] =>
         a: A => at.A.atK(a, at.k.value).toRight(KGreaterThanMax(at.k.value): EvalError)
@@ -56,11 +58,11 @@ object evaluation {
         }
     }
 
-    private def judgeF[E](j: Judge[E]): Map[E, Int] => Relevance =
-      engagemement.judge.judgementCompilerToRelevance(j).run.rmap(_.getOrElse(Relevance.irrelevant))
+    private def judgeF[E](j: Judge[E]): Map[E, Int] => Boolean =
+      engagemement.judge.judgeCompiler(j).run.rmap(_.getOrElse(false))
 
-    private def labelF[E](l: Labeler[E]): Map[E, Int] => Relevance =
-      engagemement.label.labelerToRelevanceCompiler(l).run.rmap(_.getOrElse(Relevance.zero))
+    private def labelF[E](l: Labeler[E]): Map[E, Int] => Option[Double] =
+      engagemement.label.labelerCompiler(l).run
   }
 
   private val runEvalKleisli = runEvalWithError.andThen(BiFunctionK.functionToKleisli)

@@ -14,9 +14,9 @@ private[metrics] object Eq {
 
   abstract class EqFor[A: Ord] {
     val `===`: Eq[A]  = Eq.===[A]
-    val `>`: Eq[A]   = Eq.>[A]
-    val `<`: Eq[A]   = Eq.<[A]
-    val `<=`: Eq[A]  = Eq.<=[A]
-    val `>=`: Eq[A]  = Eq.>=[A]
+    val `>`: Eq[A]    = Eq.>[A]
+    val `<`: Eq[A]    = Eq.<[A]
+    val `<=`: Eq[A]   = Eq.<=[A]
+    val `>=`: Eq[A]   = Eq.>=[A]
   }
 }
