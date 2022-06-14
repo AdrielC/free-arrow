@@ -1,6 +1,5 @@
 package com.adrielc.quivr
 
-import cats.arrow.ArrowChoice
 import simulacrum.{op, typeclass}
 import cats.syntax.either._
 

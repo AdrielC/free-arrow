@@ -1,7 +1,7 @@
 package com.adrielc.quivr.zio
-import cats.arrow.ArrowChoice
+
 import cats.data.AndThen
-import com.adrielc.quivr.ArrowChoiceZero
+import com.adrielc.quivr.{ArrowChoice, ArrowChoiceZero}
 import zio.{IO, ZIO}
 
 sealed trait ZArrow[+E, -A, +B] extends Serializable { self =>
@@ -132,11 +132,6 @@ sealed trait ZArrow[+E, -A, +B] extends Serializable { self =>
     self >>> ZArrow.lift[B, C](_ => c)
 
   /**
-   * Converts `ZArrow` into `ZIO`.
-   */
-  final def toEffect: ZIO[A, E, B] = ZIO.accessM(self.run)
-
-  /**
    * Maps the output of this effectful function to `Unit`.
    */
   final def unit: ZArrow[E, A, Unit] = as(())
@@ -164,15 +159,14 @@ object ZArrow extends Serializable with ZArrowInstances {
 
   private[zio] final class Pure[+E, -A, +B](val run: A => IO[E, B]) extends ZArrow[E, A, B] {}
   private[zio] final class Impure[+E, -A, +B](val apply0: AndThen[A, B]) extends ZArrow[E, A, B] {
-    val run: A => IO[E, B] = a =>
-      IO.effectSuspendTotal {
-        try {
-          val b = apply0(a)
-          IO.succeed(b)
-        } catch {
-          case e: ZArrowError[_] => IO.fail[E](e.unsafeCoerce[E])
-        }
+    val run: A => IO[E, B] = a => {
+      try {
+        val b = apply0(a)
+        ZIO.succeed(b): IO[E, B]
+      } catch {
+        case e: ZArrowError[_] => ZIO.fail[E](e.unsafeCoerce[E])
       }
+    }
   }
   object Impure {
     def apply[E, A, B](apply0: A => B): Impure[E, A, B] = new Impure(AndThen(apply0))
@@ -306,7 +300,7 @@ object ZArrow extends Serializable with ZArrowInstances {
       case _ =>
         lazy val loop: ZArrow[E, A, A] =
           ZArrow.liftM((a: A) =>
-            check.run(a).flatMap((b: Boolean) => if (b) body.run(a).flatMap(loop.run) else IO.succeed(a))
+            check.run(a).flatMap((b: Boolean) => if (b) body.run(a).flatMap(loop.run) else ZIO.succeed(a))
           )
 
         loop
@@ -396,7 +390,7 @@ object ZArrow extends Serializable with ZArrowInstances {
       case _ =>
         ZArrow.liftM[E, Either[A, C], Either[B, C]] {
           case Left(a)  => k.run(a).map[Either[B, C]](Left[B, C])
-          case Right(c) => IO.succeed[Either[B, C]](Right(c))
+          case Right(c) => ZIO.succeed[Either[B, C]](Right(c))
         }
     }
 
@@ -427,7 +421,7 @@ object ZArrow extends Serializable with ZArrowInstances {
         })
       case _ =>
         ZArrow.liftM[E, Either[C, A], Either[C, B]] {
-          case Left(c)  => IO.succeed[Either[C, B]](Left(c))
+          case Left(c)  => ZIO.succeed[Either[C, B]](Left(c))
           case Right(a) => k.run(a).map[Either[C, B]](Right[C, B])
         }
     }

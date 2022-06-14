@@ -8,6 +8,7 @@ package object free {
   val FC = FreeCompose
 
   /** All levels of FreeArrow capability */
+  type FP[+F[_, _], A, B] = FreeArrow[Pipe, F, A, B]
   type FA[+F[_, _], A, B] = FreeArrow[AR, F, A, B]
   type FAC[+F[_, _], A, B] = FreeArrow[AC, F, A, B]
   type FAZ[+F[_, _], A, B] = FreeArrow[AZ, F, A, B]
@@ -17,6 +18,10 @@ package object free {
 
 
   /** Specialized types of [[FreeArrow]] that correspond to method symbols */
+
+  /** Specialized types of [[FreeArrow]] that correspond to method symbols */
+  type &&&[A, B] = FP[Nothing, A, B]
+
   type >>>[A, B] = FA[Nothing, A, B]
 
   /** [[FreeArrow.justLeft]] */

@@ -1,9 +1,15 @@
 package com.adrielc.quivr.data
 
+import java.time.Instant
+import java.time.temporal.ChronoUnit
+
 import cats.{Foldable, Monoid, MonoidK}
 import cats.arrow.{Arrow, ArrowChoice}
 import cats.implicits._
 import cats.free.Cofree
+import com.twitter.algebird.DecayedValue
+
+import scala.concurrent.duration.DurationInt
 
 case class Scan[-A, B](run: A => (Scan[A, B], B)) {
 
@@ -39,6 +45,11 @@ object Scan {
   def accum[A, B](b: B)(f: (A, B) => B): Scan[A, B] = Scan { a =>
     val b2 = f(a, b)
     (accum(b2)(f), b2)
+  }
+
+  def accum[A, B](f: (A, B) => B): Scan[(A, B), B] = Scan { case (a, b) =>
+    val b2 = f(a, b)
+    (accum(f), b2)
   }
 
   def cumSum[A: Monoid]: Scan[A, A] = accum(Monoid.empty[A])(Monoid.combine[A])
@@ -110,11 +121,38 @@ object Scan {
 
 object ScanTest extends App {
 
-  val s = Scan.scan(0)((a: Int, b) => a + b)
+  import com.twitter.algebird.Moments
+  val now = Instant.now().truncatedTo(ChronoUnit.MINUTES)
 
-  val accum = Scan.accum(0)((a: Int, b) => a + b)
+  DecayedValue.build(
+    1,
+    now.toEpochMilli.toDouble,
+    30.minutes.toMillis.toDouble)
 
-  val data = (0 to 10).toList
+  val s = Scan.scan(0)((a: Int, b) => a + b).map(Moments(_))
 
-  print(accum.runList(data))
+  val cumsum = Scan.accum(0)((a: Int, b) => 1 + (a + b))
+
+  val timestamp = Scan.accum[Int, (Int, Instant)]((1, now)) {
+    case (a: Int, (i, t)) => (i + a) -> t.plus((10 * (a + i + 1).toDouble).toLong, ChronoUnit.MINUTES) }
+
+  val decay = Scan.lift[(Int, Instant), (Moments, DecayedValue)] { case (v, t) => (
+    Moments(v),
+    DecayedValue.build(1, t.toEpochMilli.toDouble, 30.millis.toMillis.toDouble))
+  }
+
+  implicit val monoid = DecayedValue.monoidWithEpsilon(0.001)
+
+  val exp = Scan.accum[(Moments, DecayedValue), (Moments, DecayedValue)](
+    (Monoid.empty[Moments], monoid.zero)) { case (
+    (m: Moments, decay: DecayedValue), (m2: Moments, decay2: DecayedValue)) =>
+    (m.scale((decay |+| decay2).value) |+| m2, decay |+| decay2)
+  }
+
+  val decayedValues = cumsum >>> timestamp >>> decay >>> exp
+
+  val data = (0 to 100).toList ++ List.fill(10)(200).scanLeft(2)((a, b) => a + b)
+
+  print(data.zip(data.map(_ => now)))
+  println(decayedValues.rmap(_._1.mean).runStream(data.toStream).toList)
 }

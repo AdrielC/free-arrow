@@ -1,7 +1,6 @@
 package com.adrielc.quivr
 package recursion
 
-import cats.arrow.Arrow
 import com.adrielc.quivr.free.FreeArrow
 
 trait ArrFunctor[Ar[_[_, _], _, _]] {

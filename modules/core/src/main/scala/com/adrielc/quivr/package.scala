@@ -1,13 +1,13 @@
 package com.adrielc
 
-import cats.arrow.{Arrow, ArrowChoice}
 import cats.data.Ior
-import cats.implicits._
+import com.adrielc.quivr.implicits._
 
 package object quivr {
 
   /** Arrow hierarchy supported by FreeArrow */
   type AR[f[_, _]] = Arrow[f]
+  type PP[f[_, _]] = Pipe[f]
   type AC[f[_, _]] = ArrowChoice[f]
   type AP[f[_, _]] = ArrowPlus[f]
   type AZ[f[_, _]] = ArrowZero[f]
@@ -37,10 +37,13 @@ package object quivr {
     object all extends AllSyntax
 
     trait AllSyntax
-      extends ArrowChoicePlus.ToArrowChoicePlusOps
+        extends ArrowChoicePlus.ToArrowChoicePlusOps
         with ArrowChoiceZero.ToArrowChoiceZeroOps
         with ArrowPlus.ToArrowPlusOps
         with ArrowZero.ToArrowZeroOps
+          with ArrowChoice.ToArrowChoiceOps
+          with Arrow.ToArrowOps
+          with Pipe.ToPipeOps
   }
 
   object implicits
@@ -49,13 +52,14 @@ package object quivr {
 
 
   def liftA2[~>[_, _]: Arrow, A, B, C, D](ab: A ~> B)(ac: A ~> C)(f: (B, C) => D): A ~> D =
-    (ab &&& ac) >>> Arrow[~>].lift(f.tupled)
+    Arrow[~>].andThen((ab &&& ac), Arrow[~>].lift(f.tupled))
 
   def test[~>[_, _]: Arrow, A](ab: A ~> Boolean): A ~> Either[A, A] =
-    (Arrow[~>].id[A] &&& ab) >>> Arrow[~>].lift { case (a, b) => if(b) Left(a) else Right (a) }
+    Arrow[~>].andThen(Arrow[~>].id[A] merge ab, Arrow[~>].lift[(A, Boolean), Either[A, A]] {
+      case (a, b) => if(b) Left(a) else Right (a) })
 
   def ior[~>[_, _]: ArrowChoice, A, B, C, D](ab: A ~> B, cd: C ~> D): (A Ior C) ~> (B Ior D) =
-    ((ab +++ cd) +++ (ab *** cd)).dimap(iorToEither[A, C])(eitherToIor)
+    ArrowChoice[~>].dimap((ab +++ cd) +++ (ab *** cd))(iorToEither[A, C])(eitherToIor)
 
   def eitherToIor[A, B](e: EitherIor[A, B]): Ior[A, B] = e match {
     case Left(Left(a)) => Ior.left(a)

@@ -33,7 +33,10 @@ object ExampleMain extends App {
 
   // construct program
 
-  val program = prompt("Favorite album?") >>> getLine >>> lift("Blackwater Park is better than " + _) >>> putLine
+  val program = prompt("Favorite album?") >>>
+    getLine >>>
+    lift("Blackwater Park is better than " + _) >>>
+    putLine
 
   val or = getLine >>> putLine >>> zeroArrow[Unit, Unit]
 
@@ -59,5 +62,5 @@ object ExampleMain extends App {
   })
 
   println(description)
-  // > prompt(Favorite album?) get put
+  program.foldMap(pureConsole.kleisli[Vector]).run(())
 }

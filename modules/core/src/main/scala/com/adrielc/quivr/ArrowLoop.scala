@@ -1,6 +1,5 @@
 package com.adrielc.quivr
 
-import cats.arrow.Arrow
 import cats.instances.function.catsStdInstancesForFunction1
 import com.adrielc.quivr.data.{:&:, lazyTuple}
 
@@ -15,7 +14,7 @@ object ArrowLoop {
 
   implicit val functionArrowLoop: ArrowLoop[Function1] = new instances.ComposedArrowInstance[Function1] with ArrowLoop[Function1] {
 
-    val A: Arrow[Function1] = catsStdInstancesForFunction1
+    implicit val A: cats.arrow.Arrow[Function1] = catsStdInstancesForFunction1
 
     def loop[A, B, C](f: (A :&: C) => (B :&: C)): A => B = { a =>
       new { val cd: B :&: C = f(lazyTuple(a, cd._2)) }.cd._1.value

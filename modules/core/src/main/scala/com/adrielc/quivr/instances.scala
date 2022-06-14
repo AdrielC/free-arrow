@@ -1,7 +1,6 @@
 package com.adrielc.quivr
 
 
-import cats.arrow.{Arrow, ArrowChoice}
 import cats.data.{IRWST, Kleisli}
 import cats.{Monad, Monoid, MonoidK, SemigroupK}
 import cats.implicits._
@@ -16,7 +15,7 @@ object instances {
     implicit def kleisliArrowChoiceZero[M[_]](implicit M: Monad[M], MK: MonoidK[M]): ArrowChoiceZero[Kleisli[M, *, *]] =
       new kleisli.KleisliArrowChoiceZero[M] {
         val monoidK: MonoidK[M] = MK
-        val A: AC[Kleisli[M, *, *]] = Kleisli.catsDataArrowChoiceForKleisli
+        val A: cats.arrow.ArrowChoice[Kleisli[M, *, *]] = Kleisli.catsDataArrowChoiceForKleisli
       }
 
     implicit def arrowChoiceZeroForIRWST[E, L, O, F[_]]
@@ -43,7 +42,7 @@ object instances {
     implicit def kleisliArrowChoicePlus[M[_]](implicit M: Monad[M], SK: SemigroupK[M]): ArrowChoicePlus[Kleisli[M, *, *]] =
       new kleisli.KleisliArrowChoicePlus[M] {
         val semigroupK: SemigroupK[M] = SK
-        val A: AC[Kleisli[M, *, *]] = Kleisli.catsDataArrowChoiceForKleisli
+        val A: cats.arrow.ArrowChoice[Kleisli[M, *, *]] = Kleisli.catsDataArrowChoiceForKleisli
       }
   }
 
@@ -133,7 +132,7 @@ object instances {
 
   private[quivr] trait ComposedArrowInstance[F[_, _]] extends Arrow[F] {
 
-    def A: Arrow[F]
+    def A: cats.arrow.Arrow[F]
 
     def lift[A, B](f: A => B): F[A, B] = A.lift(f)
     def compose[A, B, C](f: F[B, C], g: F[A, B]): F[A, C] = A.compose(f, g)
@@ -148,7 +147,7 @@ object instances {
 
   private[quivr] trait ComposedArrowChoiceInstance[~>[_, _]] extends ComposedArrowInstance[~>] with ArrowChoice[~>] {
 
-    def A: ArrowChoice[~>]
+    def A: cats.arrow.ArrowChoice[~>]
 
     def choose[A, B, C, D](f: A ~> C)(g: B ~> D): Either[A, B] ~> Either[C, D] = A.choose(f)(g)
     override def choice[A, B, C](f: A ~> C, g: B ~> C): Either[A, B] ~> C = A.choice(f, g)

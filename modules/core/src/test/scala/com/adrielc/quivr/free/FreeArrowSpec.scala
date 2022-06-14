@@ -7,7 +7,6 @@ import instances.all._
 import com.adrielc.quivr.data.exampleDsl.Cnsl.free._
 import com.adrielc.quivr.data.exampleDsl.Expr.free._
 import com.adrielc.quivr.data.EnvA
-import cats.arrow.{Arrow, ArrowChoice}
 import cats.data.NonEmptyMap
 import com.adrielc.quivr.data.exampleDsl.{Cnsl, Expr}
 
