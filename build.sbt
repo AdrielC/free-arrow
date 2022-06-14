@@ -76,7 +76,7 @@ lazy val zio = (project in file("modules/zio"))
       Libraries.fs2,
       Libraries.zioStreams,
       Libraries.zioInterop,
-      Libraries.zioConfig,
+//      Libraries.zioConfig,
       Libraries.zioTest,
       Libraries.zioTestSbt,
       Libraries.pprint

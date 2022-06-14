@@ -471,16 +471,10 @@ trait ZArrowInstances {
 }
 
 private[zio] trait ZArrowArrowChoice[E] extends ArrowChoice[({ type Z[A, B] = ZArrow[E, A, B]})#Z] {
-
   def choose[A, B, C, D](f: ZArrow[E, A, C])(g: ZArrow[E, B, D]): ZArrow[E, Either[A, B], Either[C, D]] = ZArrow.choose(f)(g)
-
   def lift[A, B](f: A => B): ZArrow[E, A, B] = ZArrow.lift(f)
-
   override def id[A]: ZArrow[E, A, A] = ZArrow.identity
-
   def first[A, B, C](fa: ZArrow[E, A, B]): ZArrow[E, (A, C), (B, C)] = fa.first
-
   def compose[A, B, C](f: ZArrow[E, B, C], g: ZArrow[E, A, B]): ZArrow[E, A, C] = ZArrow.compose(f, g)
-
   override def choice[A, B, C](f: ZArrow[E, A, C], g: ZArrow[E, B, C]): ZArrow[E, Either[A, B], C] = ZArrow.join(f, g)
 }
