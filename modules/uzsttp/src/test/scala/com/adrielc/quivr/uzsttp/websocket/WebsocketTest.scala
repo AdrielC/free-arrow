@@ -1,0 +1,145 @@
+package com.adrielc.quivr
+package uzsttp
+package websocket
+
+import servers.TestUtil._
+import zio.test._
+import sttp.client._
+import sttp.model.ws.WebSocketFrame
+import sttp.client.asynchttpclient.zio.{AsyncHttpClientZioBackend, SttpClient}
+import sttp.client.ws.WebSocket
+import zio._
+import Assertion._
+import com.adrielc.quivr.uzsttp.servers.Encoders._
+import com.adrielc.quivr.uzsttp.servers.{EndPoint, Person}
+import com.adrielc.quivr.uzsttp.servers.Person.{DEATH, joe}
+import com.adrielc.quivr.websocket.PersonStream
+import com.adrielc.quivr.websocket.PersonStream.agePersonByOne
+import zio.clock.Clock
+import zio.stream.ZStream
+
+/**
+ * Much of this test is just about fiddling around with streams! So not all about websockets
+ */
+object WebsocketTest extends DefaultRunnableSpec {
+
+  def sendPerson(person: Person, ws: WebSocket[Task]) = {
+    println(s"sending person $person")
+    ws.send(WebSocketFrame.text(writeXmlString(person)))
+  }
+
+  def next(ws: WebSocket[Task]): Task[Option[Person]] = {
+    for {
+      et <- ws.receiveText()
+      personOpt <- et match {
+        case Right(t) => parseXmlString(t).map(Some(_))
+        case _ => IO.succeed(None)
+      }
+    } yield personOpt
+  }
+
+  val ageOneAtATime = testM("test age people"){
+
+    for {
+      _ <- serverUp
+      response <- SttpClient.openWebsocket(basicRequest.get(uri"ws://localhost:8080/wsPersonOneByOne"))
+      _ = println(s"response is $response")
+      ws = response.result
+      sent <- sendPerson(Person.joe, ws)
+      joeOlder <- next(ws)
+    } yield assert(joeOlder)(equalTo(Some(Person.older(joe))))
+  }
+
+
+  def asStream(ws: WebSocket[Task]): RIO[Clock, ZStream[Clock, Nothing, Person]] = {
+
+    def processQueue(q: Queue[Person]): Task[Boolean] =
+      for {
+        ws <- next(ws)
+        ended <- ws match {
+          case None =>
+            for {
+              _ <- q.shutdown
+              _ <- UIO(println(s"got end of stream"))
+            } yield true
+          case Some(person) =>
+            for {
+              _ <- UIO(println(s"got person $person"))
+              _ <- q.offer(person)
+            } yield false
+        }
+      } yield ended
+
+    for {
+      q <- Queue.unbounded[Person]
+      f = ZStream.fromQueueWithShutdown(q)
+      _ <- processQueue(q).repeat(Schedule.recurUntil[Boolean](bool => bool)).forkDaemon
+      _ <- (for {
+        _ <- q.awaitShutdown
+        _ <- ws.close
+      } yield()).forkDaemon
+    } yield f
+  }
+
+  val emptyStream = testM("calls, expecting an empty stream") {
+    for {
+      _ <- serverUp
+      response <- SttpClient.openWebsocket(basicRequest.get(uri"ws://localhost:8080/wsPerson"))
+      _ = println(s"response is $response")
+      ws = response.result
+      sent <- sendPerson(joe.copy(age = 101), ws)
+      agingPeople <- asStream(ws).map(_.takeWhile(_ != DEATH))
+      allPeople <- agingPeople.runCollect
+      _ <- ws.close
+    } yield assert(allPeople.size)(equalTo(0))
+  }
+
+  val nonEmptyStream = testM("calls, expecting a non-empty stream") {
+    for {
+      _ <- serverUp
+      response <- SttpClient.openWebsocket(basicRequest.get(uri"ws://localhost:8080/wsPerson"))
+      _ = println(s"response is $response")
+      ws = response.result
+      sent <- sendPerson(joe.copy(age = 78), ws)
+      agingPeople <- asStream(ws).map(_.takeWhile(_ != DEATH))
+      _ <- ws.close
+      allPeople <- agingPeople.runCollect
+      _ <- UIO(println(s"all people ${allPeople.mkString("\n")}"))
+    } yield assert(allPeople.size)(equalTo(23))
+  }
+
+  val cutShortInfiniteStream = testM("cut short infinite stream") {
+    for {
+      _ <- serverUp
+      response <- SttpClient.openWebsocket(basicRequest.get(uri"ws://localhost:8080/wsPerson"))
+      _ = println(s"response is $response")
+      ws = response.result
+      sent <- sendPerson(joe.copy(age = 1), ws)
+      agingPeople <- asStream(ws).map(_.take(200))
+      _ <- ws.close
+      allPeople <- agingPeople.runCollect
+    } yield assert(allPeople.size)(equalTo(200))
+  }
+
+
+
+  def endPoints = ZIO.access[Clock](_.get).map { clk =>
+    val ps = PersonStream(clk)
+    EndPoint.combineRoutes(ps.agePerson, agePersonByOne)
+  }
+
+
+  val streamTests = suite("test with client")(
+    ageOneAtATime,
+    emptyStream,
+    nonEmptyStream,
+    cutShortInfiniteStream,
+  ).provideCustomLayerShared(AsyncHttpClientZioBackend.layer() ++
+    Clock.live ++
+    serverLayer2M(endPoints)).mapError {
+    case a: TestFailure.Assertion => a
+    case o => TestFailure.fail(o)
+  }
+  override def spec = streamTests
+
+}

@@ -10,8 +10,8 @@ import scala.annotation.implicitNotFound
  * Must obey the laws defined in cats.laws.ArrowLaws.
  */
 @implicitNotFound("Could not find an instance of Arrow for ${F}")
-@typeclass(excludeParents = "Pipe" :: "Strong" :: Nil)
-trait Arrow[F[_, _]] extends Pipe[F] with Strong[F] { self =>
+@typeclass(excludeParents = "PipeOp" :: "Strong" :: Nil)
+trait Arrow[F[_, _]] extends PipeOp[F] with Strong[F] { self =>
 
   /**
    *  Lift a function into the context of an Arrow.

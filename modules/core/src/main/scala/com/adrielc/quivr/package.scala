@@ -7,7 +7,7 @@ package object quivr {
 
   /** Arrow hierarchy supported by FreeArrow */
   type AR[f[_, _]] = Arrow[f]
-  type PP[f[_, _]] = Pipe[f]
+  type PP[f[_, _]] = PipeOp[f]
   type AC[f[_, _]] = ArrowChoice[f]
   type AP[f[_, _]] = ArrowPlus[f]
   type AZ[f[_, _]] = ArrowZero[f]
@@ -43,7 +43,7 @@ package object quivr {
         with ArrowZero.ToArrowZeroOps
           with ArrowChoice.ToArrowChoiceOps
           with Arrow.ToArrowOps
-          with Pipe.ToPipeOps
+          with PipeOp.ToPipeOpOps
   }
 
   object implicits

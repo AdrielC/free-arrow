@@ -5,7 +5,7 @@ import shapeless.{HList, LabelledGeneric, MkRecordSelectLens, Witness}
 import simulacrum.typeclass
 
 @typeclass(excludeParents = "Category" :: Nil)
-trait Pipe[~>[_, _]] extends Category[~>] {
+trait PipeOp[~>[_, _]] extends Category[~>] {
 
   def id[A]: A ~> A
 
