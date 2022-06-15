@@ -1,6 +1,6 @@
 package com.adrielc.quivr
 
-import cats.effect.concurrent.Ref
+import cats.effect.Ref
 import fs2.{io => _, _}
 import io.circe.generic.extras._
 import io.circe.{Decoder, DecodingFailure, HCursor}

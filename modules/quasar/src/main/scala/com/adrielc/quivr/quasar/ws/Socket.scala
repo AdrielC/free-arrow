@@ -1,18 +1,19 @@
-package com.adrielc.quivr.quasar.ws
+package com.adrielc.quivr.quasar
+package ws
 
 import cats._
 import cats.effect._
-import cats.effect.concurrent.Ref
+import cats.effect.std.Queue
 import cats.implicits._
 import com.adrielc.quivr.quasar.{Client, EventHandlers}
-import fs2.concurrent.{Queue, Topic}
-import fs2.{io => _, _}
+import fs2.concurrent._
+import fs2.{Pipe, Stream}
 import io.circe.Json
 import io.circe.fs2._
 import io.circe.generic.auto._
 import io.circe.syntax._
-import org.http4s.client.jdkhttpclient.WSFrame
 import spire.math.ULong
+import org.http4s.client.websocket.{WSClient, WSFrame, WSRequest}
 
 case class Socket[F[_]](
   client: Client[F],
@@ -28,7 +29,7 @@ case class Socket[F[_]](
 
   def send[A](e: Event.Aux[F, A]): F[Unit] = outbound.enqueue1(e)
 
-  def pipe(implicit concurrent: Concurrent[F]): Pipe[F, String, WSFrame.Text] = in => {
+  def pipe(implicit concurrent: Concurrent[F]): fs2.Pipe[F, String, WSFrame.Text] = in => {
     outbound.dequeue.through(frameify).concurrently(in.through(handle).merge(handledEffects))
   }
 
@@ -44,7 +45,7 @@ case class Socket[F[_]](
       .map(_.noSpaces)
       .map(WSFrame.Text(_))
 
-  def handle(implicit r: ApplicativeError[F, Throwable], c: Concurrent[F]): Pipe[F, String, Unit] =
+  def handle(implicit r: ApplicativeError[F, Throwable], c: Async[F]): Pipe[F, String, Unit] =
     _.through(stringStreamParser[F])
       .evalTap(updateSequence)
       .through(decoder[F, EventStruct])

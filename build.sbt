@@ -18,7 +18,8 @@ lazy val commonSettings = Seq(
     scalaOrganization.value % "scala-compiler" % scalaVersion.value,
     compilerPlugin(Libraries.paradise cross CrossVersion.patch),
     Libraries.scalaTest  % Test,
-    Libraries.scalaCheck % Test
+    Libraries.scalaCheck % Test,
+    compilerPlugin(Libraries.kindProjector)
   )
 )
 
@@ -40,7 +41,6 @@ lazy val core = (project in file("modules/core"))
       "com.slamdata" %% "matryoshka-core" % "0.21.3",
       "org.scodec" %% "scodec-bits" % "1.1.29",
       "com.twitter" %% "algebird-core" % "0.13.9",
-      compilerPlugin(Libraries.kindProjector)
     )
   )
 
@@ -53,8 +53,7 @@ lazy val metrics = (project in file("modules/metrics"))
       "eu.timepit" %% "refined" % "0.9.17",
       "eu.timepit" %% "refined-cats" % "0.9.17",
       "com.slamdata" %% "matryoshka-core" % "0.21.3",
-      "com.lihaoyi" %% "fastparse" % "2.3.0",
-      compilerPlugin(Libraries.kindProjector)
+      "com.lihaoyi" %% "fastparse" % "2.3.0"
     )
   )
 
@@ -128,68 +127,26 @@ val z = new {
   val sttp = "com.softwaremill.sttp.client" %% "core" % sttpVersion
   val sttpzio  = "com.softwaremill.sttp.client" %% "async-http-client-backend-zio" % sttpVersion
   val sttpziostreams  = "com.softwaremill.sttp.client" %% "async-http-client-backend-zio-streams" % sttpVersion
-
-
-  /*
-  lazy val `http4s1` = (project in file ("http4s1"))
-    .settings(commonSettings: _*)
-    .settings(libraryDependencies ++= Seq(
-      http4sBlazeServer,
-      http4sBlazeClient,
-      http4sDsl,
-      catsEffect,
-      scalaXml,
-      `zio-test`
-    ))
-  */
-
-
-
-
-  /*
-  lazy val `avro-magnolia` = (project in file ("avro-magnolia"))
-  .settings(commonSettings: _*)
-  .settings(libraryDependencies ++= Seq(
-    commonsIo,
-    logback,
-    scalaTest,
-    json4s,
-    avro,
-    snappy,
-    magnolia,
-  )
-  )
-  lazy val `streams` = (project in file ("streams"))
-  .settings(commonSettings: _*)
-  .settings(libraryDependencies ++= Seq(
-    http4sBlazeServer,
-    http4sBlazeClient,
-    http4sDsl,
-    catsEffect,
-    scalaXml,
-    `zio-kafka`,
-    `zio-streams`,
-    `zio-test`
-  ))
-  */
 }
 
 val libs = org.typelevel.libraries
-  .add(name = "cats", version = "2.1.1")
-  .add(name = "cats-effect", version = "2.1.2")
+//  .add(name = "cats", version = "2.1.1")
+//  .add(name = "cats-effect", version = "2.1.2")
   .add(name = "fs2", version = "2.3.0")
-  .add(name = "http4s", version = "0.21.2")
+  .add(name = "http4s", version = "0.23.1")
   .add(name = "circe", version = "0.13.0", org = "io.circe", "circe-core", "circe-generic", "circe-generic-extras", "circe-parser", "circe-fs2")
   .add(name = "spire", version = "0.17.0-M1", org = "org.typelevel", "spire")
-  .add(name = "http4s-jdk-http-client", version = "0.2.0", org = "org.http4s", "http4s-jdk-http-client")
+  .add(name = "http4s-jdk-http-client", version = "0.7.0", org = "org.http4s", "http4s-jdk-http-client")
+  .add(name = "fs2-cron-cron4s", version = "0.7.2", org = "eu.timepit")
+  .add(name = "fs2-cron-calev", version = "0.7.2", org = "eu.timepit")
 
 lazy val discocat = (project in file("modules/quasar"))
   .dependsOn(core)
   .settings(commonSettings: _*)
   .settings(
     libs.dependencies(
-      "cats-core",
-      "cats-effect",
+//      "cats-core",
+//      "cats-effect",
       "fs2-core",
       "circe-core",
       "circe-generic",
@@ -198,8 +155,9 @@ lazy val discocat = (project in file("modules/quasar"))
       "circe-fs2",
       "http4s-jdk-http-client",
       "spire",
+      "fs2-cron-calev",
+      "fs2-cron-cron4s"
     ),
-    addCompilerPlugin(Libraries.kindProjector),
     addCompilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.1"),
   )
 

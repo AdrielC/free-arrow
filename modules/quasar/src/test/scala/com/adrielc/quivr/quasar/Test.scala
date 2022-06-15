@@ -1,9 +1,11 @@
 package com.adrielc.quivr.quasar
 
-import cats.effect._
+import cats.effect.kernel.Async
 import cats.implicits._
-import com.adrielc.quivr.quasar.ws.event._
-import fs2._
+import cats.effect.{ExitCode, IO, IOApp, Sync}
+import com.adrielc.quivr.quasar.ws.event.{MessageCreate, Ready, ReadyData}
+import fs2.Stream
+
 import scala.io.StdIn
 
 object Test extends IOApp {
@@ -12,7 +14,7 @@ object Test extends IOApp {
     program[IO].as(ExitCode.Success)
   }
 
-  def program[F[_]: ConcurrentEffect: ContextShift: Timer]: F[Unit] = {
+  def program[F[_]: Async]: F[Unit] = {
     for {
       t <- Sync[F].delay(StdIn.readLine("Token? "))
       c <- Client[F](t)
@@ -38,5 +40,4 @@ object Test extends IOApp {
         .drain
     } yield l
   }
-
 }

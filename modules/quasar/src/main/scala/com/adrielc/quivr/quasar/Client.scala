@@ -1,17 +1,18 @@
 package com.adrielc.quivr.quasar
 
 import cats.effect._
-import cats.effect.concurrent.{Deferred, Ref}
+import cats.effect.std.Queue
+import cats.effect.{Deferred, Ref}
 import cats.implicits._
 import com.adrielc.quivr.quasar
 import com.adrielc.quivr.quasar.util.RequestUtil
 import com.adrielc.quivr.quasar.ws.{Event, EventDecoder, EventStruct, Socket}
 import fs2.{io => _, _}
-import fs2.concurrent.{Queue, Topic}
+import fs2.concurrent.Topic
 import io.circe.DecodingFailure
 import org.http4s._
 import org.http4s.client.{Client => HttpClient}
-import org.http4s.client.jdkhttpclient._
+import org.http4s.client.websocket.{WSClient, WSFrame, WSRequest}
 import org.http4s.implicits._
 import spire.math.ULong
 
@@ -34,7 +35,7 @@ case class Client[F[_]](
     topic: Topic[F, Event[F]],
     queue: Queue[F, Event[F]],
     ref: Ref[F, Option[ULong]]
-  )(implicit concurrent: Concurrent[F]): Stream[F, Unit] =
+  )(implicit async: Async[F]): Stream[F, Unit] =
     for {
       conn <- Stream.resource(wsClient.connectHighLevel(WSRequest(gatewayRoot)))
       sock = ws.Socket(this, handlers, topic, queue, ref)
@@ -47,9 +48,9 @@ case class Client[F[_]](
         .through(conn.sendPipe)
     } yield handle
 
-  def login(handlers: EventHandlers[F])(implicit concurrent: Concurrent[F]): Stream[F, Unit] =
+  def login(handlers: EventHandlers[F])(implicit async: Async[F]): Stream[F, Unit] =
     for {
-      inbound <- Stream.eval(Defaults.eventTopic[F](this))
+      inbound <- Stream.eval(Defaults.eventTopic[F])
       outbound <- Stream.eval(Defaults.eventQueue[F])
       ref <- Stream.eval(Defaults.sequenceRef[F])
       l <- login(handlers, inbound, outbound, ref)
@@ -59,17 +60,16 @@ case class Client[F[_]](
 
 object Client {
 
-  def apply[F[_]: ConcurrentEffect: ContextShift: Timer](
+  def apply[F[_]: Async](
     token: String
   ): F[Client[F]] =
-    for {
-      (h, ws) <- Defaults.httpClient[F]
-      d <- Defaults.socketDeferred
-      c = Client(
+    Defaults.httpClient[F].flatMap(_.use({ case (h, ws) =>
+      Defaults.socketDeferred.map(d =>
+      Client(
         token=token,
         httpClient=h,
         wsClient=ws,
         deferredSocket=d
-      )
-    } yield c
+      ))
+    }))
 }

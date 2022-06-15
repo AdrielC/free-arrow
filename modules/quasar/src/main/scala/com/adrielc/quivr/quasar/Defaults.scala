@@ -1,38 +1,39 @@
 package com.adrielc.quivr.quasar
 
-import cats.effect.concurrent.{Deferred, Ref}
-import cats.effect.{Concurrent, ConcurrentEffect, ContextShift, Sync, Timer}
+import cats.effect.{Deferred, Ref, Sync}
 import cats.implicits._
 import fs2.Stream
-import fs2.concurrent.{Queue, Topic}
+import fs2.concurrent.Topic
 import io.circe.DecodingFailure
 import java.util.concurrent.TimeUnit
 
+import cats.effect.kernel.Async
+import cats.effect.std.Queue
 import com.adrielc.quivr.quasar.model.MessageLike
 import com.adrielc.quivr.quasar.ws.event._
 import com.adrielc.quivr.quasar.ws.{Event, EventDecoder, EventStruct, Socket}
-import org.http4s.client.jdkhttpclient._
+import org.http4s.client.websocket.WSClient
 import org.http4s.client.{Client => HttpClient}
+import org.http4s.jdkhttpclient.{JdkHttpClient, JdkWSClient}
 
 import scala.concurrent.duration.FiniteDuration
 import spire.math.ULong
 
 object Defaults {
 
-  def httpClient[F[_]: ConcurrentEffect: ContextShift: Timer]: F[(HttpClient[F], WSClient[F])] =
-    Sync[F].delay(java.net.http.HttpClient.newHttpClient()).map { jdkHttpClient =>
-      (JdkHttpClient(jdkHttpClient), JdkWSClient(jdkHttpClient))
+  def httpClient[F[_]: Async]: F[cats.effect.Resource[F, (HttpClient[F], WSClient[F])]] =
+    Async[F].delay(java.net.http.HttpClient.newHttpClient()).map { jdkHttpClient =>
+      (JdkHttpClient(jdkHttpClient), JdkWSClient(jdkHttpClient)).parTupled
     }
 
-  def socketDeferred[F[_]: Concurrent]: F[Deferred[F, Socket[F]]] = Deferred[F, Socket[F]]
+  def socketDeferred[F[_]: Async]: F[Deferred[F, Socket[F]]] = Deferred[F, Socket[F]]
 
-  def eventTopic[F[_]: Concurrent](c: Client[F]): F[Topic[F, Event[F]]] = Topic(HeartbeatAck(c))
-
-  def eventQueue[F[_]: Concurrent]: F[Queue[F, Event[F]]] = Queue.unbounded[F, Event[F]]
+  def eventTopic[F[_]: Async]: F[Topic[F, Event[F]]] = Topic[F, Event[F]]
+  def eventQueue[F[_]: Async]: F[Queue[F, Event[F]]] = Queue.unbounded[F, Event[F]]
 
   def sequenceRef[F[_]: Sync]: F[Ref[F, Option[ULong]]] = Ref.of[F, Option[ULong]](None)
 
-  def defaultEventHandler[F[_]: Timer: Concurrent]: EventHandler[F] =
+  def defaultEventHandler[F[_]: Async]: EventHandler[F] =
     _ =>
       _.flatMap {
         case Hello(cli, HelloData(interval)) =>
