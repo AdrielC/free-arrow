@@ -21,22 +21,22 @@ object key {
   private val labelerToKey: engagement.Labeler[_] => String = _.cata[String] {
     case Count(e)         => s"${e.toString.toLowerCase}"
     case Value(d)         => formatDouble(d)
-    case Mult(e1, e2)     => s"($e1*$e2)"
-    case Sum(e1, e2)      => s"($e1+$e2)"
-    case Log(e1, base)    => s"(log${formatDouble(base)}($e1))"
-    case Div(e1, e2)      => s"($e1/$e2)"
-    case As(i, t)         => s"if(${judgeToKey(i)},$t)"
-    case Or(e1, e2)       => s"($e1|$e2)"
-    case And(e1, e2)      => s"($e1&$e2)"
-    case Equiv(e, e1, e2) => s"filter(${labelerToKey(e1)}$e${labelerToKey(e2)}"
+    case Mult(e1, e2)     => s"${e1}_*_$e2"
+    case Sum(e1, e2)      => s"${e1}_+_$e2"
+    case Log(e1, base)    => s"log_${formatDouble(base)}($e1)"
+    case Div(e1, e2)      => s"${e1}_/_$e2"
+    case As(i, t)         => s"${judgeToKey(i)}_?_$t"
+    case Or(e1, e2)       => s"${e1}_|_$e2"
+    case And(e1, e2)      => s"${e1}_&_$e2"
+    case Equiv(e, e1, e2) => s"$e1$e$e2"
   }
 
   private val judgeToKey: engagement.Judge[_] => String = _.cata[String] {
-    case Or(e1, e2)             => s"($e1|$e2)"
-    case And(e1, e2)            => s"($e1&$e2)"
-    case Equiv(e, e1, e2)       => (e, e2.unFix) match {
-      case (double.>, Value(0)) => s"binary${labelerToKey(e1).capitalize}" // handle special binary case
-      case _ => s"(${labelerToKey(e1)}$e${labelerToKey(e2)})"
+    case Or(e1, e2)             => s"(${e1}_|_$e2)"
+    case And(e1, e2)            => s"(${e1}_&_$e2)"
+    case Equiv(e, e1, e2)       => (e, e2) match {
+      case (double.>, "0") => s"bin${(e1).toLowerCase()})" // handle special binary case
+      case _ => s"($e1$e$e2)"
     }
   }
 
@@ -68,7 +68,7 @@ object key {
         case K(_)                   => 3
       }
     },
-    buildKeyGroups = "("-:",":-")",
+    buildKeyGroups = "["-:",":-"]",
     buildFullKey = "."
   )
 }

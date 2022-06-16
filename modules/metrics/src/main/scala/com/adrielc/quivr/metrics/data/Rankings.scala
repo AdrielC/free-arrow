@@ -62,7 +62,8 @@ object Rankings {
       }
   }
 
-  final case class RankedResults[+A] private[metrics] (res: NonEmptyVector[(ResultId, A)], k: Rank, nRelevant: Count) extends Rankings[A] {
+  final case class RankedResults[+A] private[metrics] (res: NonEmptyVector[(ResultId, A)], k: Rank, nRelevant: Count)
+    extends Rankings[A] {
 
     override def rankings: NonEmptyMap[Rank, A] =
       res.mapWithIndex { case ((_, a), i) => Rank.fromIndex(i) -> a }.toNem
@@ -80,7 +81,12 @@ object Rankings {
     import metrics.implicits._
 
     // guarantees that if a list of relevancies is returned then there is at least one judged result
-    def fromEngagedResults[A: Results : Engagements[*, E], E](a: A, judgeLabel: Map[E, Int] => Relevance): Option[RankedResults[Relevance]] = {
+    def fromEngagedResults[A: Results : Engagements[*, E], E](
+      a: A,
+      judgeLabel: Map[E, Int] => Relevance =
+      (m: Map[E, Int]) => m.values.toList.reduceOption(_ + _)
+        .map(i => Relevance.label(i.toDouble))
+        .getOrElse(Relevance.unjudged)): Option[RankedResults[Relevance]] = {
 
       val engs = a.engagements
 
@@ -91,8 +97,11 @@ object Rankings {
             if(r._2 != Relevance.unjudged && r._2.isRel) 1 else 0
           ))
         }
-        .filter { case (_, (isJudged, isRel)) => isJudged > 0 && isRel > 0 }
-        .map { case (res, (_, nRel)) => new RankedResults(res, Rank.unsafeFrom(res.toVector.length), Count.unsafeFrom(nRel)) }
+//        .filter { case (_, (isJudged, isRel)) => isJudged > 0 && isRel > 0 }
+        .map { case (res, (_, nRel)) => new RankedResults(
+          res,
+          Rank.unsafeFrom(res.toVector.length), Count.unsafeFrom(nRel))
+        }
     }
 
     implicit def resultRelsRelevanciesInstance[A: Relevancy]: ResultRelevancies.Aux[RankedResults[A], (ResultId, A)] with RelevanceCount[RankedResults[A]] =

@@ -26,13 +26,12 @@ object engagement {
     def equiv[E](eq: Eq[Double], e: Labeler[E], v: Labeler[E]): Labeler[E] = Fix(Equiv(eq, e, v): LabelerF[E, Labeler[E]])
   }
 
-
   /** Expression used to define mapping of result engagements [[E]] to a judgement (binary) **/
   type Judge[E]  = Fix[JudgeF[E, *]]
   object Judge {
     def and[E](e1: Judge[E], e2: Judge[E]): Judge[E] = Fix(And(e1, e2))
     def or[E](e1: Judge[E], e2: Judge[E]): Judge[E] = Fix(Or(e1, e2))
-    def equiv[E](eq: Eq[Double], e: Labeler[E], v: Labeler[E]): Judge[E] = Fix(Equiv(eq, e, v): JudgeF[E, Judge[E]])
+    def equiv[E](eq: Eq[Double], e: Labeler[E], v: Labeler[E]) = Fix(Equiv(eq, e, v): JudgeF[E, Labeler[E]])
   }
 
 
@@ -65,7 +64,7 @@ object engagement {
 
   private[dsl] object JudgeF {
 
-    case class Equiv[E, A](eq: Eq[Double], a: Labeler[E], b: Labeler[E]) extends JudgeF[E, A]
+    case class Equiv[E, A](eq: Eq[Double], a: A, b: A) extends JudgeF[E, A]
     case class Or[E, A](e1: A, e2: A) extends JudgeF[E, A]
     case class And[E, A](e1: A, e2: A) extends JudgeF[E, A]
 
@@ -74,7 +73,7 @@ object engagement {
   }
   private[dsl] sealed trait JudgeF[+E, +A] extends LabelerF[E, A] {
     override def map[B](f: A => B): JudgeF[E, B] = this match {
-      case Equiv(eq, e, v)  => Equiv(eq, e, v)
+      case a: Equiv[E, A] @unchecked => Equiv(a.eq, f(a.a), f(a.b))
       case Or(exp1, exp2)   => Or(f(exp1), f(exp2))
       case And(exp1, exp2)  => And(f(exp1), f(exp2))
     }

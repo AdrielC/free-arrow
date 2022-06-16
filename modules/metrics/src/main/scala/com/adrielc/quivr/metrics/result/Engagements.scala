@@ -22,8 +22,6 @@ object Engagements extends EngagementsInject {
     def engagements[E](implicit E: Engagements[A, E]): Map[ResultId, Map[E, Int]] = E.engagements(a)
   }
 
-  implicit def engagementsIdentityInstance[E]: Engagements[Map[ResultId, Map[E, Int]], E] = identity
-
   implicit def engagementsRightTuple[A, B: Engagements[*, E], E]: Engagements[(A, B), E] = ab => Engagements[B, E].engagements(ab._2)
 
   implicit def contravariantEngagements[E]: Contravariant[Engagements[*, E]] = new Contravariant[Engagements[*, E]] {
@@ -31,7 +29,8 @@ object Engagements extends EngagementsInject {
   }
 }
 
-trait EngagementsInject {
+
+trait EngagementsInject extends Engagements0 {
 
   implicit def injectEngagements[A, E, E1, E2]
   (implicit
@@ -47,4 +46,10 @@ trait EngagementsInject {
     val e2 = AE2.engagements(a).mapValues(_.map { case (k, v) => E2.inj(k) -> v })
     e1 |+| e2
   }
+}
+
+trait Engagements0 {
+
+  implicit def engagementsIdentityInstance[E]: Engagements[Map[ResultId, Map[E, Int]], E] = identity
+
 }

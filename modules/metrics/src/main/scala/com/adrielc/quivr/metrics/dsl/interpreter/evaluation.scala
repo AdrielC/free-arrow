@@ -14,7 +14,7 @@ import com.adrielc.quivr.metrics.data.Labeled.{WithGroundTruth, WithLabels}
 import com.adrielc.quivr.metrics.dsl.engagement.{Judge, Labeler}
 import com.adrielc.quivr.metrics.dsl.evaluation.EvalOp._
 import com.adrielc.quivr.metrics.dsl.key.SummarizeOps
-import com.adrielc.quivr.{AC, ACP, BiFunctionK, ~~>}
+import com.adrielc.quivr.{AC, ACP, AR, BiFunctionK, ~~>}
 
 object evaluation {
   type EvalFn[A, B]     = A => EvalResult[B]
@@ -69,9 +69,11 @@ object evaluation {
 
   private val runEvalKleisliOption = runEvalKleisli.mapK(λ[EvalResult ~> Option](_.toOption))
 
-  def compileManyMetrics[A, B, M: Order](fab: FreeArrow[ACP, EvalOp, A, B], describe: SummarizeOps[EvalOp, M]): A => NonEmptyMap[M, Either[EvalError, B]] = {
+  def compileManyMetrics[A, B, RR[f[_, _]] >: ACP[f] <: AR[f], M: Order]
+  (fab: FreeArrow[RR, EvalOp, A, B],
+   describe: SummarizeOps[EvalOp, M]): A => NonEmptyMap[M, Either[EvalError, B]] = {
     implicit def evalOpOrder: Order[EvalOp[_, _]] = Order.by(_.hashCode())
-    fab.foldMap[EvalOpMap](new (EvalOp ~~> EvalOpMap) {
+    fab.covaryAll[ACP, EvalOp].foldMap[EvalOpMap](new (EvalOp ~~> EvalOpMap) {
       def apply[C, D](fab: EvalOp[C, D]): EvalOpMap[C, D] = {
         val f = runEvalWithError(fab)
         Kleisli(a => AccumMap.either(fab.pure[List], f(a)))

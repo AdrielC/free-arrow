@@ -28,7 +28,7 @@ class ExprTest extends FlatSpec with Matchers {
 
     val labeler = clicks + cartAdds + purchases
 
-    val r = labeler.labelResults(results).exists(_.labels.lookup(1L).exists(_.gainOrZero == 3.0))
+    val r = labeler.run(results).exists(_.labels.lookup(1L).exists(_.gainOrZero == 3.0))
 
     assert(r)
   }
@@ -39,10 +39,10 @@ class ExprTest extends FlatSpec with Matchers {
 
     val labeler2 = clicks + cartAdds*5 + purchases*25
 
-    val r = labeler.labelResults(results).exists(_.labels.lookup(1L).exists(_.gainOrZero == 31.0))
+    val r = labeler.run(results).exists(_.labels.lookup(1L).exists(_.gainOrZero == 31.0))
 
     assert(r)
-    assert(labeler.labelResults(results) == labeler2.labelResults(results))
+    assert(labeler.run(results) == labeler2.run(results))
   }
 
 

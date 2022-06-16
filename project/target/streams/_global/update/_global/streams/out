@@ -1,4 +1,4 @@
-[debug] "not up to date. inChanged = true, force = false
+[debug] "not up to date. inChanged = false, force = false
 [debug] Updating ProjectRef(uri("file:/Applications/IntelliJ%20IDEA%20CE.app/Contents/bin/src/free-arrow/project/"), "free-arrow-build")...
 [debug] Done updating ProjectRef(uri("file:/Applications/IntelliJ%20IDEA%20CE.app/Contents/bin/src/free-arrow/project/"), "free-arrow-build")
 [warn] There may be incompatibilities among your library dependencies; run 'evicted' to see detailed eviction warnings.

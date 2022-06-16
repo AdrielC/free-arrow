@@ -123,17 +123,19 @@ package object dsl {
     def filter: LabelerFilterOps[E] = new label.LabelerFilterOps(lab)
 
     // convert to a judgement if the label satisfies the predicates below
-    def <=[B: LabelFor[*, E]](other: B)   : Judge[E] = Judge.equiv(double.<=, lab, other.labeler)
-    def >=[B: LabelFor[*, E]](other: B)   : Judge[E] = Judge.equiv(double.>=, lab, other.labeler)
-    def >[B: LabelFor[*, E]](other: B)    : Judge[E] = Judge.equiv(double.>, lab, other.labeler)
-    def <[B: LabelFor[*, E]](other: B)    : Judge[E] = Judge.equiv(double.<, lab, other.labeler)
-    def ===[B: LabelFor[*, E]](other: B)  : Judge[E] = Judge.equiv(double.===, lab, other.labeler)
+    def <=[B: LabelFor[*, E]](other: B) = Judge.equiv(double.<=, lab, other.labeler)
+    def >=[B: LabelFor[*, E]](other: B) = Judge.equiv(double.>=, lab, other.labeler)
+    def >[B: LabelFor[*, E]](other: B) = Labeler.equiv(double.>, lab, other.labeler)
+    def <[B: LabelFor[*, E]](other: B) = Judge.equiv(double.<, lab, other.labeler)
+    def ===[B: LabelFor[*, E]](other: B) = Judge.equiv(double.===, lab, other.labeler)
 
     // fall back on other labeler if no valid labels can be found
     def |[B: LabelFor[*, E]](other: B)  : Labeler[E] = Labeler.or(lab, other.labeler)
+    def or[B: LabelFor[*, E]](other: B)  : Labeler[E] = Labeler.or(lab, other.labeler)
 
     // makes this labeler dependent on the successful labeling on an other, then add the labels
     def &&[B: LabelFor[*, E]](other: B) : Labeler[E] = Labeler.and(lab, other.labeler)
+    def and[B: LabelFor[*, E]](other: B) : Labeler[E] = Labeler.and(lab, other.labeler)
 
     /**
      * interpret this expression as a transformation of result engagements of type [[E]] to result labels of type [[A]]
@@ -148,7 +150,7 @@ package object dsl {
       E.engagements(a).mapValues(f.run)
     }
 
-    def labelResults[A: Engagements[*, E]](a: A): Option[WithLabels[A]] =
+    def run[A: Engagements[*, E]](a: A): Option[WithLabels[A]] =
       from[A].run(a)._2
   }
 
@@ -184,7 +186,7 @@ package object dsl {
         judge(e, es:_*)
     }
 
-    def any[E](e: E): Judge[E] = Labeler.countOf(e) > 0
+    def any[E](e: E) = Labeler.countOf(e) > 0
 
     def labels[A]: JudgeLabelOps[A] = new JudgeLabelOps[A]
 
@@ -200,8 +202,10 @@ package object dsl {
   implicit class JudgementOps[E](private val exp: Judge[E]) extends AnyVal {
 
     def |(other: Judge[E])  : Judge[E] = Judge.or(exp, other)
+    def or(other: Judge[E])  : Judge[E] = Judge.or(exp, other)
 
     def &&(other: Judge[E]) : Judge[E] = Judge.and(exp, other)
+    def and(other: Judge[E]) : Judge[E] = Judge.and(exp, other)
 
     // convert to labeler that runs if this predicate succeeds
     def ->>[B:engagement. LabelFor[*, E]](b: B): Labeler[E] = Labeler.as(exp, b.labeler)

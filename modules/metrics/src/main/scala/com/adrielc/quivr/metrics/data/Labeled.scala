@@ -1,10 +1,12 @@
 package com.adrielc.quivr.metrics.data
 
 import cats.{Functor, SemigroupK}
-import cats.data.{NonEmptyMap, NonEmptySet}
+import cats.data.{NonEmptyMap, NonEmptySet, NonEmptyVector}
 import com.adrielc.quivr.metrics.ResultId
+import com.adrielc.quivr.metrics.ranking.ResultRelevancies
 import com.adrielc.quivr.metrics.result.Results.NonEmptyResults
-import com.adrielc.quivr.metrics.result.{AtK, Engagements, GroundTruth, ResultLabels, Results}
+import com.adrielc.quivr.metrics.result.{AtK, Engagements, GroundTruth, Relevancy, ResultLabels, Results}
+import com.adrielc.quivr.metrics.retrieval.{RelevanceCount, TruePositiveCount}
 
 sealed trait Labeled[+A] {
   import Labeled.{WithLabels, WithGroundTruth}
@@ -16,7 +18,7 @@ sealed trait Labeled[+A] {
     case WithLabels(results, labels)        => WithLabels(f(results), labels)
   }
 }
-object Labeled {
+object Labeled extends WithLabels0 {
 
   case class WithGroundTruth[+A](results: A, groundTruth: NonEmptySet[ResultId]) extends Labeled[A]
   case class WithLabels[+A](results: A, labels: NonEmptyMap[ResultId, Double]) extends Labeled[A]
@@ -60,7 +62,7 @@ object Labeled {
     implicit def withRelNResultSet[A: NonEmptyResults]: NonEmptyResults[WithGroundTruth[A]] = _.results.nonEmptyResults
   }
 
-  object WithLabels extends WithLabels0 {
+  object WithLabels extends {
 
     def apply[A: ResultLabels](results: A): WithLabels[A] =
       WithLabels(results, results.resultLabels)
@@ -92,10 +94,6 @@ object Labeled {
     }
   }
 
-  trait WithLabels0 {
-
-    implicit def withLabelsNResultSetInstance[A: NonEmptyResults]: NonEmptyResults[WithLabels[A]] = _.results.nonEmptyResults
-  }
 
   implicit val labeledFunctor: Functor[Labeled] = new Functor[Labeled] {
     def map[A, B](fa: Labeled[A])(f: A => B): Labeled[B] = fa.map(f)
@@ -104,5 +102,37 @@ object Labeled {
   implicit def atKLabeled[A: AtK]: AtK[Labeled[A]] = (a, k) => a match {
     case g: WithGroundTruth[A]  => g.atK(k)
     case l: WithLabels[A]       => l.atK(k)
+  }
+
+  implicit def relevanceCount[A: RelevanceCount, F[a] <: Labeled[a]]: RelevanceCount[F[A]] = new RelevanceCount[F[A]] {
+    override def groundTruthCount(a: F[A]): Int = a.results.groundTruthCount
+
+    override def truePositiveCount(a: F[A]): Int = a.results.truePositiveCount
+
+    override def resultCount(a: F[A]): Int = RelevanceCount[A].resultCount(a.results)
+  }
+}
+
+
+trait WithLabels0 extends WithLabels1 {
+
+  implicit def truePositiveCount[A: TruePositiveCount, F[a] <: Labeled[a]]: TruePositiveCount[F[A]] = new TruePositiveCount[F[A]] {
+    lazy val R: TruePositiveCount[A] = TruePositiveCount[A]
+    override def truePositiveCount(a: F[A]): Int = R.truePositiveCount(a.results)
+    override def resultCount(a: F[A]): Int = R.resultCount(a.results)
+  }
+
+  implicit def withLabelsNResultSetInstance[A: NonEmptyResults, F[a] <: Labeled[a]]: NonEmptyResults[F[A]] = new NonEmptyResults[F[A]] {
+    override def nonEmptyResults(a: F[A]): NonEmptyVector[ResultId] = NonEmptyResults[A].nonEmptyResults(a.results)
+  }
+}
+
+trait WithLabels1 {
+
+  implicit def resultRelevancies[A: ResultRelevancies, F[a] <: Labeled[a]]: ResultRelevancies[F[A]] = new ResultRelevancies[F[A]] {
+    lazy val R: ResultRelevancies[A] = ResultRelevancies[A]
+    override type Rel = R.Rel
+    override def rel: Relevancy[R.Rel] = R.rel
+    override def resultRelevancies(a: F[A]): NonEmptyVector[R.Rel] = R.resultRelevancies(a.results)
   }
 }

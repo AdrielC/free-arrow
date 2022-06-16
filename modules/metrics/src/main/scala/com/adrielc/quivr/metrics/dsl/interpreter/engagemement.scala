@@ -9,7 +9,6 @@ import com.adrielc.quivr.metrics.data.relevance.Relevance
 import com.adrielc.quivr.metrics.dsl.engagement.{Judge, Labeler}
 import matryoshka.implicits._
 
-
 object engagemement {
   import engagement.JudgeF._
   import engagement.LabelerF._
@@ -29,9 +28,9 @@ object engagemement {
             case i: As[A, FromEngs[A, Double]] => judge.judgeCompiler(i.i).flatMap(b => if(b) i.t else Kleisli(_ => none[Double]))
             case Or(e1, e2)       => e1 <+> e2
             case And(e1, e2)      => Kleisli(e => e1(e).flatMap(a => e2(e).map(b => a + b)))
-            case eqv: Equiv[A, Double] @unchecked => for {
-              a <- labelerCompiler(eqv.a)
-              b <- labelerCompiler(eqv.b)
+            case eqv: Equiv[A, FromEngs[A, Double]] @unchecked => for {
+              a <- (eqv.a)
+              b <- (eqv.b)
               o <- (if(eqv.eq(a, b)) Kleisli.pure(a) else Kleisli(_ => none[Double])): Kleisli[Option, Map[A, Int], Double]
             } yield o
           }
@@ -55,13 +54,25 @@ object engagemement {
           fa.cata[FromEngs[A, Boolean]] {
             case Or(e1, e2)       => combWith(e1, e2)(_ || _)
             case And(e1, e2)      => combWith(e1, e2)(_ && _)
-            case eqv: Equiv[A, Boolean]  @unchecked => for {
-              a <- orElseZeroCompiler(eqv.a)
-              b <- orElseZeroCompiler(eqv.b)
-            } yield eqv.eq(a, b)
+            case e: Equiv[A, FromEngs[A, Boolean]]  @unchecked  => for {
+              a <- e.a
+              b <- e.b
+            } yield e.eq(if(a) 1.0 else 0, if(b) 1.0 else 0.0)
           }
       }
     }
+
+    val judgeToLabel: Judge ~> engagement.Labeler = {
+      new (engagement.Judge ~> engagement.Labeler) {
+        def apply[A](fa: engagement.Judge[A]): engagement.Labeler[A] =
+          fa.cata[Labeler[A]] {
+            case Or(e1, e2)       => e1.or(e2)
+            case And(e1, e2)      => e1.and(e2)
+            case eqv: Equiv[A, Labeler[A]]  @unchecked => Labeler.equiv(eqv.eq, (eqv.a), (eqv.b))
+          }
+      }
+    }
+
 
     val judgementCompilerToRelevance: Judge ~> FromEngs[*, Relevance] =
       new (engagement.Judge ~> FromEngs[*, Relevance]) {
@@ -69,7 +80,7 @@ object engagemement {
           judgeCompiler(fa).map(Relevance.judge)
       }
 
-    private val orElseZeroCompiler: Labeler ~> FromEngs[*, Double] =
+    val orElseZeroCompiler: Labeler ~> FromEngs[*, Double] =
       λ[engagement.Labeler ~> FromEngs[*, Double]](fa => label.labelerCompiler(fa) <+> Kleisli.pure(0.0))
   }
 

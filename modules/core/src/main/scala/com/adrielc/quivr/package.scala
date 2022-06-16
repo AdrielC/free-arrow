@@ -11,8 +11,8 @@ package object quivr {
   type AC[f[_, _]] = ArrowChoice[f]
   type AP[f[_, _]] = ArrowPlus[f]
   type AZ[f[_, _]] = ArrowZero[f]
-  type ACZ[f[_, _]] = ArrowChoiceZero[f]
   type ACP[f[_, _]] = ArrowChoicePlus[f]
+  type ACZ[f[_, _]] = ArrowChoiceZero[f]
 
   type ~~>[-F[_, _], +G[_, _]] = BiFunctionK[F, G]
 
