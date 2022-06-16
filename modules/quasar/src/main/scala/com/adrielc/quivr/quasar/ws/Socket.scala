@@ -5,33 +5,32 @@ import cats._
 import cats.effect._
 import cats.effect.std.Queue
 import cats.implicits._
-import com.adrielc.quivr.quasar.{Client, EventHandlers}
-import fs2.concurrent._
+import fs2.concurrent.Topic
 import fs2.{Pipe, Stream}
 import io.circe.Json
 import io.circe.fs2._
 import io.circe.generic.auto._
 import io.circe.syntax._
 import spire.math.ULong
-import org.http4s.client.websocket.{WSClient, WSFrame, WSRequest}
+import org.http4s.client.websocket.WSFrame
 
 case class Socket[F[_]](
-  client: Client[F],
-  handlers: EventHandlers[F],
-  inbound: Topic[F, Event[F]],
-  outbound: Queue[F, Event[F]],
-  sequence: Ref[F, Option[ULong]],
-  maxQueued: Int = 256,
+   client: Client[F],
+   handlers: EventHandlers[F],
+   inbound: Topic[F, Event[F]],
+   outbound: Queue[F, Event[F]],
+   sequence: Ref[F, Option[ULong]],
+   maxQueued: Int = 256,
 ) {
 
   def handledEffects(implicit concurrent: Concurrent[F]): Stream[F, Unit] =
     Stream(handlers.map(_(sequence)(inbound.subscribe(maxQueued))): _*).parJoinUnbounded
 
-  def send[A](e: Event.Aux[F, A]): F[Unit] = outbound.enqueue1(e)
+  def send[A](e: Event.Aux[F, A]): F[Unit] = outbound.offer(e)
 
-  def pipe(implicit concurrent: Concurrent[F]): fs2.Pipe[F, String, WSFrame.Text] = in => {
-    outbound.dequeue.through(frameify).concurrently(in.through(handle).merge(handledEffects))
-  }
+  def pipe(implicit async: Async[F]): fs2.Pipe[F, String, WSFrame.Text] = in =>
+    fs2.Stream.eval(outbound.take).through(frameify)
+      .concurrently(in.through(handle).merge(handledEffects))
 
   def frameify(implicit flatMap: FlatMap[F]): Pipe[F, Event[F], WSFrame.Text] =
     _.map(Event.encoder[F](_))

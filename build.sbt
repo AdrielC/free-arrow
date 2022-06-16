@@ -126,27 +126,25 @@ val z = new {
   val sttpVersion = "2.2.9"
   val sttp = "com.softwaremill.sttp.client" %% "core" % sttpVersion
   val sttpzio  = "com.softwaremill.sttp.client" %% "async-http-client-backend-zio" % sttpVersion
-  val sttpziostreams  = "com.softwaremill.sttp.client" %% "async-http-client-backend-zio-streams" % sttpVersion
+  val sttpziostreams  = "com.softwaremill.sttp.client" %% "async-http-client-backend-zio-streams" % "2.1.5"
 }
 
 val libs = org.typelevel.libraries
-//  .add(name = "cats", version = "2.1.1")
-//  .add(name = "cats-effect", version = "2.1.2")
+  .add(name = "cats", version = "2.1.1")
+  .add(name = "cats-effect", version = "2.1.2")
   .add(name = "fs2", version = "2.3.0")
   .add(name = "http4s", version = "0.23.1")
-  .add(name = "circe", version = "0.13.0", org = "io.circe", "circe-core", "circe-generic", "circe-generic-extras", "circe-parser", "circe-fs2")
+  .add(name = "circe", version = "0.14.0", org = "io.circe", "circe-core", "circe-generic", "circe-generic-extras", "circe-parser", "circe-fs2")
   .add(name = "spire", version = "0.17.0-M1", org = "org.typelevel", "spire")
   .add(name = "http4s-jdk-http-client", version = "0.7.0", org = "org.http4s", "http4s-jdk-http-client")
-  .add(name = "fs2-cron-cron4s", version = "0.7.2", org = "eu.timepit")
-  .add(name = "fs2-cron-calev", version = "0.7.2", org = "eu.timepit")
+  .add(name = "fs2-cron-cron4s", version = "0.7.1", org = "eu.timepit")
+  .add(name = "fs2-cron-calev", version = "0.7.1", org = "eu.timepit")
 
-lazy val discocat = (project in file("modules/quasar"))
+lazy val quasar = (project in file("modules/quasar"))
   .dependsOn(core)
   .settings(commonSettings: _*)
   .settings(
     libs.dependencies(
-//      "cats-core",
-//      "cats-effect",
       "fs2-core",
       "circe-core",
       "circe-generic",
@@ -173,7 +171,7 @@ val zioStream = (project in file ("modules/uzsttp"))
     z.zio,
     z.`zio-test`,
     z.`zio-test-sbt`,
-    //    sttpziostreams,
+    z.sttpziostreams,
     z.catsEffect,
     z.scalaXml,
     z.`zio-test`

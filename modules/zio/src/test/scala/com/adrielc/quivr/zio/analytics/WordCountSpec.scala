@@ -13,6 +13,18 @@ object WordCountSpec extends App {
       (30L, "brown"),
       (40L, "brown"),
       (41L, "brown"),
+      (42L, "brown"),
+      (30L, "brown"),
+      (40L, "brown"),
+      (41L, "brown"),
+      (42L, "brown"),
+      (30L, "brown"),
+      (40L, "brown"),
+      (41L, "brown"),
+      (42L, "brown"),
+      (30L, "brown"),
+      (40L, "brown"),
+      (41L, "brown"),
       (42L, "brown")
     )
     .assignTimestamps(_._1)

@@ -7,7 +7,7 @@ import fs2.concurrent.Topic
 import io.circe.DecodingFailure
 import java.util.concurrent.TimeUnit
 
-import cats.effect.kernel.Async
+import cats.effect.kernel.{Async, Resource}
 import cats.effect.std.Queue
 import com.adrielc.quivr.quasar.model.MessageLike
 import com.adrielc.quivr.quasar.ws.event._
@@ -23,7 +23,7 @@ object Defaults {
 
   def httpClient[F[_]: Async]: F[cats.effect.Resource[F, (HttpClient[F], WSClient[F])]] =
     Async[F].delay(java.net.http.HttpClient.newHttpClient()).map { jdkHttpClient =>
-      (JdkHttpClient(jdkHttpClient), JdkWSClient(jdkHttpClient)).parTupled
+      Resource.both(JdkHttpClient(jdkHttpClient), JdkWSClient(jdkHttpClient))
     }
 
   def socketDeferred[F[_]: Async]: F[Deferred[F, Socket[F]]] = Deferred[F, Socket[F]]
@@ -67,5 +67,4 @@ object Defaults {
         Right(HeartbeatAck(client))
     }
   }
-
 }
