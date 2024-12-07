@@ -26,7 +26,7 @@ sealed abstract private[quivr] class BiInjectKInstances {
     new BiInjectK[F, BiEitherK[F, G, *, *]] {
       val inj = BiEitherK.leftK
 
-      val prj = new BiFunctionK[BiEitherK[F, G, *, *], λ[(α, β) => Option[F[α, β]]]] {
+      val prj = new (BiEitherK[F, G, *, *] ~~> λ[(α, β) => Option[F[α, β]]]) {
         def apply[A, B](fab: BiEitherK[F, G, A, B]): Option[F[A, B]] = fab.run.left.toOption
       }
     }
@@ -35,7 +35,7 @@ sealed abstract private[quivr] class BiInjectKInstances {
     new BiInjectK[F, BiEitherK[H, G, *, *]] {
       val inj = BiEitherK.rightK.compose(I.inj)
 
-      val prj = new BiFunctionK[BiEitherK[H, G, *, *], λ[(α, β) => Option[F[α, β]]]] {
+      val prj = new (BiEitherK[H, G, *, *] ~~> λ[(α, β) => Option[F[α, β]]]) {
         def apply[A, B](fab: BiEitherK[H, G, A, B]): Option[F[A, B]] = fab.run.toOption.flatMap(I.prj(_))
       }
     }
